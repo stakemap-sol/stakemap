@@ -1,0 +1,5261 @@
+/* --- Глобальні змінні --- */
+    .sofzp-dashboard-section {
+        --bg-color: #f8f9fa; --card-bg: #ffffff; --text-color: #212529; --secondary-text-color: #6c757d;
+        --header-color: #007bff; --border-color: #dee2e6; --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        --sparkline-color: #007bff; --sparkline-gradient-start: rgba(0, 123, 255, 0.3); --sparkline-gradient-end: rgba(0, 123, 255, 0);
+        --chart-bg-color: rgba(0, 86, 179, 0.04);
+        /* Subtle gray bg for logo wrappers in light theme. Pure white blended
+           with the white card backgrounds, making white-on-white logos
+           invisible. This value gives perceptible texture without looking
+           dirty. Variants {name}_light.{ext} take precedence when present. */
+        --logo-bg: #f0f4f8;
+        --logo-border: rgba(0, 0, 0, 0.12);
+        --logo-border-inner: rgba(0, 0, 0, 0.08);
+        background-color: var(--bg-color); transition: background-color 0.4s ease; font-family: 'Inter', sans-serif;
+        position: relative; /* ⭐ НОВЕ: Для позиціонування оверлея */
+    }
+    .sofzp-dashboard-section.dark-theme {
+        --bg-color: #121212; --card-bg: #1e1e1e; --text-color: #ffffff; --secondary-text-color: #bbbbbb;
+        --header-color: #4dabf7; --border-color: #333; --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        --sparkline-color: #4dabf7; --sparkline-gradient-start: rgba(77, 171, 247, 0.3); --sparkline-gradient-end: rgba(77, 171, 247, 0);
+        --chart-bg-color: rgba(77, 171, 247, 0.05);
+        /* Темний фон для логотипів у темній темі */
+        --logo-bg: #2a2d36;
+        --logo-border: rgba(255, 255, 255, 0.15);
+        --logo-border-inner: rgba(255, 255, 255, 0.1);
+    }
+
+    /* ⭐ НОВЕ: Стилі для індикатора завантаження */
+    #sofzp-loader-overlay {
+        position: fixed;
+        inset: 0;
+        background-color: rgba(248, 249, 250, 0.85);
+        z-index: 10001;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.4s ease;
+        backdrop-filter: blur(4px);
+    }
+    .dark-theme #sofzp-loader-overlay {
+        background-color: rgba(18, 18, 18, 0.85);
+    }
+    #sofzp-loader-overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+    .loader-content {
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+    }
+    .loader-spinner {
+        width: 48px;
+        height: 48px;
+        border: 5px solid var(--border-color);
+        border-bottom-color: var(--header-color);
+        border-radius: 50%;
+        display: inline-block;
+        box-sizing: border-box;
+        animation: rotation 1s linear infinite;
+    }
+    @keyframes rotation {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .loader-text {
+        font-size: 16px;
+        font-weight: 500;
+        color: var(--text-color);
+    }
+    .sofzp-dashboard-section.is-loading {
+        min-height: 85vh;
+    }
+
+    .dashboard-content-container { max-width: 1200px; margin: 0 auto; padding: 25px; display: flex; flex-direction: column; gap: 20px; }
+    .theme-switcher-container { display: flex; justify-content: flex-end; }
+
+    /* Theme switch */
+    .theme-switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+    .theme-switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; inset: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: "☀️"; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+    input:checked + .slider { background-color: var(--header-color); }
+    input:checked + .slider:before { content: "🌙"; transform: translateX(26px); }
+
+    .sp-block { background-color: var(--card-bg); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: var(--shadow); color: var(--text-color); padding: 25px; }
+
+	/* --- Controls (Epoch + Theme) --- */
+	.controls-bar{
+	  display:flex; align-items:center; justify-content:space-between;
+	  gap:14px; flex-wrap:wrap;
+	}
+	.controls-left{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+	.controls-right{ display:flex; align-items:center; }
+	
+	.epoch-control{
+	  display:flex; align-items:center; gap:8px;
+	  border:1px solid var(--border-color); background:var(--card-bg);
+	  border-radius:999px; padding:4px 10px; height:34px;
+	}
+	.epoch-control .label{ font-size:13px; color:var(--secondary-text-color); }
+	.epoch-control i{ color:var(--header-color); }
+	
+	#epoch-select{
+	  border:none; background:transparent; color:var(--text-color);
+	  padding:6px 6px; outline:none; font:inherit; min-width:84px;
+	}
+	
+	/* існуючі стилі pills лишаємо як є */
+	.epoch-stale{ display:none; align-items:center; gap:8px; padding:6px 10px;
+	  border-radius:999px; border:1px solid #ffe08a; background:#fff3cd; color:#7a5b00; font-size:12px; }
+	.dark-theme .epoch-stale{ border-color:#5c4a10; background:#3a2d07; color:#ffd166; }
+	
+	.epoch-hint{ font-size:12px; color:var(--secondary-text-color); opacity:.9; }
+	@media (max-width: 700px){ .epoch-hint{ display:none; } }
+	
+	@media (max-width: 560px){
+	  .controls-bar{ justify-content:center; }
+	  .controls-right{ order:-1; } /* тумблер над селектом — як на макеті */
+	}
+
+    /* --- Summary --- */
+    .sp-summary-block { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+    .sp-summary-card { display: flex; flex-direction: column; gap: 8px; }
+    .sp-summary-card .title { font-size: 15px; font-weight: 500; color: var(--secondary-text-color); display: flex; align-items: center; }
+    .sp-summary-card .value { font-size: 22px; font-weight: 600; color: var(--text-color); }
+    .sp-summary-card .value .small-text { font-size: 13px; font-weight: 400; color: var(--secondary-text-color); margin-left: 5px; }
+    /* Snapshot Time: тримати все значення в одному рядку */
+	.sp-summary-card:first-child .value { white-space: nowrap; }
+    .sp-summary-card .icon { margin-right: 10px; color: var(--header-color); font-size: 18px; width: 20px; text-align: center; }
+    
+	/* Snapshot Time ширший + TZ не ламається */
+	.sp-summary-card .value .small-text { white-space: nowrap; }
+	
+	/* Desktop: перша колонка ширша за інші */
+	@media (min-width: 900px) { .sp-summary-block { grid-template-columns: 1.35fr 1fr 1fr 1fr; } }
+	@media (max-width: 899px) { .sp-summary-block .sp-summary-card:first-child { grid-column: 1 / -1; } }
+    
+    .total-stake-card { grid-column: 1 / -1; border-top: 1px solid var(--border-color); padding-top: 25px; margin-top: 10px; }
+	/* Завжди повна ширина контейнера, без «острівців» */
+	.total-stake-grid {
+	  display: grid;
+	  grid-template-columns: 1fr;          /* мобільний — одна колонка */
+	  gap: 15px;
+	  margin-top: 10px;
+	  justify-items: stretch;
+	}
+	@media (min-width: 560px) {
+	  .total-stake-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }  /* планшет */
+	}
+	@media (min-width: 940px) {
+	  .total-stake-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }  /* десктоп */
+	}
+	.total-stake-item { width: 100%; }
+    .total-stake-item { display: flex; align-items: center; gap: 12px; background-color: var(--bg-color); padding: 15px; border-radius: 12px; }
+    .total-stake-item .stake-info { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+    .total-stake-item .icon { font-size: 26px; line-height: 1; color: var(--header-color); }
+    .total-stake-item .stake-info .value { font-size: 20px; font-weight: 700; }
+    .total-stake-item .stake-info .label { font-size: 13px; color: var(--secondary-text-color); }
+    #total-stake-icon { color: #9945FF; } #total-validators-icon { color: #0d6efd; } #activating-stake-icon { color: #28a745; } #deactivating-stake-icon { color: #dc3545; }
+    
+	/* Маленькі екрани: плитки завжди на всю ширину, один стовпчик */
+	@media (max-width: 560px) { .total-stake-grid { grid-template-columns: 1fr; } }
+
+	/* Mobile: center summary tiles nicely + FORCE full width for wide children */
+	@media (max-width: 560px){
+	  .sp-summary-card{ 
+		align-items:center;         /* лишаємо центр для дрібних елементів */
+		text-align:center;
+	  }
+	  .sp-summary-card .title{ align-items:center; }
+	  .total-stake-item .stake-info{ align-items:center; }
+	
+	  /* ⬇️ КЛЮЧ: великі блоки всередині картки мають розтягуватися на всю ширину */
+	  .sp-summary-card .summary-chart-wrapper,
+	  .sp-summary-card .interactive-chart-container,
+	  .sp-summary-card .total-stake-grid{
+		align-self: stretch;        /* скасувати cross-axis centering для цих елементів */
+		width: 100%;
+	  }
+	  /* Center the big card & its inner blocks on mobile */
+		.total-stake-card,
+		.sp-summary-card .summary-chart-wrapper,
+		.sp-summary-card .interactive-chart-container,
+		.sp-summary-card .total-stake-grid{
+		  margin-left: auto;
+		  margin-right: auto;
+		  max-width: 460px; /* можеш підкрутити 420—520 за смаком */
+		}
+		.total-stake-card{ padding-left: 1px; padding-right: 1px; }
+	}
+	
+	/* Mobile: акуратне центрування всередині чорних плиток */
+	@media (max-width: 560px){
+	  .total-stake-item{
+		justify-content: center;        /* центр групи: іконка + текст */
+		align-items: center;
+	  }
+	  .total-stake-item .stake-info{
+		align-items: center;            /* центрує флекс-вміст */
+		text-align: center;             /* центрує сам текст */
+	  }
+	  .total-stake-item .stake-info .label{
+		display: inline-flex;
+		flex-direction: column;
+		align-items: center;
+		text-align: center;
+		line-height: 1.2;
+	  }
+	  .total-stake-item .stake-info .label .epoch-inline-note{
+		text-align: center;             /* щоб "in epoch …" не тягнулось вліво */
+	  }
+	}
+    
+    /* --- Info --- */
+    .sp-info-container { background-color: var(--card-bg); border-radius: 12px; border: 1px solid var(--border-color); padding: 15px 20px; margin-top: -5px; margin-bottom: -5px; font-size: 13px; color: var(--secondary-text-color); display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+    .sp-info-container span { display: flex; align-items: center; gap: 10px; }
+    .sp-info-container .fas { font-size: 14px; width: 16px; text-align: center; color: var(--header-color); }
+    .sp-info-container b { color: var(--text-color); font-weight: 600; }
+    .sp-info-container .stale { color:#7a5b00; }
+    .dark-theme .sp-info-container .stale { color:#ffd166; }
+    
+    /* --- ПОКРАЩЕНІ ВКЛАДКИ --- */
+    .sp-tabs-nav { 
+        display: flex; 
+        flex-wrap: wrap; 
+        gap: 8px; 
+        border-bottom: 2px solid var(--border-color); 
+        margin-bottom: 25px; 
+        padding-bottom: 0;
+        background: var(--card-bg);
+        border-radius: 12px 12px 0 0;
+        padding: 12px 12px 0;
+        box-shadow: var(--shadow);
+    }
+
+    .sp-tab-link { 
+        padding: 14px 20px; 
+        cursor: pointer; 
+        border: 2px solid var(--border-color); 
+        background: var(--bg-color); 
+        color: var(--text-color); 
+        font-size: 15px; 
+        font-weight: 600; 
+        border-radius: 10px 10px 0 0; 
+        transition: all 0.3s ease; 
+        display: flex; 
+        align-items: center; 
+        gap: 8px; 
+        min-height: 48px;
+        position: relative;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .sp-tab-link:hover { 
+        color: var(--header-color); 
+        background: var(--card-bg);
+        border-color: var(--header-color);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    .sp-tab-link.active { 
+        color: #fff; 
+        font-weight: 700; 
+        background: var(--header-color);
+        border-color: var(--header-color);
+        box-shadow: 0 4px 12px rgba(12, 124, 115, 0.3);
+        transform: translateY(-1px);
+    }
+
+    .sp-tab-link .fa-book { 
+        font-size: 16px; 
+    }
+
+    /* Desktop покращення */
+    @media (min-width: 769px) {
+        .sp-tabs-nav {
+            gap: 12px;
+            padding: 16px 20px 0;
+        }
+        
+        .sp-tab-link {
+            padding: 16px 24px;
+            font-size: 16px;
+            min-width: 140px;
+            justify-content: center;
+        }
+        
+        .sp-tab-link:hover {
+            transform: translateY(-3px);
+        }
+    }
+
+    /* Мобільні екрани */
+    @media (max-width: 768px) {
+        .sp-tabs-nav {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            padding: 12px;
+            border-radius: 12px;
+            border-bottom: none;
+            margin-bottom: 20px;
+        }
+        
+        .sp-tab-link {
+            padding: 16px 12px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 8px;
+            min-height: 60px;
+            justify-content: center;
+            text-align: center;
+            flex-direction: column;
+            gap: 4px;
+            border: 2px solid var(--border-color);
+        }
+        
+        .sp-tab-link.active {
+            background: var(--header-color);
+            color: white;
+            border-color: var(--header-color);
+        }
+        
+        /* Спеціальні іконки для мобільних */
+        .sp-tab-link[data-tab="pools"]::before {
+            content: "📊";
+            font-size: 20px;
+            display: block;
+        }
+        
+        .sp-tab-link[data-tab="validators"]::before {
+            content: "👥";
+            font-size: 20px;
+            display: block;
+        }
+        
+        .sp-tab-link[data-tab="predictions"]::before {
+            content: "🎯";
+            font-size: 20px;
+            display: block;
+        }
+        
+        .sp-tab-link[data-tab="docs"]::before {
+            content: "📖";
+            font-size: 20px;
+            display: block;
+        }
+        
+        .sp-tab-link .fa-book {
+            display: none;
+        }
+    }
+
+    /* Дуже маленькі екрани */
+    @media (max-width: 480px) {
+        .sp-tabs-nav {
+            grid-template-columns: 1fr;
+            gap: 6px;
+            padding: 10px;
+        }
+        
+        .sp-tab-link {
+            padding: 14px 16px;
+            min-height: 56px;
+            flex-direction: row;
+            justify-content: flex-start;
+            text-align: left;
+            gap: 12px;
+        }
+        
+        .sp-tab-link[data-tab="pools"]::before,
+        .sp-tab-link[data-tab="validators"]::before,
+        .sp-tab-link[data-tab="predictions"]::before,
+        .sp-tab-link[data-tab="docs"]::before {
+            font-size: 24px;
+            margin-right: 8px;
+        }
+    }
+
+    /* Темна тема для вкладок */
+    .dark-theme .sp-tab-link {
+        border-color: #444;
+        background: #2a2a2a;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .dark-theme .sp-tab-link:hover {
+        border-color: var(--header-color);
+        background: #333;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    }
+
+    .dark-theme .sp-tab-link.active {
+        background: var(--header-color);
+        border-color: var(--header-color);
+        box-shadow: 0 4px 12px rgba(77, 171, 247, 0.4);
+    }
+
+    .sp-tab-content { display: none; }
+    .sp-tab-content.active { display: block; }
+
+    /* --- Cards --- */
+    #stake-pool-dashboard .sp-block-header { font-size: 28px; font-weight: 700; color: var(--text-color); margin-bottom: 25px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
+    .sp-groups-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 25px; }
+    .sp-group-card { display: flex; flex-direction: column; padding: 25px; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .sp-group-card:hover { transform: translateY(-5px); }
+    
+    /* Bug 8: "Other Stakes" is an aggregate, not a clickable pool - remove hover lift and pointer */
+    .sp-pool-card-nonclickable:hover { transform: none !important; }
+    .sp-pool-card-nonclickable .card-header { cursor: default !important; }
+    .sp-pool-card-nonclickable .pool-name { cursor: default !important; }
+    .card-header { display: flex; align-items: center; gap: 15px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); min-height: 72px; }
+	/* Pool grid card icon. Uses the wrapper-plus-img pattern so percent
+	   padding on the inner img/svg resolves to wrapper width (not the
+	   surrounding flex container). Identical visual output to .pool-badge
+	   and donut center, all driven by the same 12% padding ratio. */
+	.card-header .card-header-logo {
+		width: 48px;
+		height: 48px;
+		border-radius: 50%;
+		border: 2px solid var(--border-color);
+		background-color: var(--logo-bg);
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		overflow: hidden;
+		box-sizing: border-box;
+	}
+	.card-header .card-header-logo img,
+	.card-header .card-header-logo > svg {
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+		padding: 12%;
+		box-sizing: border-box;
+	}
+
+	/* OTHER group SVG: same wrapper as image pools, just the svg color
+	   adapts to theme via --secondary-text-color so it stays visible on
+	   both light (subtle gray) and dark (textured gray) backgrounds. */
+	.card-header .card-header-logo-svg {
+		color: var(--secondary-text-color);
+	}
+    .card-header .pool-name { font-size: 20px; font-weight: 600; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .card-body { display: flex; flex-direction: column; gap: 20px; flex-grow: 1; margin-top: 20px; }
+    .card-main-content { display: flex; flex-direction: column; gap: 16px; }
+    .card-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .stat-item { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+    .stat-item .label { font-size: 14px; color: var(--secondary-text-color); }
+    .stat-item .value { font-size: 18px; font-weight: 600; }
+    .stake-breakdown { background-color: var(--bg-color); padding: 16px; border-radius: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .breakdown-item { display: flex; justify-content: space-between; align-items: center; font-size: 14px; padding: 4px 0; }
+    .breakdown-item .label { display: flex; align-items: center; gap: 8px; }
+    .breakdown-item .value { font-weight: 500; }
+    .breakdown-item .icon-activating { color: #28a745; }
+    .breakdown-item .icon-deactivating { color: #dc3545; }
+    .breakdown-item .icon-total-validators { color: #8a63d2; }
+    .pool-details{ font-size:14px; color:var(--secondary-text-color); margin-top:0; }
+    .pool-details p { margin: 0 0 10px 0; }
+    .pool-details a { color: var(--header-color); text-decoration: none; }
+    .pool-details a:hover { text-decoration: underline; }
+	/* --- Collapsible description (cards) --- */
+	.pool-details .desc-wrap{ position:relative; --desc-lines:4; margin:0 0 8px; cursor:pointer; }
+	.pool-details .desc-text{ margin:0; line-height:1.6; }
+	.pool-details .desc-wrap.collapsed .desc-text{
+	  display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:var(--desc-lines); overflow:hidden;
+	}
+	.pool-details .desc-wrap.collapsed::after{
+	  content:""; position:absolute; left:0; right:0; bottom:0; height:38px;
+	  background:linear-gradient(to bottom, transparent, var(--card-bg)); pointer-events:none;
+	}
+	/* коли згорнуто — показуємо курсор (можна клікнути) */
+	.pool-details .desc-wrap.collapsed { cursor: pointer; }
+	
+	/* вимкнути clamp тимчасово для вимірювання (клас ставить JS) */
+	.pool-details .desc-wrap.no-clamp .desc-text{
+	  display:block;
+	  -webkit-line-clamp:unset;
+	  overflow:visible;
+	}
+	/* Кнопка "Show more" — нейтральна */
+	.desc-toggle{
+	  background:none; border:none; padding:0;
+	  color: var(--secondary-text-color);
+	  font-size:13px; cursor:pointer;
+	  margin: 2px 0 10px;
+	}
+	.desc-toggle:hover{ color: var(--text-color); }
+    
+	/* на ширших екранах вирівняти статистику вліво — візуально спокійніше */
+	@media (min-width: 900px){
+	  .stat-item { align-items: flex-start; }
+	}    
+    
+    
+    /* --- Keys --- */
+    .pool-keys-container { border-top: 1px solid var(--border-color); padding-top: 15px; margin-top: auto; }
+    .key-group { margin-bottom: 12px; }
+    .key-group:last-child { margin-bottom: 0; }
+    .key-group strong { font-size: 11.5px; font-weight: 500; color: var(--secondary-text-color); display: block; margin-bottom: 6px; }
+    .key-group code { display: block; font-size: 9px; line-height: 1.5; color: var(--secondary-text-color); word-break: break-all; font-family: 'Courier New', Courier, monospace; }
+    /* Bug 9: strengthen selectors so generic button defaults do not hide
+       the "Show N Keys" / "Hide Keys" text on light theme (was showing white-on-white) */
+    #stake-pool-dashboard .pool-keys-toggle {
+        width: 100% !important;
+        background: none !important;
+        border: none !important;
+        padding: 8px 0 !important;
+        color: var(--secondary-text-color) !important;
+        cursor: pointer !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        font-size: 14px !important;
+        font-weight: 500 !important;
+        transition: color 0.2s ease !important;
+    }
+    #stake-pool-dashboard .pool-keys-toggle:hover,
+    #stake-pool-dashboard .pool-keys-toggle:focus,
+    #stake-pool-dashboard .pool-keys-toggle.active {
+        color: var(--text-color) !important;
+        background: none !important;
+        box-shadow: none !important;
+        outline: none !important;
+    }
+    #stake-pool-dashboard .pool-keys-toggle .toggle-text {
+        color: inherit !important;
+    }
+    .pool-keys-toggle .toggle-icon { font-size: 12px; transition: transform 0.3s ease; }
+    .pool-keys-toggle.active .toggle-icon { transform: rotate(180deg); }
+    .pool-keys-list { display: none; margin-top: 10px; padding: 15px; background-color: var(--bg-color); border-radius: 8px; max-height: 180px; overflow-y: auto; }
+    .pool-keys-list.expanded { display: block; }
+    .pool-keys-list::-webkit-scrollbar { width: 8px; }
+    .pool-keys-list::-webkit-scrollbar-track { background: var(--bg-color); border-radius: 10px; }
+    .pool-keys-list::-webkit-scrollbar-thumb { background-color: #ced4da; border-radius: 10px; border: 2px solid var(--bg-color); }
+    .pool-keys-list::-webkit-scrollbar-thumb:hover { background-color: #adb5bd; }
+    .dark-theme .pool-keys-list::-webkit-scrollbar-thumb { background-color: #495057; border-color: var(--bg-color); }
+    .dark-theme .pool-keys-list::-webkit-scrollbar-thumb:hover { background-color: #6c757d; }
+    
+    /* --- Charts --- */
+    @keyframes draw-chart { to { stroke-dashoffset: 0; } }
+
+    /* СТАБІЛЬНА висота, щоб картки не «підстрибували» до промальовки */
+    .interactive-chart-container {
+        position: relative; margin: 16px 0 8px;
+        background-color: var(--chart-bg-color); border-radius: 12px; padding: 12px 0;
+		min-height: 120px;
+		width: 100%;         /* важливо для стабільного вимірювання clientWidth */
+	}
+    .chart-title { font-size: 13px; font-weight: 500; color: var(--secondary-text-color); margin-bottom: 8px; text-align: center; padding: 0 12px; }
+    .interactive-chart-container svg { width: 100%; height: 60px; overflow: visible; }
+    .chart-path-line { stroke: var(--sparkline-color); stroke-width: 2.5; fill: none; stroke-linecap: round; stroke-linejoin: round; animation: draw-chart 1.5s ease-out forwards; }
+    .chart-path-fill { stroke: none; fill: url(#sparkline-gradient); opacity: 0.8; }
+    .chart-range-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--secondary-text-color); margin-top: 4px; padding: 0 12px; }
+    .chart-range-labels .value { font-weight: 600; color: var(--text-color); }
+    .chart-tooltip { position: absolute; background-color: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 6px 10px; font-size: 12px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.2s, top 0.1s, left 0.1s; box-shadow: var(--shadow); z-index: 10; transform: translate(-50%, -50%); }
+    .chart-tooltip .epoch { font-weight: 600; }
+    .interactive-chart-container .tracker-line-svg { stroke: var(--secondary-text-color); stroke-width: 1; opacity: 0; transition: opacity 0.1s; }
+    .interactive-chart-container .tracker-dot-svg { stroke: var(--card-bg); stroke-width: 2; fill: var(--sparkline-color); opacity: 0; transition: opacity 0.1s; }
+    .interactive-chart-container .chart-baseline { stroke: var(--sparkline-color); stroke-width: 1; opacity: 0.15; }
+    .interactive-chart-container:hover .tracker-line-svg,
+    .interactive-chart-container:hover .tracker-dot-svg,
+    .interactive-chart-container:hover .chart-tooltip { opacity: 1; }
+
+    /* Жовтий маркер обраної епохи */
+    .selected-epoch-line { stroke: #f5c518; stroke-width: 2; opacity: 0.95; }
+    
+    /* Вейдж, прив'язаний до маркера */
+    .selected-epoch-badge{
+      position: absolute;
+      /* положення задаємо з JS: left = marker.x, top = padTop + y */
+      transform: translateX(-50%);    /* центруємо по Х від лінії */
+      background: #f5c518;
+      color: #1a1a1a;
+      border-radius: 10px;
+      padding: 4px 8px 5px;
+      line-height: 1.05;
+      box-shadow: var(--shadow);
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0.98;
+      text-align: center;
+      font-weight: 700;
+      min-width: 88px;                 /* акуратна ширина на вузьких картах */
+    }
+    
+    /* 2 рядки всередині бейджа */
+    .selected-epoch-badge .ep { font-size: 11px; font-weight: 800; display:block; }
+    .selected-epoch-badge .sub { font-size: 10px; font-weight: 600; opacity: .7; display:block; }
+    
+	/* Стиль для точки, що позначає обрану епоху на графіку */
+	.selected-epoch-dot {
+		fill: #f5c518; /* Жовтий колір, як у лінії маркера */
+		stroke: var(--card-bg); /* Обводка кольором фону картки, щоб точка виділялась */
+		stroke-width: 2px;
+	}
+    
+    .dark-theme .selected-epoch-badge { color:#0d0d0d; }
+
+    .summary-chart-wrapper { grid-column: 1 / -1; margin-top: 15px; }
+    .summary-chart-wrapper .interactive-chart-container { padding: 20px 0; min-height: 160px; }
+
+    /* --- Eligibility text tab --- */
+    .eligibility-placeholder-content { padding: 10px 15px; }
+    .eligibility-placeholder-content h3 { font-size: 20px; font-weight: 600; color: var(--text-color); margin-bottom: 15px; }
+    .eligibility-placeholder-content p { font-size: 15px; line-height: 1.7; color: var(--secondary-text-color); margin-bottom: 20px; }
+    .eligibility-placeholder-content ul { list-style: none; padding-left: 5px; margin-bottom: 25px; }
+    .eligibility-placeholder-content li { font-size: 15px; line-height: 1.7; color: var(--secondary-text-color); margin-bottom: 12px; padding-left: 25px; position: relative; }
+    .eligibility-placeholder-content li::before { content: '•'; position: absolute; left: 0; top: 0; color: var(--header-color); font-size: 20px; line-height: 1.2; }
+    .eligibility-placeholder-content .coming-soon-note { font-weight: 500; color: var(--text-color); background-color: var(--bg-color); padding: 15px; border-radius: 10px; margin-top: 10px; }
+    
+    /* --- Docs --- */
+    .docs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 25px; }
+    .doc-card { background-color: var(--bg-color); padding: 25px; border-radius: 12px; display: flex; flex-direction: column; gap: 15px; border: 1px solid var(--border-color); transition: border-color 0.3s, transform 0.2s ease; }
+    .doc-card:hover { transform: translateY(-3px); border-color: var(--header-color); }
+    .doc-card h3 { font-size: 18px; font-weight: 600; color: var(--text-color); margin: 0; display: flex; align-items: center; gap: 10px; }
+    .doc-card h3 .fas { color: var(--header-color); font-size: 20px; }
+    .doc-card p { font-size: 14px; line-height: 1.6; color: var(--secondary-text-color); margin: 0; flex-grow: 1; }
+    .doc-card a { color: var(--header-color); text-decoration: none; font-weight: 500; }
+    .doc-card a:hover { text-decoration: underline; }
+    .doc-card ul { margin: 0; padding-left: 20px; }
+    .doc-card li { margin-bottom: 8px; color: var(--secondary-text-color); }
+    .doc-thumb{ width:20px;height:20px;vertical-align:-4px;margin-right:6px; border-radius:4px;border:1px solid var(--border-color); background:var(--bg-color);object-fit:contain }
+    .doc-card .small-note{font-size:12px;color:var(--secondary-text-color)}
+    .doc-card.doc-intro { margin-bottom: 16px; }
+
+    /* --- Skeletons --- */
+    @keyframes shimmer { 0% { background-position: -468px 0; } 100% { background-position: 468px 0; } }
+    .skeleton { background: #ccc; background-image: linear-gradient(to right, #ccc 0%, #ddd 20%, #ccc 40%, #ccc 100%); background-repeat: no-repeat; background-size: 800px 104px; animation: shimmer 1.5s linear infinite; border-radius: 4px; }
+    .dark-theme .skeleton { background: #333; background-image: linear-gradient(to right, #333 0%, #444 20%, #333 40%, #333 100%); }
+    .skeleton-text { width: 80%; height: 20px; margin-top: 8px; } .skeleton-text-small { width: 50%; height: 16px; margin-top: 8px; } .skeleton-img { width: 50px; height: 50px; border-radius: 50%; }
+
+    /* --- Sorting & Categories --- */
+    .sp-sorting-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin: 0 0 15px; }
+    .sp-sorting-bar .label { font-size:14px; color:var(--secondary-text-color); margin-right:4px; }
+    .sort-btn { border:1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); padding:8px 12px; border-radius:999px; font-size:14px; cursor:pointer; transition: background .2s, border-color .2s, color .2s, transform .05s; }
+    .sort-btn:hover { border-color: var(--header-color); }
+    .sort-btn:active { transform: translateY(1px); }
+    .sort-btn.active { background: var(--header-color); border-color: var(--header-color); color: #fff; }
+
+    .category-section { margin: 28px 0; padding: 14px; border: 1px solid var(--border-color); border-radius: 16px; background: var(--bg-color); box-shadow: var(--shadow); }
+    .category-header { display:flex; align-items:center; justify-content:space-between; gap:10px; margin: 4px 0 12px; }
+    .category-header .title { font-size:22px; font-weight:700; color:var(--text-color); line-height:1.25; }
+    .category-header .meta { font-size:13px; color:var(--secondary-text-color); padding: 4px 8px; border:1px solid var(--border-color); border-radius:999px; background: var(--card-bg); }
+    .category-section .sp-groups-grid{ grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+    @media (min-width: 1100px){ .category-section .sp-groups-grid{ grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    
+    
+/* --- Epoch / notes alignment tweaks --- */
+.stake-breakdown .breakdown-item { align-items: flex-start; }
+.stake-breakdown .breakdown-item .value { align-self: flex-start; }
+
+/* Лейбл: іконка виносится абсолютно, текст + нотатка рівняються по одному лівому краю */
+.stake-breakdown .breakdown-item .label{
+  position: relative;
+  display: block;
+  /* line-height: 1.25; */
+  padding-left: 22px;         /* ширина зони під іконку (16px) + проміжок */
+}
+.stake-breakdown .breakdown-item .label i{
+  position: absolute;
+  left: 0; top: 5px;
+  width: 16px;                /* фіксована ширина під іконку */
+  text-align: center;
+}
+.stake-breakdown .breakdown-item .label .epoch-inline-note{ margin-left: 0; }
+
+/* стабілізація висоти у верхніх статах карток */
+.card-stats .stat-item { align-items: flex-start; }
+/* Нотатка під лейблом у верхніх статах картки */
+.card-stats .stat-item .label{
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+.card-stats .stat-item .label .epoch-inline-note{ margin-left: 0; }
+
+/* бейдж біля Epoch */
+.epoch-flag{display:inline-block;font-size:10px;line-height:1;
+  padding:3px 6px;border-radius:999px;background:#ffd166;color:#3a2d07;
+  margin-left:6px;vertical-align:middle;}
+.dark-theme .epoch-flag{background:#3a2d07;color:#ffd166;}
+
+/* маленька нотатка під лейблом */
+.epoch-inline-note{ display:block;font-size:10px;line-height:1.2;
+  color:var(--secondary-text-color);opacity:.78;margin-top:2px; }
+
+/* щоб "0.1 SOL" не ламалось на 2 рядки */
+.nowrap{ white-space:nowrap; }
+
+
+/* --- VALIDATORS LIST STYLES --- */
+.validators-notice-banner {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 16px 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+.dark-theme .validators-notice-banner {
+    background: linear-gradient(135deg, #4c5fd5 0%, #5a3d8a 100%);
+}
+.validators-notice-banner i {
+    font-size: 20px;
+    opacity: 0.9;
+}
+
+/* Search bar */
+#validators-table-container .validators-search-container {
+    position: relative;
+    margin-bottom: 20px;
+}
+#validators-table-container .validators-search-input {
+    width: 100%;
+    padding: 14px 20px 14px 48px;
+    border: 2px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-size: 15px;
+    transition: border-color 0.3s;
+    outline: none;
+}
+#validators-table-container .validators-search-input::placeholder {
+    color: var(--secondary-text-color);
+    opacity: 0.7;
+}
+#validators-table-container .validators-search-input:focus {
+    border-color: var(--header-color);
+}
+#validators-table-container .validators-search-icon {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--secondary-text-color);
+    font-size: 16px;
+}
+#validators-table-container .validators-search-clear {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px;
+    display: none;
+}
+#validators-table-container .validators-search-clear:hover {
+    color: var(--text-color);
+}
+#validators-table-container .validators-search-container.has-value .validators-search-clear {
+    display: block;
+}
+
+/* Sorting controls */
+.validators-sort-bar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    padding: 12px;
+    background: var(--bg-color);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+.validators-sort-bar .label {
+    font-size: 14px;
+    color: var(--secondary-text-color);
+    margin-right: 4px;
+}
+.validators-sort-btn {
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-color);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.validators-sort-btn:hover {
+    border-color: var(--header-color);
+    transform: translateY(-1px);
+}
+.validators-sort-btn.active {
+    background: var(--header-color);
+    border-color: var(--header-color);
+    color: #fff;
+}
+.validators-sort-btn i {
+    font-size: 12px;
+}
+
+/* Stats summary */
+#stake-pool-dashboard #validators-stats-summary {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 20px;
+    grid-template-columns: 1fr; /* Default for mobile */
+}
+
+@media (min-width: 992px) {
+    #stake-pool-dashboard #validators-stats-summary {
+        grid-template-columns: repeat(4, 1fr); /* 4 columns for desktop */
+    }
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+    #stake-pool-dashboard #validators-stats-summary {
+        grid-template-columns: repeat(2, 1fr); /* 2 columns for tablet */
+    }
+}
+.validators-stat-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.validators-stat-card i {
+    font-size: 24px;
+    color: var(--header-color);
+}
+.validators-stat-card .stat-info {
+    flex: 1;
+}
+.validators-stat-card .stat-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-color);
+}
+.validators-stat-card .stat-label {
+    font-size: 12px;
+    color: var(--secondary-text-color);
+    margin-top: 2px;
+}
+
+/* Validator items */
+.validators-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.validator-item {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 16px;
+    transition: all 0.2s;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: relative;
+    flex-wrap: wrap; /* Add this line */
+}
+.validator-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+    border-color: var(--header-color);
+}
+
+/* Rank badge */
+.validator-rank {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--secondary-text-color);
+    min-width: 32px;
+    text-align: center;
+}
+
+/* Validator image */
+#validators-list-items-container .validator-image-wrapper {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: 2px solid var(--border-color);
+}
+#validators-list-items-container .validator-image {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    /* The border and background are now on the wrapper */
+}
+#validators-list-items-container .validator-image.fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+/* Validator info */
+.validator-info {
+    flex: 1;
+    min-width: 0;
+}
+.validator-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.validator-pubkeys {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.validator-pubkey {
+    font-size: 11px;
+    color: var(--secondary-text-color);
+    font-family: 'Courier New', monospace;
+    opacity: 0.8;
+}
+.validator-pubkey span {
+    opacity: 0.7;
+    margin-right: 4px;
+}
+
+/* Stake stats */
+.validator-stake-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 120px;
+}
+.stake-stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+}
+.stake-stat i {
+    width: 14px;
+    text-align: center;
+    font-size: 12px;
+}
+.stake-stat .value {
+    font-weight: 600;
+}
+.stake-stat.active { color: var(--text-color); }
+.stake-stat.active i { color: #9945FF; }
+.stake-stat.activating { color: #28a745; }
+.stake-stat.activating i { color: #28a745; }
+.stake-stat.deactivating { color: #dc3545; }
+.stake-stat.deactivating i { color: #dc3545; }
+
+/* ⭐ ВИПРАВЛЕНІ СТИЛІ ДЛЯ ПУЛІВ ВАЛІДАТОРІВ */
+.validator-pools {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start; /* Changed from flex-end */
+    align-items: flex-start;
+    gap: 12px;
+    max-width: 420px; /* Slightly increased width */
+    margin-left: auto;
+}
+
+/* Контейнер для бейджа і підпису під ним */
+.pool-badge-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0 4px;
+    min-width: 60px;
+}
+
+/* Круглий бейдж пула - ЗБІЛЬШЕНИЙ */
+.pool-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: var(--logo-bg); /* Адаптивний фон для обох тем */
+    border: 2px solid var(--logo-border);
+    overflow: hidden;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+
+.pool-badge:hover {
+    border-color: var(--header-color);
+    transform: scale(1.05);
+}
+
+/* Pool image inside the circular badge.
+   object-fit: contain so non-square logos (Jito horizontal, Marinade-bonds
+   wide, etc.) fit fully inside the circle. Padding gives breathing room
+   between logo and the circle border. cover was clipping these logos. */
+.pool-badge-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 12%;
+    box-sizing: border-box;
+}
+
+/* Ініціали для пулів без картинок */
+.pool-badge-initials {
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--text-color);
+}
+
+/* SVG іконка для OTHER пулів - адаптивний колір */
+.pool-badge svg {
+    width: 60%;
+    height: 60%;
+    /* Адаптивний колір для контрасту з фоном теми */
+    color: var(--secondary-text-color);
+}
+
+/* Підпис стейку під бейджем */
+.pool-badge-stake {
+    font-size: 11px !important; /* Робимо шрифт меншим і важливим */
+    font-weight: 500;
+    color: var(--secondary-text-color) !important;
+    margin-top: 4px;
+    white-space: nowrap;
+    text-align: center;
+}
+
+.pool-badge-stake {
+    color: #a0a0a0 !important; /* Світліший сірий для темної теми */
+}
+
+/* ⭐ НОВИЙ ДИЗАЙН ТУЛТІПІВ v4 (ФІНАЛЬНА ВЕРСІЯ) */
+.pool-tooltip {
+    position: fixed;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+    z-index: 10001;
+    pointer-events: none;
+    padding: 12px 16px;
+    border-radius: 10px;
+    max-width: 280px;
+    min-width: 220px;
+    
+    /* Стилі для світлої теми */
+    background-color: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    color: var(--text-color);
+}
+
+/* ⭐ ВИПРАВЛЕНО: Правило для темної теми, що орієнтується на <body> */
+body.dark-theme-body .pool-tooltip {
+    background-color: rgba(30, 30, 30, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    color: #f0f0f0;
+}
+
+.pool-tooltip.visible {
+    visibility: visible;
+    opacity: 1;
+}
+
+.pool-tooltip-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.3);
+    color: inherit;
+}
+
+.pool-tooltip-epoch {
+    font-size: 11px;
+    margin-top: -6px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.3);
+    color: var(--secondary-text-color);
+}
+body.dark-theme-body .pool-tooltip-epoch {
+    color: #bbbbbb;
+}
+
+
+.pool-tooltip-stats-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pool-tooltip-stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 12px;
+}
+
+.pool-tooltip-stat .label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--secondary-text-color);
+}
+body.dark-theme-body .pool-tooltip-stat .label {
+    color: #cccccc;
+}
+
+.pool-tooltip-stat .label i {
+    width: 14px;
+    text-align: center;
+    font-size: 11px;
+}
+
+.pool-tooltip-stat .value {
+    font-weight: 600;
+    color: inherit;
+}
+
+.pool-tooltip-stat.active .label i { color: #9945FF; }
+.pool-tooltip-stat.activating .label i { color: #28a745; }
+.pool-tooltip-stat.deactivating .label i { color: #dc3545; }
+
+/* No results message */
+.validators-no-results {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--secondary-text-color);
+}
+.validators-no-results i {
+    font-size: 48px;
+    opacity: 0.3;
+    margin-bottom: 16px;
+}
+.validators-no-results p {
+    font-size: 16px;
+    margin: 0;
+}
+	
+	.validator-main-info {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		width: 100%;
+	}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .validators-sort-bar {
+        padding: 10px;
+    }
+    .validators-sort-btn {
+        font-size: 12px;
+        padding: 6px 10px;
+    }
+    
+	/* Replace/add within the @media (max-width: 768px) block */
+	.validator-item {
+		padding: 16px;
+		display: flex; /* keep it flex */
+		flex-direction: column; /* main direction is column */
+		gap: 16px;
+		margin-bottom: 12px;
+	}
+	
+	.validator-main-info {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		width: 100%;
+	}
+	
+	.validator-info {
+		text-align: left; /* Revert to left align for better readability */
+	}
+	
+	.validator-stake-stats {
+		width: 100%;
+		flex-direction: row;
+		justify-content: center; /* Changed to center */
+		align-items: center;
+		flex-wrap: wrap; /* Allow wrapping on small screens */
+		gap: 24px; /* Add gap between items */
+		/* margin-top: 12px; */
+		padding-top: 16px;
+		border-top: 1px solid var(--border-color);
+	}
+	
+	.validator-pools {
+		width: 100%;
+		max-width: none;
+		/* margin-top: 12px; */
+		margin-left: 0;
+		padding-top: 16px; /* Increased padding-top */
+		border-top: 1px solid var(--border-color);
+		justify-content: center; /* Center the pool icons */
+	}
+    
+    .pool-badge-wrapper {
+        min-width: 50px;
+    }
+    
+    .pool-badge {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .pool-badge-initials {
+        font-size: 14px;
+    }
+    
+	.validators-sort-badge {
+		order: -1; /* Move to the top */
+		width: 100%;
+		margin-left: 0;
+		margin-bottom: 10px; /* Add some space below */
+		justify-content: center;
+	}
+}
+
+@media (max-width: 480px) {
+    .validators-stats-summary {
+        grid-template-columns: 1fr;
+    }
+    .validator-rank {
+        min-width: 24px;
+        font-size: 12px;
+    }
+    .validator-image-wrapper {
+        width: 40px;
+        height: 40px;
+    }
+    .validator-name {
+        font-size: 14px;
+    }
+}
+
+/* Кнопка "Показати ще" */
+.validators-load-more-container {
+    text-align: center;
+    padding: 20px 0;
+}
+.validators-load-more-btn {
+    background-color: var(--header-color);
+    color: white;
+    border: none;
+    border-radius: 999px;
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.validators-load-more-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+}
+
+/* Крок 1: Стилі для десктопа (базові) */
+.validator-item {
+    display: flex;
+    align-items: center;
+    gap: 20px; /* Збільшуємо загальний проміжок */
+    flex-wrap: nowrap;
+}
+
+.validator-item > .validator-main-info {
+    flex: 1 1 300px; /* Трохи зменшуємо базу, щоб дати більше простору іншим */
+    min-width: 250px;
+}
+
+.validator-item > .validator-stake-stats {
+    flex: 0 0 180px; /* Фіксована ширина, не буде розтягуватись чи стискатись */
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 16px;
+}
+
+.validator-item > .validator-pools {
+    flex: 2 1 420px; /* Даємо пулам більше гнучкості */
+    justify-content: flex-start;
+    margin-left: 12px; /* Додаємо явний відступ зліва */
+}
+
+/* Крок 2: Адаптація для мобільних */
+@media (max-width: 992px) { /* Планшетна версія, де пули переносяться вниз */
+    .validator-item {
+        flex-wrap: wrap;
+    }
+    .validator-item > .validator-pools {
+        width: 100%;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border-color);
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 768px) { /* Мобільна версія */
+    .validator-item {
+        flex-direction: column; /* Все в одну колонку */
+        align-items: stretch; /* Елементи розтягуються на всю ширину */
+        gap: 16px;
+    }
+
+    .validator-item > .validator-main-info,
+    .validator-item > .validator-stake-stats,
+    .validator-item > .validator-pools {
+        width: 100%; /* Кожен блок займає всю ширину */
+        border-top: 1px solid var(--border-color);
+        padding-top: 16px;
+        margin-top: 0;
+    	flex: 1 1 1px; /* Гнучкий блок з базовою шириною */
+    }
+
+    .validator-item > .validator-main-info {
+        border-top: none; /* У першого блоку немає верхньої межі */
+        padding-top: 0;
+    }
+
+    .validator-item > .validator-stake-stats {
+        flex-direction: row;
+        justify-content: center; /* На мобільному центруємо показники */
+        gap: 24px;
+    }
+
+    .validator-item > .validator-pools {
+        justify-content: center; /* І пули теж центруємо */
+    }
+}
+
+
+
+
+/* Мінімальна висота, щоб уникнути "стрибків" */
+.validator-item {
+    min-height: 85px;
+}
+
+/* Покращуємо читабельність ключів */
+#stake-pool-dashboard .validator-pubkey span {
+    color: var(--text-color-secondary);
+    font-weight: 500;
+    margin-right: 4px;
+}
+
+/* Виправляємо відступ у полі пошуку */
+#stake-pool-dashboard .validators-search-input {
+    padding-left: 40px !important;
+}
+
+/* Стилі для ключів валідатора (щоб ID і Vote Account виглядали однаково) */
+.validator-identity,
+.validator-vote-account {
+    font-size: 11px;
+    color: var(--secondary-text-color);
+    font-family: 'Courier New', monospace;
+    opacity: 0.8;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.validators-sort-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-left: auto;
+    pointer-events: none;
+    
+    /* Стиль для світлої теми */
+    background: #fff3cd;
+    color: #7a5b00;
+    border: 1px solid #ffe08a;
+}
+
+.dark-theme .validators-sort-badge {
+    /* Стиль для темної теми */
+    background: #3a2d07;
+    color: #ffd166;
+    border-color: #5c4a10;
+}
+
+.validators-sort-btn.coming-soon {
+    opacity: 0.6;
+    cursor: not-allowed;
+    position: relative;
+    overflow: hidden;
+}
+.validators-sort-btn.coming-soon:hover {
+    border-color: var(--border-color); /* Prevents hover effect */
+    transform: none;
+}
+
+
+/* --- Docs Page Layout Enhancements --- */
+.support-banner {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    border-color: var(--header-color);
+    margin-bottom: 25px;
+    text-align: center;
+}
+.dark-theme .support-banner {
+    background: linear-gradient(135deg, rgba(76, 95, 213, 0.15) 0%, rgba(90, 61, 138, 0.15) 100%);
+}
+.support-banner h3 {
+    justify-content: center;
+}
+.support-links {
+    margin-top: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+}
+/* Support buttons in Documentation > Support the Project banner.
+   Uses .support-banner prefix to win specificity over the generic
+   .doc-card a rule which sets a different color for in-card links.
+   Important on color is the safety net for both themes. */
+.support-banner .support-links a {
+    background-color: #14b8a6 !important;
+    color: white !important;
+    padding: 10px 20px;
+    border-radius: 999px;
+    font-weight: 600;
+    text-decoration: none !important;
+    transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+}
+.dark-theme .support-banner .support-links a {
+    background-color: #0d9488 !important;
+}
+
+.support-banner .support-links a .new-tab-icon {
+    margin-left: 4px;
+    opacity: 0.85;
+    color: white !important;
+}
+.support-banner .support-links a:hover {
+    transform: translateY(-2px);
+    background-color: #0d9488 !important;
+    color: white !important;
+    box-shadow: 0 8px 18px rgba(20, 184, 166, 0.32);
+}
+.dark-theme .support-banner .support-links a:hover {
+    background-color: #14b8a6 !important;
+}
+.docs-grid-main {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 25px;
+    margin-bottom: 25px;
+}
+.docs-grid-main .doc-card {
+    height: 100%; /* Для однакової висоти */
+}
+@media (min-width: 820px) {
+    .docs-grid-main {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+.doc-card ul {
+    flex-grow: 1; /* Дозволяє карткам розтягуватись */
+}
+
+/* Нові стилі для іконок в кнопках */
+#tab-content-docs .support-btn-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50% !important; /* Робить іконку круглою */
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.6); /* Додає тонку рамку */
+    background-color: #fff; /* Фон для картинок без прозорості */
+}
+
+/* --- Advanced Search Styles --- */
+.validators-sort-btn .sort-pool-icon,
+.validators-sort-btn .sort-pool-icon-initials {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin-left: 4px;
+    /* Unified pool-icon style: subtle gray bg in light theme,
+       textured dark gray in dark theme, both via --logo-bg variable.
+       padding stays in absolute px because this is an "img is circle"
+       pattern (the img itself IS the wrapper); percentage padding here
+       resolves to the parent BUTTON's width, not the img's own size,
+       and collapses the icon content area. ~10% ratio matches the
+       12% of "img-inside-wrapper" contexts. */
+    background-color: var(--logo-bg);
+    border: 1px solid var(--logo-border);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-color);
+    object-fit: contain;
+    padding: 2px;
+    box-sizing: border-box;
+}
+.validators-sort-btn .sort-pool-icon-initials {
+    background-color: var(--logo-bg);
+}
+.dark-theme .validators-sort-btn.active .sort-pool-icon,
+.dark-theme .validators-sort-btn.active .sort-pool-icon-initials {
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* ============================================
+   POOL DETAIL VIEW STYLES 
+   ============================================ */
+
+/* Breadcrumbs Navigation - strengthened selectors */
+#stake-pool-dashboard .breadcrumbs-nav {
+	padding: 12px 0 !important;
+	margin-bottom: 20px !important;
+	font-size: 14px !important;
+	color: var(--secondary-text-color) !important;
+	border-bottom: 1px solid var(--border-color) !important;
+	display: flex !important;
+	align-items: center !important;
+	justify-content: space-between !important;
+}
+
+#stake-pool-dashboard .breadcrumbs-nav .breadcrumbs-left {
+	display: flex !important;
+	align-items: center !important;
+}
+
+#stake-pool-dashboard .breadcrumbs-nav .breadcrumbs-right {
+	display: flex !important;
+	align-items: center !important;
+}
+
+/* Малий перемикач теми для breadcrumbs */
+#stake-pool-dashboard .theme-switch-small {
+	transform: scale(0.8);
+	margin: 0 !important;
+}
+
+#stake-pool-dashboard .breadcrumbs-nav a {
+	color: var(--header-color) !important;
+	text-decoration: none !important;
+	transition: opacity 0.2s !important;
+	font-weight: 500 !important;
+	padding: 4px 8px !important;
+	border-radius: 4px !important;
+	outline: none !important;
+	outline-style: none !important;
+	outline-width: 0 !important;
+	box-shadow: none !important;
+	border: none !important;
+}
+
+#stake-pool-dashboard .breadcrumbs-nav a:focus,
+#stake-pool-dashboard .breadcrumbs-nav a:focus-visible,
+#stake-pool-dashboard .breadcrumbs-nav a:active,
+#stake-pool-dashboard .breadcrumbs-nav a:-moz-focusring {
+	outline: none !important;
+	outline-style: none !important;
+	outline-width: 0 !important;
+	box-shadow: none !important;
+	border: none !important;
+}
+
+#stake-pool-dashboard .breadcrumbs-nav a:hover {
+	opacity: 0.8 !important;
+	text-decoration: underline !important;
+	background: rgba(12, 124, 115, 0.06) !important;
+}
+
+#stake-pool-dashboard .breadcrumb-separator {
+	margin: 0 10px !important;
+	color: var(--secondary-text-color) !important;
+	opacity: 0.5 !important;
+}
+
+#stake-pool-dashboard .breadcrumb-current {
+	color: var(--text-color) !important;
+	font-weight: 600 !important;
+}
+
+/* Початковий стан - елементи шляху приховані (тільки Home видно) */
+#stake-pool-dashboard #breadcrumb-sep-1,
+#stake-pool-dashboard #breadcrumb-pools,
+#stake-pool-dashboard #breadcrumb-sep-2,
+#stake-pool-dashboard #breadcrumb-current {
+	display: none;
+}
+
+/* Pool Detail Header */
+#stake-pool-dashboard .pool-detail-header {
+	margin-bottom: 24px !important;
+}
+
+#stake-pool-dashboard .pool-header-main {
+	display: flex !important;
+	justify-content: space-between !important;
+	align-items: flex-start !important;
+	margin-bottom: 20px !important;
+	flex-wrap: wrap !important;
+	gap: 16px !important;
+}
+
+#stake-pool-dashboard .pool-header-left {
+	display: flex !important;
+	align-items: center !important;
+	gap: 16px !important;
+}
+
+#stake-pool-dashboard .pool-detail-image {
+	width: 64px !important;
+	height: 64px !important;
+	border-radius: 12px !important;
+	object-fit: contain !important;
+	border: 2px solid var(--border-color) !important;
+	/* Адаптивний фон для логотипів */
+	background: var(--logo-bg) !important;
+	padding: 6px !important;
+}
+
+/* Bug 8: SVG fallback for pools without image (e.g. OTHER aggregate) */
+#stake-pool-dashboard .pool-detail-svg-fallback {
+	display: flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	padding: 10px !important;
+	color: var(--secondary-text-color);
+}
+
+/* Block E Phase 3: epoch loader overlay shown during lazy load of full snapshot.
+   IMPORTANT: this loader is appended to document.body (outside the dashboard
+   container) so CSS variables defined inside #stake-pool-dashboard are NOT
+   available here. Use concrete colors with theme-specific overrides instead. */
+.pool-epoch-loader {
+	display: none;
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.6);
+	z-index: 10001;
+	align-items: center;
+	justify-content: center;
+	backdrop-filter: blur(4px);
+}
+
+.pool-epoch-loader-inner {
+	background: #1a1c23;
+	color: #ffffff;
+	border: 1px solid #2a2d36;
+	border-radius: 16px;
+	padding: 32px 48px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 18px;
+	box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+	min-width: 280px;
+}
+
+/* Light theme override - body.light-theme is set by the dashboard theme switcher */
+body.light-theme .pool-epoch-loader-inner,
+body:not(.dark-theme) .pool-epoch-loader-inner {
+	background: #ffffff;
+	color: #1a1c23;
+	border-color: #e5e7eb;
+}
+
+body:not(.dark-theme) .pool-epoch-loader {
+	background: rgba(255, 255, 255, 0.6);
+}
+
+.pool-epoch-loader-inner i {
+	color: #4a90ff;
+	font-size: 36px;
+}
+
+.pool-epoch-loader-text {
+	font-size: 16px;
+	font-weight: 600;
+	text-align: center;
+	color: inherit;
+}
+
+@media (max-width: 600px) {
+	.pool-epoch-loader-inner {
+		padding: 24px 32px;
+		min-width: 220px;
+	}
+	.pool-epoch-loader-inner i {
+		font-size: 30px;
+	}
+}
+
+#stake-pool-dashboard .pool-detail-svg-fallback svg {
+	width: 100% !important;
+	height: 100% !important;
+}
+
+/* Force-hide Learn More when pool has no URL (e.g. OTHER aggregate) -
+   needs !important because mobile rule below also uses !important */
+#stake-pool-dashboard .pool-official-link.pool-official-link-hidden {
+	display: none !important;
+}
+
+#stake-pool-dashboard .pool-header-info {
+	display: flex !important;
+	flex-direction: column !important;
+	gap: 8px !important;
+}
+
+#stake-pool-dashboard .pool-detail-name {
+	margin: 0 !important;
+	font-size: 28px !important;
+	font-weight: 700 !important;
+	color: var(--text-color) !important;
+	line-height: 1.2 !important;
+}
+
+#stake-pool-dashboard .pool-categories-tags {
+	display: flex !important;
+	gap: 6px !important;
+	flex-wrap: wrap !important;
+}
+
+#stake-pool-dashboard .pool-category-tag {
+	padding: 4px 10px !important;
+	background: var(--secondary-text-color) !important;
+	color: white !important;
+	border: none !important;
+	border-radius: 4px !important;
+	font-size: 10px !important;
+	font-weight: 600 !important;
+	display: inline-block !important;
+	text-transform: uppercase !important;
+	letter-spacing: 0.5px !important;
+	opacity: 0.8 !important;
+}
+
+/* Bug 1 fix: better contrast for category tag on dark theme */
+#stake-pool-dashboard.dark-theme .pool-category-tag,
+.dark-theme #stake-pool-dashboard .pool-category-tag {
+	background: #3a3a3a !important;
+	color: #e0e0e0 !important;
+	opacity: 1 !important;
+	border: 1px solid #505050 !important;
+}
+
+/* Кнопка Learn More - посилені стилі */
+#stake-pool-dashboard .pool-official-link {
+	display: inline-flex !important;
+	align-items: center !important;
+	gap: 6px !important;
+	padding: 10px 16px !important;
+	background: var(--header-color) !important;
+	color: white !important;
+	text-decoration: none !important;
+	border-radius: 8px !important;
+	font-weight: 500 !important;
+	transition: all 0.2s !important;
+	border: none !important;
+	font-size: 14px !important;
+	cursor: pointer !important;
+}
+
+#stake-pool-dashboard .pool-official-link:hover {
+	opacity: 0.9 !important;
+	transform: translateY(-1px) !important;
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+	text-decoration: none !important;
+	color: white !important;
+}
+
+#stake-pool-dashboard .pool-detail-description {
+	margin: 20px 0 !important;
+	line-height: 1.6 !important;
+	color: var(--text-color) !important;
+}
+@media (max-width: 768px) {
+	#stake-pool-dashboard .pool-detail-description {
+		font-size: 14px !important;
+		margin: 14px 0 !important;
+	}
+}
+@media (max-width: 480px) {
+	#stake-pool-dashboard .pool-detail-description {
+		font-size: 13px !important;
+		line-height: 1.5 !important;
+	}
+}
+
+/* Epoch info styles - як на головній сторінці */
+#stake-pool-dashboard .pool-epoch-info {
+	display: flex !important;
+	align-items: center !important;
+	gap: 10px !important;
+	margin: 16px 0 !important;
+	padding: 12px 16px !important;
+	background: var(--card-bg) !important;
+	border-radius: 8px !important;
+	font-size: 14px !important;
+	border: 1px solid var(--border-color) !important;
+	flex-wrap: wrap !important;
+}
+
+#stake-pool-dashboard .epoch-label,
+#stake-pool-dashboard .timestamp-label,
+#stake-pool-dashboard .epoch-progress-label {
+	color: var(--secondary-text-color) !important;
+	font-weight: 500 !important;
+}
+
+#stake-pool-dashboard .epoch-value,
+#stake-pool-dashboard .timestamp-value,
+#stake-pool-dashboard .epoch-progress {
+	color: var(--text-color) !important;
+	font-weight: 600 !important;
+}
+
+/* Past epoch badge - жовта плашка як на головній сторінці */
+/* НЕ встановлюємо display тут - керується через JS inline styles */
+#stake-pool-dashboard .past-epoch-badge {
+	align-items: center !important;
+	gap: 4px !important;
+	padding: 3px 8px !important;
+	background: #f0ad4e !important;
+	color: white !important;
+	border-radius: 12px !important;
+	font-size: 11px !important;
+	font-weight: 600 !important;
+	text-transform: uppercase !important;
+	letter-spacing: 0.5px !important;
+}
+
+#stake-pool-dashboard .past-epoch-badge i {
+	font-size: 10px !important;
+}
+
+#stake-pool-dashboard .epoch-separator {
+	color: var(--secondary-text-color) !important;
+	opacity: 0.3 !important;
+}
+
+/* Pool Metrics Grid */
+/* Pool Metrics Grid - styled like main page */
+#stake-pool-dashboard .pool-metrics-grid {
+	display: grid !important;
+	grid-template-columns: repeat(4, 1fr) !important;
+	gap: 12px !important;
+	margin: 20px 0 !important;
+}
+
+#stake-pool-dashboard .pool-metric-card {
+	display: flex !important;
+	align-items: center !important;
+	gap: 12px !important;
+	background: var(--bg-color) !important;
+	padding: 14px !important;
+	border-radius: 12px !important;
+	border: 1px solid var(--border-color) !important;
+}
+
+#stake-pool-dashboard .pool-metric-icon {
+	font-size: 22px !important;
+	color: var(--header-color) !important;
+	width: 28px !important;
+	text-align: center !important;
+	flex-shrink: 0 !important;
+}
+
+#stake-pool-dashboard .pool-metric-icon.activating {
+	color: #28a745 !important;
+}
+
+#stake-pool-dashboard .pool-metric-icon.deactivating {
+	color: #dc3545 !important;
+}
+
+#stake-pool-dashboard .pool-metric-info {
+	display: flex !important;
+	flex-direction: column !important;
+	gap: 2px !important;
+	min-width: 0 !important;
+}
+
+#stake-pool-dashboard .pool-metric-value {
+	font-size: 18px !important;
+	font-weight: 700 !important;
+	color: var(--text-color) !important;
+	line-height: 1.2 !important;
+}
+
+#stake-pool-dashboard .pool-metric-value.positive {
+	color: #28a745 !important;
+}
+
+#stake-pool-dashboard .pool-metric-value.negative {
+	color: #dc3545 !important;
+}
+
+#stake-pool-dashboard .pool-metric-label {
+	font-size: 11px !important;
+	color: var(--secondary-text-color) !important;
+	font-weight: 500 !important;
+}
+
+/* Authority Keys Section */
+/* Authority Keys - тепер як в картках, сірі та непомітні */
+/* Bug 9 part 2: collapsible authority keys on pool detail page */
+.authority-keys-list .authority-keys-collapsible {
+	max-height: 400px;
+	margin-top: 8px;
+	/* Do not set display here - inherits display:none from .pool-keys-list
+	   base rule so the list stays collapsed by default */
+}
+
+/* When expanded: stack keys vertically, one per line.
+   Must override .pool-keys-list.expanded { display: block } */
+.authority-keys-list .authority-keys-collapsible.expanded {
+	display: flex !important;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.authority-keys-list .authority-keys-toggle {
+	margin-bottom: 4px;
+}
+
+.pool-authority-keys {
+	margin-top: 20px;
+	padding-top: 12px;
+	/* border-top прибрано - вже є border-bottom на pool-metrics-grid */
+}
+
+.pool-authority-keys h3 {
+	margin-bottom: 8px;
+	font-size: 11px;
+	color: var(--secondary-text-color);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	font-weight: 500;
+	opacity: 0.6;
+}
+
+.pool-authority-keys h3 i {
+	font-size: 10px;
+	margin-right: 4px;
+}
+
+.authority-keys-list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.authority-key-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 0;
+	background: transparent;
+	font-family: monospace;
+	font-size: 10px;
+	color: var(--secondary-text-color);
+	opacity: 0.5;
+}
+
+.authority-key-item a {
+	color: var(--secondary-text-color);
+	text-decoration: none;
+	margin-left: 4px;
+	font-size: 9px;
+	opacity: 0.6;
+	transition: opacity 0.2s;
+}
+
+.authority-key-item a:hover {
+	text-decoration: underline;
+	opacity: 0.9;
+}
+
+/* Key type label (Withdrawer/Staker) */
+.authority-key-item .key-type {
+	color: var(--secondary-text-color);
+	font-size: 10px;
+	font-weight: 500;
+	min-width: 65px;
+}
+
+.authority-key-item .key-value {
+	font-family: monospace;
+	word-break: break-all;
+}
+
+/* Charts Section */
+.pool-charts-section {
+	margin: 32px 0;
+}
+
+.pool-charts-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 20px;
+}
+
+.pool-chart-block {
+	padding: 20px;
+	min-height: auto;
+}
+
+.pool-chart-block h3 {
+	margin-bottom: 12px;
+	font-size: 16px;
+	color: var(--text-color);
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.pool-chart-block h3 i {
+	color: var(--header-color);
+}
+
+.pool-chart-block h3 small {
+	font-size: 12px;
+	display: inline;
+}
+
+/* Pool sparkline containers - ТОЧНО як interactive-chart-container на головній */
+.pool-chart-block .pool-sparkline {
+	position: relative;
+	background-color: var(--chart-bg-color);
+	border-radius: 12px;
+	padding: 12px 0;
+	min-height: 100px;
+	width: 100%;
+}
+
+.pool-chart-block .pool-sparkline svg {
+	width: 100%;
+	height: 90px;
+	overflow: visible;
+}
+
+.pool-chart-block .pool-sparkline .chart-range-labels {
+	display: flex;
+	justify-content: space-between;
+	font-size: 12px;
+	color: var(--secondary-text-color);
+	margin-top: 4px;
+	padding: 0 12px;
+}
+
+.pool-chart-block .pool-sparkline .chart-range-labels .value {
+	font-weight: 600;
+	color: var(--text-color);
+}
+
+/* Tracker елементи для pool sparklines */
+.pool-chart-block .pool-sparkline .tracker-line-svg {
+	stroke: var(--secondary-text-color);
+	stroke-width: 1;
+}
+
+.pool-chart-block .pool-sparkline .tracker-dot-svg {
+	stroke: var(--card-bg);
+	stroke-width: 2;
+	fill: var(--sparkline-color);
+}
+
+.pool-chart-block .pool-sparkline .chart-tooltip {
+	position: absolute;
+	background-color: var(--card-bg);
+	color: var(--text-color);
+	border: 1px solid var(--border-color);
+	border-radius: 8px;
+	padding: 6px 10px;
+	font-size: 12px;
+	white-space: nowrap;
+	pointer-events: none;
+	transition: opacity 0.15s, top 0.1s, left 0.1s;
+	box-shadow: var(--shadow);
+	z-index: 10;
+	transform: translate(-50%, -100%);
+}
+
+/* Бейдж для pool sparklines */
+.pool-chart-block .pool-sparkline .selected-epoch-badge {
+	position: absolute;
+	background: #f5c518;
+	color: #1a1a1a;
+	border-radius: 10px;
+	padding: 4px 8px 5px;
+	line-height: 1.05;
+	box-shadow: var(--shadow);
+	white-space: nowrap;
+	pointer-events: none;
+	opacity: 0.98;
+	text-align: center;
+	font-weight: 700;
+	min-width: 88px;
+	z-index: 5;
+	/* Обмежуємо позицію щоб не виходив за межі */
+	max-width: calc(100% - 20px);
+}
+
+.pool-chart-block .pool-sparkline .selected-epoch-badge .ep {
+	font-size: 11px;
+	font-weight: 800;
+	display: block;
+}
+
+.pool-chart-block .pool-sparkline .selected-epoch-badge .sub {
+	font-size: 10px;
+	font-weight: 600;
+	opacity: .7;
+	display: block;
+}
+
+.dark-theme .pool-chart-block .pool-sparkline .selected-epoch-badge {
+	color: #0d0d0d;
+}
+
+/* Chart.js canvas styles */
+.pool-chart-block canvas {
+	height: 220px !important;
+	max-height: 220px !important;
+	width: 100% !important;
+}
+
+.chart-placeholder {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 200px;
+	background: var(--bg-color);
+	border-radius: 8px;
+	color: var(--secondary-text-color);
+	font-style: italic;
+}
+
+.chart-no-data {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 200px;
+	background: var(--bg-color);
+	border-radius: 8px;
+	color: var(--secondary-text-color);
+	font-style: italic;
+	font-size: 14px;
+}
+
+/* Epoch Dynamics - об'єднаний графік */
+.epoch-dynamics-block .epoch-dynamics-legend {
+	display: flex;
+	justify-content: center;
+	gap: 24px;
+	margin-bottom: 12px;
+	font-size: 12px;
+	color: var(--secondary-text-color);
+}
+
+.epoch-dynamics-block .legend-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.epoch-dynamics-block .legend-dot {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+}
+
+.epoch-dynamics-block .legend-item.activating .legend-dot {
+	background-color: #14F195;
+}
+
+.epoch-dynamics-block .legend-item.deactivating .legend-dot {
+	background-color: #FF6B6B;
+}
+
+/* Scale toggle button */
+.epoch-dynamics-block .epoch-dynamics-scale-toggle {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 10px;
+	border: 1px solid var(--border-color);
+	border-radius: 6px;
+	background: var(--bg-color);
+	color: var(--secondary-text-color);
+	font-size: 11px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.epoch-dynamics-block .epoch-dynamics-scale-toggle:hover {
+	border-color: var(--header-color);
+	color: var(--header-color);
+}
+
+.epoch-dynamics-block .epoch-dynamics-scale-toggle.active {
+	background: var(--header-color);
+	border-color: var(--header-color);
+	color: white;
+}
+
+.epoch-dynamics-block .epoch-dynamics-scale-toggle i {
+	font-size: 10px;
+}
+
+/* Wrapper для toggle + info icon */
+.epoch-dynamics-block .epoch-dynamics-scale-wrapper {
+	margin-left: auto;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+/* Info icon з кастомним tooltip */
+.epoch-dynamics-block .scale-info-icon {
+	color: var(--secondary-text-color);
+	font-size: 12px;
+	cursor: help;
+	opacity: 0.6;
+	transition: opacity 0.2s;
+	position: relative;
+}
+
+.epoch-dynamics-block .scale-info-icon:hover {
+	opacity: 1;
+	color: var(--header-color);
+}
+
+/* Кастомний tooltip */
+.epoch-dynamics-block .scale-info-icon::after {
+	content: 'Unified: same scale for accurate comparison.\A Separate: independent scales to show detail.';
+	position: absolute;
+	bottom: 100%;
+	right: 0;
+	transform: translateY(-8px);
+	background: var(--card-bg);
+	color: var(--text-color);
+	border: 1px solid var(--border-color);
+	border-radius: 8px;
+	padding: 8px 12px;
+	font-size: 11px;
+	font-weight: 400;
+	line-height: 1.5;
+	white-space: pre-line;
+	width: 220px;
+	box-shadow: var(--shadow);
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity 0.15s, visibility 0.15s;
+	z-index: 100;
+	pointer-events: none;
+}
+
+.epoch-dynamics-block .scale-info-icon:hover::after {
+	opacity: 1;
+	visibility: visible;
+}
+
+/* Mobile - tooltip по кліку */
+@media (max-width: 768px) {
+	.epoch-dynamics-block .scale-info-icon.active::after {
+		opacity: 1;
+		visibility: visible;
+	}
+}
+
+.epoch-dynamics-block .pool-sparkline {
+	min-height: 140px;
+}
+
+.epoch-dynamics-block .pool-sparkline svg {
+	height: 140px;
+}
+
+.epoch-dynamics-block .epoch-center-line {
+	stroke: var(--border-color);
+	stroke-width: 1;
+	stroke-dasharray: 4, 4;
+	opacity: 0.5;
+}
+
+/* Tooltip для Epoch Dynamics */
+.epoch-dynamics-block .epoch-dynamics-tooltip {
+	min-width: 160px;
+	text-align: left;
+}
+
+.epoch-dynamics-block .epoch-dynamics-tooltip .epoch {
+	margin-bottom: 6px;
+	padding-bottom: 6px;
+	border-bottom: 1px solid var(--border-color);
+}
+
+.epoch-dynamics-block .epoch-dynamics-tooltip .dot {
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	margin-right: 6px;
+}
+
+.epoch-dynamics-block .epoch-dynamics-tooltip .activating-line,
+.epoch-dynamics-block .epoch-dynamics-tooltip .deactivating-line {
+	font-size: 11px;
+	margin-top: 4px;
+}
+
+/* Приховуємо placeholder коли є графік */
+.epoch-dynamics-block .chart-placeholder {
+	display: none;
+}
+
+.epoch-dynamics-block.no-data .epoch-dynamics-legend,
+.epoch-dynamics-block.no-data .pool-sparkline {
+	display: none;
+}
+
+.epoch-dynamics-block.no-data .chart-placeholder {
+	display: flex;
+}
+
+/* Stake Distribution - SVG donut */
+.stake-distribution-block h3 {
+	display: flex;
+	align-items: baseline;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.stake-distribution-block .stake-distribution-subtitle {
+	font-size: 11px;
+	color: var(--secondary-text-color);
+	font-weight: 400;
+	margin-left: auto;
+}
+
+.stake-distribution-block .stake-distribution-content {
+	display: flex;
+	align-items: stretch;
+	gap: 16px;
+	margin-top: 12px;
+	min-height: 180px;
+}
+
+.stake-distribution-block .stake-distribution-chart-wrapper {
+	position: relative;
+	flex-shrink: 0;
+	width: 180px;
+	height: 180px;
+}
+
+.stake-distribution-block .stake-distribution-donut {
+	width: 100%;
+	height: 100%;
+	position: relative;
+}
+
+.stake-distribution-block .stake-distribution-donut svg {
+	width: 100%;
+	height: 100%;
+}
+
+/* Анімація появи діаграми */
+.stake-distribution-block .stake-distribution-donut svg.donut-animate .donut-segment {
+	animation: donutSegmentIn 0.4s ease-out forwards;
+	opacity: 0;
+}
+
+.stake-distribution-block .donut-svg.donut-animate .donut-segment {
+	animation: donutSegmentIn 0.4s ease-out forwards;
+	opacity: 0;
+}
+
+@keyframes donutSegmentIn {
+	from {
+		opacity: 0;
+		transform: scale(0.92);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+/* Сегменти діаграми (path) - плавні transitions */
+.stake-distribution-block .donut-segment {
+	transition: opacity 0.35s ease, filter 0.2s ease;
+}
+
+/* Hover ефект - сегмент світлішає */
+.stake-distribution-block .donut-segment:hover {
+	filter: brightness(1.25) saturate(1.1);
+}
+
+/* No data container - на весь блок */
+.stake-distribution-block .chart-no-data-container {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 100%;
+	min-height: 150px;
+	color: var(--secondary-text-color);
+	text-align: center;
+	gap: 12px;
+}
+
+.stake-distribution-block .chart-no-data-icon {
+	font-size: 32px;
+	opacity: 0.4;
+}
+
+.stake-distribution-block .chart-no-data-text {
+	font-size: 13px;
+	opacity: 0.7;
+}
+
+/* Логотип в центрі - впритул до діаграми */
+.stake-distribution-block .stake-distribution-center {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	/* Фон адаптується до теми */
+	background: var(--logo-bg, #2a2d36);
+	border: 2px solid var(--logo-border);
+}
+
+.stake-distribution-block .stake-distribution-center img {
+	/* Unified pool-icon style: image fills the wrapper (which is sized
+	   to the donut inner diameter), with 12% padding for breathing room
+	   around the logo. The wrapper itself sits flush against the donut
+	   inner edge so the wrapper border continues seamlessly from the
+	   donut ring. */
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	padding: 12%;
+	box-sizing: border-box;
+	pointer-events: none;
+	user-select: none;
+}
+
+/* SVG fallback in donut center for pools without image (e.g. OTHER aggregate).
+   Matches the new full-fill plus 12% padding pattern of the img above. */
+.stake-distribution-block .stake-distribution-center .donut-svg-fallback {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 12%;
+	box-sizing: border-box;
+	color: var(--secondary-text-color);
+	pointer-events: none;
+}
+
+.stake-distribution-block .stake-distribution-center .donut-svg-fallback svg {
+	width: 100%;
+	height: 100%;
+}
+
+/* Легенда - один стовпчик з scroll */
+.stake-distribution-block .stake-distribution-legend {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	font-size: 11px;
+	max-height: 220px;
+	min-width: 0;
+	overflow-y: auto;
+	padding-right: 4px;
+	align-self: stretch;
+}
+
+/* Custom scrollbar */
+.stake-distribution-block .stake-distribution-legend::-webkit-scrollbar {
+	width: 4px;
+}
+
+.stake-distribution-block .stake-distribution-legend::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.stake-distribution-block .stake-distribution-legend::-webkit-scrollbar-thumb {
+	background: var(--border-color);
+	border-radius: 2px;
+}
+
+.stake-distribution-block .stake-distribution-legend::-webkit-scrollbar-thumb:hover {
+	background: var(--secondary-text-color);
+}
+
+/* Кнопка Reset */
+.stake-distribution-block .legend-reset {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px;
+	margin-bottom: 6px;
+	font-size: 10px;
+	color: var(--accent-color);
+	background: var(--bg-color);
+	border-radius: 4px;
+	cursor: pointer;
+	transition: background-color 0.15s;
+}
+
+.stake-distribution-block .legend-reset:hover {
+	background: var(--border-color);
+}
+
+.stake-distribution-block .legend-reset i {
+	font-size: 9px;
+}
+
+.stake-distribution-block .legend-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	cursor: pointer;
+	padding: 3px 4px;
+	border-radius: 4px;
+	transition: background-color 0.15s, opacity 0.15s;
+}
+
+.stake-distribution-block .legend-item:hover {
+	background-color: var(--bg-color);
+}
+
+.stake-distribution-block .legend-item.hidden {
+	opacity: 0.4;
+}
+
+.stake-distribution-block .legend-item.disabled {
+	opacity: 0.5;
+}
+
+.stake-distribution-block .legend-item.disabled .legend-name {
+	text-decoration: line-through;
+}
+
+.stake-distribution-block .legend-item .legend-color {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.stake-distribution-block .legend-item .legend-name {
+	flex: 1;
+	min-width: 0;
+	max-width: 180px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	color: var(--text-color);
+}
+
+.stake-distribution-block .legend-item .legend-value {
+	color: var(--secondary-text-color);
+	font-size: 10px;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+/* Tooltip для Stake Distribution */
+.stake-distribution-block .distribution-tooltip {
+	position: absolute;
+	background-color: var(--card-bg);
+	color: var(--text-color);
+	border: 1px solid var(--border-color);
+	border-radius: 8px;
+	padding: 8px 12px;
+	font-size: 12px;
+	white-space: nowrap;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.15s;
+	box-shadow: var(--shadow);
+	z-index: 100;
+}
+
+.stake-distribution-block .distribution-tooltip .tooltip-name {
+	font-weight: 600;
+	margin-bottom: 4px;
+}
+
+.stake-distribution-block .distribution-tooltip .tooltip-value {
+	color: var(--secondary-text-color);
+}
+
+/* Pool Validators Section - стилі як на головній сторінці */
+.pool-validators-section {
+	margin-top: 32px;
+}
+
+/* Info notes banner */
+.pool-validators-info-notes {
+	background: var(--card-bg);
+	border: 1px solid var(--border-color);
+	border-radius: 12px;
+	padding: 14px 18px;
+	margin-bottom: 20px;
+	font-size: 13px;
+	line-height: 1.6;
+	color: var(--secondary-text-color);
+}
+
+.pool-validators-info-notes .info-line {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 4px;
+}
+
+.pool-validators-info-notes .info-line:last-child {
+	margin-bottom: 0;
+}
+
+.pool-validators-info-notes .info-line i {
+	color: var(--header-color);
+	width: 16px;
+	text-align: center;
+}
+
+.pool-validators-info-notes .info-line strong {
+	color: var(--text-color);
+}
+
+.pool-validators-info-notes .info-line .epoch-link {
+	color: var(--header-color);
+}
+
+/* Search container - як на головній */
+#stake-pool-dashboard .pool-validators-search-container {
+	position: relative !important;
+	margin-bottom: 20px !important;
+}
+
+#stake-pool-dashboard .pool-validators-search-input {
+	width: 100% !important;
+	padding: 14px 50px 14px 48px !important;
+	border-radius: 999px !important;
+	border: 2px solid var(--border-color) !important;
+	background: var(--card-bg) !important;
+	color: var(--text-color) !important;
+	font-size: 15px !important;
+	transition: border-color 0.3s !important;
+	outline: none !important;
+	box-sizing: border-box !important;
+}
+
+/* Темна тема для пошуку */
+.dark-theme #stake-pool-dashboard .pool-validators-search-input {
+	background: #1a1a2e !important;
+	border-color: #2d2d44 !important;
+	color: #e0e0e0 !important;
+}
+
+#stake-pool-dashboard .pool-validators-search-input::placeholder {
+	color: var(--secondary-text-color) !important;
+	opacity: 0.7 !important;
+}
+
+#stake-pool-dashboard .pool-validators-search-input:focus {
+	border-color: var(--header-color) !important;
+}
+
+#stake-pool-dashboard .pool-validators-search-icon {
+	position: absolute !important;
+	left: 18px !important;
+	top: 50% !important;
+	transform: translateY(-50%) !important;
+	color: var(--secondary-text-color) !important;
+	font-size: 16px !important;
+	pointer-events: none !important;
+	z-index: 1 !important;
+}
+
+#stake-pool-dashboard .pool-validators-search-clear {
+	position: absolute !important;
+	right: 18px !important;
+	top: 50% !important;
+	transform: translateY(-50%) !important;
+	background: none !important;
+	border: none !important;
+	color: var(--secondary-text-color) !important;
+	cursor: pointer !important;
+	font-size: 18px !important;
+	padding: 4px !important;
+	display: none !important;
+	z-index: 1 !important;
+}
+
+#stake-pool-dashboard .pool-validators-search-clear:hover {
+	color: var(--text-color) !important;
+}
+
+#stake-pool-dashboard .pool-validators-search-container.has-value .pool-validators-search-clear {
+	display: block !important;
+}
+
+/* Stats summary - як на головній */
+.pool-validators-stats-summary {
+	display: grid;
+	gap: 12px;
+	margin-bottom: 20px;
+	grid-template-columns: 1fr;
+}
+
+@media (min-width: 992px) {
+	.pool-validators-stats-summary {
+		grid-template-columns: repeat(4, 1fr);
+	}
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+	.pool-validators-stats-summary {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+.pool-validators-stat-card {
+	background: var(--card-bg);
+	border: 1px solid var(--border-color);
+	border-radius: 12px;
+	padding: 14px 18px;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.pool-validators-stat-card .stat-icon {
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--logo-bg);
+	border: 1px solid var(--logo-border);
+	flex-shrink: 0;
+}
+
+/* Іконки без фону для Stake/Activating/Deactivating */
+.pool-validators-stat-card .stat-icon.stat-icon-plain {
+	background: transparent;
+	border: none;
+	width: 28px;
+	height: 28px;
+}
+
+.pool-validators-stat-card .stat-icon img {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	padding: 12%;
+	box-sizing: border-box;
+}
+
+.pool-validators-stat-card .stat-icon i {
+	font-size: 20px;
+	color: var(--header-color);
+}
+
+.pool-validators-stat-card .stat-info {
+	flex: 1;
+}
+
+.pool-validators-stat-card .stat-value {
+	font-size: 20px;
+	font-weight: 700;
+	color: var(--text-color);
+}
+
+.pool-validators-stat-card .stat-label {
+	font-size: 12px;
+	color: var(--secondary-text-color);
+	margin-top: 2px;
+}
+
+/* Sort bar - як на головній */
+.pool-validators-sort-bar {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	flex-wrap: wrap;
+	margin-bottom: 20px;
+	padding: 12px;
+	background: var(--bg-color);
+	border-radius: 12px;
+	border: 1px solid var(--border-color);
+}
+
+.pool-validators-sort-bar .label {
+	font-size: 14px;
+	color: var(--secondary-text-color);
+	margin-right: 4px;
+}
+
+.pool-validators-sort-btn {
+	border: 1px solid var(--border-color);
+	background: var(--card-bg);
+	color: var(--text-color);
+	padding: 8px 14px;
+	border-radius: 999px;
+	font-size: 13px;
+	cursor: pointer;
+	transition: all 0.2s;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.pool-validators-sort-btn:hover {
+	border-color: var(--header-color);
+	transform: translateY(-1px);
+}
+
+.pool-validators-sort-btn.active {
+	background: var(--header-color);
+	border-color: var(--header-color);
+	color: #fff;
+}
+
+.pool-validators-sort-btn i {
+	font-size: 12px;
+}
+
+.pool-validators-sort-btn .sort-arrow {
+	margin-left: 4px;
+	font-size: 10px;
+}
+
+.pool-validators-sort-btn .pool-icon {
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	margin-left: 2px;
+	background: var(--logo-bg);
+	border: 1px solid var(--logo-border);
+	object-fit: contain;
+	padding: 2px;
+	box-sizing: border-box;
+}
+
+.pool-validators-sort-badge {
+	margin-left: auto;
+	background: #f0ad4e;
+	color: white;
+	padding: 6px 12px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.pool-validators-table {
+	overflow-x: auto;
+	margin-top: 16px;
+}
+
+/* Validator image styles for pool validators table */
+.pool-validators-table .validator-image-wrapper {
+	position: relative;
+	width: 32px;
+	height: 32px;
+	flex-shrink: 0;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.pool-validators-table .validator-image {
+	width: 100%;
+	height: 100%;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.pool-validators-table .validator-image.fallback {
+	width: 32px;
+	height: 32px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	color: white;
+	font-size: 12px;
+	font-weight: 700;
+	border-radius: 50%;
+}
+
+/* ========================================
+   Pool Validators List - JIP25 Style
+   ======================================== */
+.pool-validators-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	border: 1px solid var(--border-color);
+	border-radius: 12px;
+	overflow: hidden;
+	background: var(--card-bg);
+}
+
+/* Header row */
+.pool-validators-header {
+	display: grid;
+	grid-template-columns: minmax(200px, 2fr) 1fr 1fr 1fr;
+	gap: 12px;
+	padding: 14px 16px;
+	background: var(--bg-color);
+	border-bottom: 2px solid var(--border-color);
+	font-size: 12px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--secondary-text-color);
+}
+
+.pool-validators-header .pv-col {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	white-space: nowrap;
+}
+
+/* Bug 3 fix: force row direction in header, overriding column direction used by data rows */
+.pool-validators-header .pv-col-stake,
+.pool-validators-header .pv-col-activating,
+.pool-validators-header .pv-col-deactivating {
+	flex-direction: row !important;
+}
+
+.pool-validators-header .pv-col-validator {
+	justify-content: flex-start;
+}
+
+.pool-validators-header .pv-col-stake,
+.pool-validators-header .pv-col-activating,
+.pool-validators-header .pv-col-deactivating {
+	justify-content: center;
+}
+
+/* Клікабельні заголовки для сортування */
+.pool-validators-header .pv-col-sortable {
+	cursor: pointer;
+	user-select: none;
+	transition: color 0.15s ease;
+	white-space: nowrap;
+}
+
+.pool-validators-header .pv-col-sortable:hover {
+	color: var(--header-color);
+}
+
+/* Індикатор сортування - поруч з текстом */
+.pv-sort-indicator {
+	font-size: 11px;
+	opacity: 0.4;
+	transition: opacity 0.15s ease, color 0.15s ease;
+	margin-left: 2px;
+	flex-shrink: 0;
+}
+
+.pv-sort-indicator.active {
+	opacity: 1;
+	color: var(--header-color);
+}
+
+/* Validator rows */
+.pool-validator-row {
+	display: grid;
+	grid-template-columns: minmax(200px, 2fr) 1fr 1fr 1fr;
+	gap: 12px;
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--border-color);
+	transition: background 0.15s ease;
+}
+
+.pool-validator-row:last-child {
+	border-bottom: none;
+}
+
+.pool-validator-row:hover {
+	background: var(--bg-color);
+}
+
+/* Validator column */
+.pv-col-validator {
+	display: flex;
+	align-items: center;
+}
+
+.pv-validator-info {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.pv-validator-info .validator-image-wrapper {
+	width: 36px;
+	height: 36px;
+	flex-shrink: 0;
+}
+
+.pv-validator-info .validator-image {
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.pv-validator-info .validator-image.fallback {
+	width: 36px;
+	height: 36px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	color: white;
+	font-size: 13px;
+	font-weight: 700;
+	border-radius: 50%;
+}
+
+.pv-validator-details {
+	min-width: 0;
+}
+
+.pv-validator-name {
+	font-weight: 600;
+	font-size: 14px;
+	color: var(--text-color);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 200px;
+}
+
+.pv-validator-pubkey {
+	font-size: 11px;
+	color: var(--secondary-text-color);
+	font-family: monospace;
+}
+
+/* Value columns */
+.pv-col-stake {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	gap: 4px;
+}
+
+.pv-col-activating,
+.pv-col-deactivating {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	gap: 4px;
+}
+
+/* Value rows (two lines for Stake column) */
+.pv-value-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	justify-content: center;
+}
+
+/* Single value row (for Activating/Deactivating - one line) */
+.pv-value-single {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	justify-content: center;
+}
+
+.pv-value-single .table-pool-icon {
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	flex-shrink: 0;
+	background: var(--logo-bg);
+	border: 1px solid var(--logo-border);
+	object-fit: contain;
+	padding: 2px;
+	box-sizing: border-box;
+}
+
+.pv-value-single .table-icon-fallback {
+	font-size: 11px;
+	width: 14px;
+	text-align: center;
+	color: var(--header-color);
+}
+
+/* Arrow icons for Activating/Deactivating */
+.pv-arrow {
+	font-size: 10px;
+	font-weight: 700;
+}
+
+.pv-arrow-up {
+	color: #28a745;
+}
+
+.pv-arrow-down {
+	color: #dc3545;
+}
+
+/* Trend icons (fa-arrow-trend-up/down) */
+.pv-trend-icon {
+	font-size: 12px;
+	margin-right: 2px;
+}
+
+.pv-trend-up {
+	color: #28a745;
+}
+
+.pv-trend-down {
+	color: #dc3545;
+}
+
+.pv-value-row .pv-icon {
+	font-size: 11px;
+	width: 14px;
+	text-align: center;
+	flex-shrink: 0;
+}
+
+.pv-value-row .pv-icon-total {
+	color: var(--secondary-text-color);
+	opacity: 0.6;
+}
+
+.pv-value-row .table-pool-icon {
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	flex-shrink: 0;
+	background: var(--logo-bg);
+	border: 1px solid var(--logo-border);
+	object-fit: contain;
+	padding: 2px;
+	box-sizing: border-box;
+}
+
+.pv-value-row .table-icon-fallback {
+	font-size: 11px;
+	width: 14px;
+	text-align: center;
+	color: var(--header-color);
+}
+
+.pv-value {
+	font-size: 13px;
+	color: var(--text-color);
+	font-weight: 500;
+	font-variant-numeric: tabular-nums;
+}
+
+.pv-value-pool .pv-value {
+	font-weight: 700;
+	color: var(--header-color);
+}
+
+.pv-value.pv-value-highlight {
+	color: var(--header-color);
+}
+
+.pv-value.pv-positive {
+	color: #28a745;
+}
+
+.pv-value.pv-negative {
+	color: #dc3545;
+}
+
+/* Mobile responsiveness for validators list */
+@media (max-width: 768px) {
+	/* Bug 6 fix: hide entire header on mobile - cards mode makes it redundant */
+	.pool-validators-header {
+		display: none !important;
+	}
+	
+	/* Bug 7 fix: sort button with long pool name on mobile - allow wrapping into pill, keep compact */
+	.pool-validators-sort-btn {
+		max-width: 100%;
+		white-space: normal;
+		text-align: left;
+		line-height: 1.25;
+		padding: 6px 12px;
+		font-size: 12px;
+	}
+	
+	.pool-validators-sort-btn .pool-icon {
+		flex-shrink: 0;
+		width: 16px;
+		height: 16px;
+	}
+	
+	.pool-validators-sort-btn .sort-arrow {
+		flex-shrink: 0;
+	}
+	
+	.pool-validator-row {
+		grid-template-columns: 1fr;
+		gap: 8px;
+		padding: 14px;
+		/* Візуальне відділення карток */
+		background: var(--card-bg);
+		border-radius: 10px;
+		margin-bottom: 10px;
+		border: 1px solid var(--border-color);
+	}
+	
+	.pool-validator-row:last-child {
+		margin-bottom: 0;
+	}
+	
+	/* Пробіл між картками - колір шапки */
+	.pool-validators-list {
+		background: var(--bg-color);
+		padding: 10px;
+		border-radius: 12px;
+	}
+	
+	.pv-col-stake,
+	.pv-col-activating,
+	.pv-col-deactivating {
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		padding: 8px 0;
+		border-top: 1px dashed var(--border-color);
+	}
+	
+	.pv-col-stake::before {
+		content: 'Stake';
+		font-size: 11px;
+		color: var(--secondary-text-color);
+		font-weight: 600;
+	}
+	
+	.pv-col-activating::before {
+		content: 'Activating';
+		font-size: 11px;
+		color: var(--secondary-text-color);
+		font-weight: 600;
+	}
+	
+	.pv-col-deactivating::before {
+		content: 'Deactivating';
+		font-size: 11px;
+		color: var(--secondary-text-color);
+		font-weight: 600;
+	}
+}
+
+/* Extended Info Section */
+.pool-extended-info {
+	margin-top: 32px;
+}
+
+.pool-extended-content {
+	line-height: 1.6;
+	color: var(--text-color);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+	.pool-header-main {
+		flex-direction: column;
+	}
+	
+	.pool-detail-name {
+		font-size: 22px;
+	}
+	
+	#stake-pool-dashboard .pool-metrics-grid {
+		grid-template-columns: repeat(2, 1fr) !important;
+		gap: 10px !important;
+	}
+	
+	#stake-pool-dashboard .pool-metric-card {
+		padding: 12px !important;
+		gap: 10px !important;
+	}
+	
+	#stake-pool-dashboard .pool-metric-icon {
+		font-size: 18px !important;
+		width: 22px !important;
+	}
+	
+	#stake-pool-dashboard .pool-metric-value {
+		font-size: 15px !important;
+	}
+	
+	#stake-pool-dashboard .pool-metric-label {
+		font-size: 10px !important;
+	}
+	
+	.pool-charts-grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	
+	/* Графіки на мобільних - з бічним padding */
+	.pool-chart-block {
+		padding: 15px;
+	}
+	
+	.pool-chart-block h3 {
+		margin-bottom: 10px;
+	}
+	
+	/* Назва пула - скорочена на мобільних */
+	.pool-chart-block h3 small {
+		display: inline;
+		font-size: 11px;
+	}
+	
+	.pool-chart-block canvas {
+		height: 180px !important;
+		max-height: 180px !important;
+		min-width: 0 !important;
+		width: 100% !important;
+	}
+	
+	.pool-chart-block .pool-sparkline {
+		padding: 10px 0;
+	}
+	
+	.pool-chart-block .pool-sparkline svg {
+		width: 100%;
+		height: 80px;
+	}
+	
+	.pool-chart-block .pool-sparkline .chart-range-labels {
+		font-size: 11px;
+	}
+	
+	/* Epoch Dynamics на мобільних */
+	.epoch-dynamics-block .pool-sparkline {
+		min-height: 120px;
+	}
+	
+	.epoch-dynamics-block .pool-sparkline svg {
+		height: 120px;
+	}
+	
+	.epoch-dynamics-block .epoch-dynamics-legend {
+		gap: 16px;
+		font-size: 11px;
+	}
+	
+	/* Bug 2 fix: pool-header-right full width on mobile so Learn More is centered */
+	#stake-pool-dashboard .pool-header-right {
+		width: 100% !important;
+		justify-content: center !important;
+	}
+	
+	/* Learn More на мобільних - на всю ширину, менш помітна */
+	#stake-pool-dashboard .pool-official-link {
+		width: 100% !important;
+		justify-content: center !important;
+		background: transparent !important;
+		border: 1px solid var(--header-color) !important;
+		color: var(--header-color) !important;
+		padding: 8px 12px !important;
+		font-size: 13px !important;
+	}
+	
+	/* Authority Keys на мобільних - скорочення pubkey */
+	.authority-key-item {
+		flex-wrap: nowrap;
+	}
+	
+	.authority-key-item .key-value {
+		max-width: 120px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	
+	/* Stake Distribution на мобільних - після Epoch Dynamics */
+	.stake-distribution-block {
+		order: 4;
+	}
+	
+	.stake-distribution-block .stake-distribution-subtitle {
+		margin-left: 0;
+		display: block;
+		margin-top: 4px;
+	}
+	
+	.stake-distribution-block .stake-distribution-content {
+		flex-direction: column;
+		gap: 16px;
+	}
+	
+	.stake-distribution-block .stake-distribution-chart-wrapper {
+		width: 160px;
+		height: 160px;
+		margin: 0 auto;
+	}
+	
+	/* На планшеті - 1 стовпчик */
+	.stake-distribution-block .stake-distribution-legend {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		max-height: 220px;
+		font-size: 11px;
+		overflow-y: auto;
+		width: 100%;
+	}
+	
+	.stake-distribution-block .legend-item .legend-name {
+		max-width: none;
+	}
+	
+	/* Бейдж не виходить за межі на мобільних */
+	.pool-chart-block .pool-sparkline .selected-epoch-badge {
+		min-width: 75px;
+	}
+	
+	.validators-controls {
+		flex-direction: column;
+		align-items: stretch;
+	}
+	
+	.validators-search {
+		max-width: none;
+	}
+	
+	.validators-sort-buttons {
+		overflow-x: auto;
+		justify-content: flex-start;
+	}
+}
+
+@media (max-width: 480px) {
+	.pool-charts-grid {
+		gap: 15px;
+	}
+	
+	.pool-chart-block {
+		padding: 12px;
+	}
+	
+	.pool-chart-block h3 {
+		font-size: 14px;
+		margin-bottom: 8px;
+	}
+	
+	.pool-chart-block h3 small {
+		font-size: 10px;
+	}
+	
+	.pool-chart-block canvas {
+		height: 160px !important;
+		max-height: 160px !important;
+	}
+	
+	.pool-chart-block .pool-sparkline {
+		padding: 8px 0;
+	}
+	
+	.pool-chart-block .pool-sparkline svg {
+		height: 70px;
+	}
+	
+	.pool-chart-block .pool-sparkline .selected-epoch-badge {
+		min-width: 70px;
+		padding: 3px 6px 4px;
+	}
+	
+	.pool-chart-block .pool-sparkline .selected-epoch-badge .ep {
+		font-size: 10px;
+	}
+	
+	.pool-chart-block .pool-sparkline .selected-epoch-badge .sub {
+		font-size: 9px;
+	}
+}
+
+@media (max-width: 480px) {
+	#stake-pool-dashboard .pool-metrics-grid {
+		grid-template-columns: repeat(2, 1fr) !important;
+		gap: 8px !important;
+	}
+	
+	#stake-pool-dashboard .pool-metric-card {
+		padding: 10px !important;
+		gap: 6px !important;
+	}
+	
+	#stake-pool-dashboard .pool-metric-icon {
+		font-size: 16px !important;
+		width: 20px !important;
+	}
+	
+	#stake-pool-dashboard .pool-metric-value {
+		font-size: 14px !important;
+	}
+	
+	#stake-pool-dashboard .pool-metric-label {
+		font-size: 10px !important;
+	}
+	
+	.breadcrumbs-nav {
+		font-size: 12px;
+	}
+	
+	.breadcrumb-separator {
+		margin: 0 5px;
+	}
+	
+	.pool-detail-image {
+		width: 48px;
+		height: 48px;
+	}
+	
+	.pool-detail-name {
+		font-size: 20px;
+	}
+	
+	/* Stake Distribution на дуже малих екранах */
+	.stake-distribution-block .stake-distribution-chart-wrapper {
+		width: 180px;
+		height: 180px;
+		min-width: 180px;
+	}
+	
+	/* На мобільному - 1 стовпчик */
+	.stake-distribution-block .stake-distribution-legend {
+		display: flex;
+		flex-direction: column;
+		font-size: 10px;
+		max-height: 200px;
+	}
+}
+/* Pool epoch selector styles */
+#stake-pool-dashboard .pool-header-right {
+	display: flex !important;
+	align-items: center !important;
+	gap: 12px !important;
+}
+
+/* Pool Controls Bar - як на головній сторінці */
+#stake-pool-dashboard .pool-controls-bar {
+	display: flex !important;
+	align-items: center !important;
+	justify-content: space-between !important;
+	gap: 14px !important;
+	flex-wrap: wrap !important;
+	margin-top: 16px !important;
+	padding: 12px 16px !important;
+	background: var(--bg-color) !important;
+	border-radius: 12px !important;
+}
+
+#stake-pool-dashboard .pool-controls-left {
+	display: flex !important;
+	align-items: center !important;
+	gap: 10px !important;
+	flex-wrap: wrap !important;
+}
+
+#stake-pool-dashboard .pool-controls-right {
+	display: flex !important;
+	align-items: center !important;
+}
+
+/* Epoch stale pill - жовта плашка */
+#stake-pool-dashboard .pool-epoch-stale {
+	display: none;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 10px;
+	border-radius: 999px;
+	border: 1px solid #ffe08a;
+	background: #fff3cd;
+	color: #7a5b00;
+	font-size: 12px;
+}
+
+.dark-theme #stake-pool-dashboard .pool-epoch-stale {
+	border-color: #5c4a10;
+	background: #3a2d07;
+	color: #ffd166;
+}
+
+/* Epoch control - селектор у стилі головної */
+#stake-pool-dashboard .pool-epoch-control {
+	display: flex !important;
+	align-items: center !important;
+	gap: 8px !important;
+	border: 1px solid var(--border-color) !important;
+	background: var(--card-bg) !important;
+	border-radius: 999px !important;
+	padding: 4px 10px !important;
+	height: 34px !important;
+}
+
+#stake-pool-dashboard .pool-epoch-control .label {
+	font-size: 13px !important;
+	color: var(--secondary-text-color) !important;
+}
+
+#stake-pool-dashboard .pool-epoch-control i {
+	color: var(--header-color) !important;
+}
+
+#stake-pool-dashboard .pool-epoch-control select,
+#stake-pool-dashboard #pool-epoch-select {
+	border: none !important;
+	background: transparent !important;
+	color: var(--text-color) !important;
+	padding: 6px 6px !important;
+	outline: none !important;
+	font: inherit !important;
+	min-width: 84px !important;
+	cursor: pointer !important;
+}
+
+/* Mobile: visually proportional to the description and metric cards
+   around it. NOTE: font-size below 16px will trigger iOS Safari auto-zoom
+   on tap. Viktor accepted this trade-off for visual consistency on
+   Android (where auto-zoom does not apply). If iOS UX feedback requires
+   it, bump back up to 16px and accept the larger selector. */
+@media (max-width: 768px) {
+	#stake-pool-dashboard .pool-epoch-control {
+		height: auto !important;
+		padding: 4px 10px !important;
+	}
+	#stake-pool-dashboard .pool-epoch-control select,
+	#stake-pool-dashboard #pool-epoch-select {
+		font-size: 14px !important;
+		min-height: 28px !important;
+		padding: 4px 6px !important;
+		min-width: 100px !important;
+		line-height: 1.3 !important;
+	}
+	#stake-pool-dashboard .pool-epoch-control .label {
+		font-size: 12px !important;
+	}
+}
+@media (max-width: 480px) {
+	#stake-pool-dashboard .pool-epoch-control {
+		padding: 3px 8px !important;
+	}
+	#stake-pool-dashboard .pool-epoch-control select,
+	#stake-pool-dashboard #pool-epoch-select {
+		font-size: 13px !important;
+		min-height: 26px !important;
+		padding: 3px 5px !important;
+		min-width: 90px !important;
+	}
+	#stake-pool-dashboard .pool-epoch-control .label {
+		font-size: 11px !important;
+	}
+}
+/* Option element styling for mobile native dropdowns. Placed OUTSIDE the
+   media query container because some browsers (especially iOS Safari) match
+   option styles only at the document level, not nested under the dashboard.
+   Enforced via element selector with class qualifier for specificity. */
+#pool-epoch-select option,
+select#pool-epoch-select option {
+	font-size: 17px !important;
+	padding: 14px 12px !important;
+	line-height: 1.5 !important;
+	background: var(--card-bg, #1a1a1a) !important;
+	color: var(--text-color, #fff) !important;
+}
+
+/* Compact epoch info - як на головній */
+#stake-pool-dashboard .pool-epoch-info-compact {
+	display: flex !important;
+	align-items: center !important;
+	gap: 8px !important;
+	font-size: 14px !important;
+	color: var(--text-color) !important;
+}
+
+#stake-pool-dashboard .pool-epoch-info-compact .epoch-number {
+	font-weight: 600 !important;
+	font-size: 15px !important;
+}
+
+#stake-pool-dashboard .pool-epoch-info-compact .past-epoch-badge {
+	/* display керується через JS inline styles */
+	align-items: center !important;
+	gap: 4px !important;
+	padding: 2px 8px !important;
+	background: #f0ad4e !important;
+	color: white !important;
+	border-radius: 999px !important;
+	font-size: 11px !important;
+	font-weight: 600 !important;
+	text-transform: lowercase !important;
+}
+
+/* Current epoch badge - зелений */
+#stake-pool-dashboard .pool-epoch-info-compact .current-epoch-badge {
+	/* display керується через JS inline styles */
+	align-items: center !important;
+	gap: 4px !important;
+	padding: 2px 8px !important;
+	background: #28a745 !important;
+	color: white !important;
+	border-radius: 999px !important;
+	font-size: 11px !important;
+	font-weight: 600 !important;
+	text-transform: lowercase !important;
+}
+
+#stake-pool-dashboard .pool-epoch-info-compact .current-epoch-badge i {
+	font-size: 9px !important;
+}
+
+#stake-pool-dashboard .pool-epoch-info-compact .past-epoch-badge i {
+	font-size: 9px !important;
+}
+
+#stake-pool-dashboard .pool-epoch-info-compact .epoch-percent {
+	color: var(--secondary-text-color) !important;
+	font-size: 13px !important;
+}
+
+#stake-pool-dashboard .pool-epoch-info-compact .epoch-separator {
+	color: var(--secondary-text-color) !important;
+	opacity: 0.4 !important;
+}
+
+#stake-pool-dashboard .pool-epoch-info-compact .snapshot-info {
+	display: flex !important;
+	align-items: center !important;
+	gap: 4px !important;
+}
+
+#stake-pool-dashboard .pool-epoch-info-compact .snapshot-label {
+	color: var(--secondary-text-color) !important;
+	font-size: 13px !important;
+}
+
+#stake-pool-dashboard .pool-epoch-info-compact .snapshot-value {
+	color: var(--text-color) !important;
+	font-size: 13px !important;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+	#stake-pool-dashboard .pool-controls-bar {
+		flex-direction: column !important;
+		align-items: flex-start !important;
+	}
+	
+	#stake-pool-dashboard .pool-epoch-info-compact {
+		flex-wrap: wrap !important;
+	}
+}
+
+/* ============================================
+   v2.3.0: validator names, keys, copy controls, meta chips
+   ============================================ */
+
+/* Copy controls are buttons: strip browser defaults. */
+#stake-pool-dashboard .cv-key,
+#stake-pool-dashboard .cv-copy-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    line-height: inherit;
+    box-shadow: none;
+    /* Arrow with a copy glyph, so the action reads as "copy". */
+    cursor: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2724%27%20height%3D%2724%27%20viewBox%3D%270%200%2024%2024%27%3E%3Cpath%20d%3D%27M3%202.5%20L3%2017%20L6.9%2013.3%20L9.4%2019.2%20L11.8%2018.2%20L9.3%2012.4%20L14.4%2012.4%20Z%27%20fill%3D%27black%27%20stroke%3D%27white%27%20stroke-width%3D%271.3%27%20stroke-linejoin%3D%27round%27%2F%3E%3Crect%20x%3D%2713.2%27%20y%3D%2711.2%27%20width%3D%277%27%20height%3D%278.3%27%20rx%3D%271.6%27%20fill%3D%27white%27%20stroke%3D%27black%27%20stroke-width%3D%271.3%27%2F%3E%3Crect%20x%3D%2715.9%27%20y%3D%2714%27%20width%3D%277%27%20height%3D%278.3%27%20rx%3D%271.6%27%20fill%3D%27white%27%20stroke%3D%27black%27%20stroke-width%3D%271.3%27%2F%3E%3C%2Fsvg%3E") 3 2, pointer;
+}
+
+/* Name line: the name truncates, the copy button stays visible. */
+#stake-pool-dashboard .cv-name-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+#stake-pool-dashboard .cv-name-line .cv-name-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#stake-pool-dashboard .pv-validator-name.cv-name-line {
+    max-width: none;
+}
+#stake-pool-dashboard .pv-validator-name.cv-name-line .cv-name-text {
+    max-width: 220px;
+}
+#stake-pool-dashboard .cv-copy-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    color: var(--secondary-text-color);
+}
+#stake-pool-dashboard .cv-copy-btn:hover {
+    background: var(--chart-bg-color);
+    color: var(--header-color);
+}
+
+/* Copy icons: hidden until the row is hovered, a check after copying. */
+#stake-pool-dashboard .cv-copy-icon,
+#stake-pool-dashboard .cv-copied-icon {
+    font-size: 10px;
+}
+#stake-pool-dashboard .cv-copy-icon {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+#stake-pool-dashboard .cv-copied-icon {
+    display: none;
+    color: #28a745;
+}
+#stake-pool-dashboard .validator-item:hover .cv-copy-icon,
+#stake-pool-dashboard .pool-validator-row:hover .cv-copy-icon {
+    opacity: 0.4;
+}
+#stake-pool-dashboard .cv-key:hover .cv-copy-icon,
+#stake-pool-dashboard .cv-key:focus-visible .cv-copy-icon,
+#stake-pool-dashboard .cv-copy-btn:hover .cv-copy-icon,
+#stake-pool-dashboard .cv-copy-btn:focus-visible .cv-copy-icon {
+    opacity: 1;
+}
+#stake-pool-dashboard .is-copied .cv-copy-icon {
+    display: none;
+}
+#stake-pool-dashboard .is-copied .cv-copied-icon {
+    display: inline-block;
+}
+#stake-pool-dashboard .is-copy-failed .cv-copy-icon {
+    opacity: 1;
+    color: #dc3545;
+}
+@media (hover: none) {
+    #stake-pool-dashboard .cv-copy-icon {
+        opacity: 0.4;
+    }
+}
+
+/* Keys: short form in one line, full key on hover, copy on click. */
+#stake-pool-dashboard .validator-pubkeys.cv-keys {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 2px 14px;
+}
+#stake-pool-dashboard .cv-key {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 4px;
+    margin-left: -4px;
+    border-radius: 5px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: var(--secondary-text-color);
+    transition: background 0.15s ease, color 0.15s ease;
+}
+#stake-pool-dashboard .cv-key:hover {
+    background: var(--chart-bg-color);
+    color: var(--text-color);
+}
+#stake-pool-dashboard .cv-key.is-copied {
+    color: #28a745;
+}
+#stake-pool-dashboard .cv-key-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    opacity: 0.7;
+}
+
+/* Meta chips: [delinquent] [commission | MEV] [client version]. */
+#stake-pool-dashboard .cv-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 7px;
+}
+#stake-pool-dashboard .cv-chip {
+    display: inline-flex;
+    align-items: stretch;
+    height: 21px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    font-variant-numeric: tabular-nums;
+    cursor: default;
+}
+#stake-pool-dashboard .cv-seg {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 7px;
+}
+#stake-pool-dashboard .cv-seg + .cv-seg {
+    border-left: 1px solid var(--border-color);
+}
+#stake-pool-dashboard .cv-seg-label {
+    display: inline-block;
+    width: 8px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--secondary-text-color);
+}
+#stake-pool-dashboard .cv-seg.is-missing,
+#stake-pool-dashboard .cv-chip.is-missing .cv-seg {
+    color: var(--secondary-text-color);
+    font-weight: 500;
+}
+#stake-pool-dashboard .cv-chip-client .cv-seg {
+    gap: 6px;
+    padding-left: 6px;
+    color: var(--secondary-text-color);
+}
+/* Client logos: official marks sit directly in the chip, all at the same
+   height (each file is cropped to the mark itself) and centred. Monochrome
+   marks flip with the theme, colour marks stay as they are. Hybrids and BAM
+   builds show two marks side by side. */
+#stake-pool-dashboard .cv-client-logos {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+#stake-pool-dashboard .cv-client-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 10px;
+    flex-shrink: 0;
+}
+#stake-pool-dashboard .cv-client-mark img {
+    display: block;
+    height: 10px;
+    width: auto;
+}
+body.dark-theme-body #stake-pool-dashboard .cv-client-mark.inv-dark img,
+body:not(.dark-theme-body) #stake-pool-dashboard .cv-client-mark.inv-light img {
+    filter: invert(1);
+}
+#stake-pool-dashboard .cv-client-mark.is-generic {
+    width: 10px;
+    color: var(--secondary-text-color);
+    font-size: 10px;
+}
+#stake-pool-dashboard .cv-chip-delinquent {
+    border-color: rgba(220, 53, 69, 0.45);
+    background: rgba(220, 53, 69, 0.08);
+    color: #dc3545;
+}
+#stake-pool-dashboard .cv-chip-delinquent .cv-seg {
+    gap: 5px;
+}
+#stake-pool-dashboard .cv-chip-delinquent i {
+    font-size: 10px;
+}
+
+/* Delinquent validators: the avatar fades to grey. */
+#stake-pool-dashboard .is-delinquent .validator-image-wrapper {
+    filter: grayscale(1);
+    opacity: 0.55;
+}
+
+/* Pool badge rings for stake movement (validators list). Green =
+   activating, red = deactivating, split = both, dashed = the whole
+   relationship is arriving (activating only) or leaving (exiting). */
+#stake-pool-dashboard .pool-badge-wrapper.is-activating .pool-badge,
+#stake-pool-dashboard .pool-badge-wrapper.is-activating .pool-badge:hover,
+#stake-pool-dashboard .pool-badge-wrapper.is-activating-only .pool-badge,
+#stake-pool-dashboard .pool-badge-wrapper.is-activating-only .pool-badge:hover {
+    border-color: rgba(40, 167, 69, 0.85);
+}
+#stake-pool-dashboard .pool-badge-wrapper.is-deactivating .pool-badge,
+#stake-pool-dashboard .pool-badge-wrapper.is-deactivating .pool-badge:hover,
+#stake-pool-dashboard .pool-badge-wrapper.is-exiting .pool-badge,
+#stake-pool-dashboard .pool-badge-wrapper.is-exiting .pool-badge:hover {
+    border-color: rgba(220, 53, 69, 0.85);
+}
+#stake-pool-dashboard .pool-badge-wrapper.is-activating.is-deactivating .pool-badge,
+#stake-pool-dashboard .pool-badge-wrapper.is-activating.is-deactivating .pool-badge:hover {
+    /* Both directions at once: the ring splits in proportion, the activating
+       share in green from the top, clockwise. --act-share comes from JS. */
+    border-color: transparent;
+    background:
+        linear-gradient(var(--logo-bg), var(--logo-bg)) padding-box,
+        conic-gradient(rgba(40, 167, 69, 0.85) 0 var(--act-share, 50%), rgba(220, 53, 69, 0.85) 0) border-box;
+}
+#stake-pool-dashboard .pool-badge-wrapper.is-activating-only .pool-badge,
+#stake-pool-dashboard .pool-badge-wrapper.is-exiting .pool-badge {
+    border-style: dashed;
+}
+#stake-pool-dashboard .pool-badge-wrapper.is-activating-only .pool-badge-stake {
+    color: #28a745 !important;
+}
+#stake-pool-dashboard .pool-badge-wrapper.is-exiting .pool-badge-stake {
+    color: #dc3545 !important;
+}
+
+/* Desktop and tablet: the name column is as wide as the keys line plus a
+   little, long names truncate there, and the stake column gets the freed
+   space instead of running into the pool badges. */
+@media (min-width: 769px) {
+    #stake-pool-dashboard .validator-item > .validator-main-info {
+        flex: 0 0 auto;
+        width: auto;
+        min-width: 0;
+    }
+    #stake-pool-dashboard .validator-item .validator-info {
+        flex: 0 0 300px;
+        width: 300px;
+        max-width: 300px;
+    }
+    #stake-pool-dashboard .validator-item > .validator-stake-stats {
+        flex: 1 1 200px;
+        min-width: 180px;
+        flex-wrap: wrap;
+        row-gap: 6px;
+    }
+}
+
+/* Pool page charts: blocks may shrink below their content (the grid tracks
+   are minmax(0, 1fr)), so nothing pushes the page wider than a phone. */
+#stake-pool-dashboard .pool-chart-block {
+    min-width: 0;
+}
+
+/* Tooltip box for the chips (appended to body, outside the dashboard scope). */
+.pool-tooltip.cv-tip {
+    min-width: 0;
+    max-width: 280px;
+    padding: 8px 12px;
+    font-size: 12px;
+    line-height: 1.45;
+}
+.pool-tooltip.cv-tip .cv-tip-line + .cv-tip-line {
+    margin-top: 2px;
+}
+
+/* Info line rows (text flows normally inside, icon on the left). */
+#stake-pool-dashboard .sp-info-container .sp-info-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+#stake-pool-dashboard .sp-info-container .sp-info-line .fas {
+    margin-top: 1px;
+    flex-shrink: 0;
+}
+#stake-pool-dashboard .sp-info-container .sp-info-version {
+    font-size: 11.5px;
+    opacity: 0.8;
+}
+#stake-pool-dashboard .sp-info-container .sp-info-version .fas {
+    font-size: 12px;
+}
+
+/* Pool page table: identity and vote keys in one wrapping line. */
+#stake-pool-dashboard .pv-validator-pubkey.cv-keys {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 14px;
+}
+
+/* Pool page table: the details column takes the full cell width, so the
+   identity and vote keys stay on one line when there is room. */
+#stake-pool-dashboard .pv-col-validator .pv-validator-info {
+    width: 100%;
+    min-width: 0;
+}
+#stake-pool-dashboard .pv-validator-details {
+    flex: 1 1 auto;
+}
+
+/* Stake movement by pool: tooltip on the activating and deactivating
+   numbers of a validator row. */
+#stake-pool-dashboard .validator-stake-stats [data-cv-flow] {
+    cursor: pointer;
+}
+.pool-tooltip.cv-flow-tip {
+    min-width: 210px;
+    max-width: 300px;
+    padding: 10px 12px;
+}
+.pool-tooltip.cv-flow-tip .pool-tooltip-title {
+    margin-bottom: 6px;
+}
+.cv-flow-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 0;
+    font-size: 12.5px;
+}
+.cv-flow-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    overflow: hidden;
+    object-fit: cover;
+    background: rgba(128, 128, 128, 0.15);
+}
+.cv-flow-logo svg {
+    width: 12px;
+    height: 12px;
+}
+.cv-flow-logo.is-initials {
+    font-size: 8px;
+    font-weight: 700;
+}
+.cv-flow-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.cv-flow-val {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.cv-flow-val.is-up {
+    color: #28a745;
+}
+.cv-flow-val.is-down {
+    color: #dc3545;
+}
+.cv-flow-more {
+    padding-top: 4px;
+    font-size: 11.5px;
+    opacity: 0.7;
+}
+
+/* v2.3.1: the Jito wordmark reads larger than the other marks at the same
+   height, so it gets 1 px of air above and below. */
+#stake-pool-dashboard .cv-client-mark.is-word img {
+    height: 8px;
+}
+
+/* Touch screens: no hover lift or blue border on the validator cards and no
+   tap flash - taps are meant for the tooltips inside the card. */
+#stake-pool-dashboard .validator-item,
+#stake-pool-dashboard .validator-item *,
+#stake-pool-dashboard .pool-validator-row,
+#stake-pool-dashboard .pool-validator-row * {
+    -webkit-tap-highlight-color: transparent;
+}
+@media (hover: none) {
+    #stake-pool-dashboard .validator-item:hover {
+        transform: none;
+        box-shadow: none;
+        border-color: var(--border-color);
+    }
+}
+
+/* ============================================
+   v2.3.2
+   ============================================ */
+
+/* Pool logo circles outside the dashboard scope (tooltips, sub-header)
+   follow the bubble rules: logo background and border, the image fitted
+   inside with contain and pixel padding, never cropped. */
+.cv-flow-logo {
+    width: 20px;
+    height: 20px;
+    background: #f0f4f8;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    box-sizing: border-box;
+}
+body.dark-theme-body .cv-flow-logo {
+    background: #2a2d36;
+    border-color: rgba(255, 255, 255, 0.15);
+}
+.cv-flow-logo img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 2px;
+    box-sizing: border-box;
+}
+
+/* Sticky sub-header: always visible under the site header on every
+   dashboard view; in the page flow, so it never covers content. */
+.cv-subheader {
+    position: sticky;
+    top: 0;
+    z-index: 55;
+    background: rgba(255, 255, 255, 0.92);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    -webkit-tap-highlight-color: transparent;
+}
+body.dark-theme-body .cv-subheader {
+    background: rgba(22, 22, 26, 0.92);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+.cv-subheader-inner {
+    max-width: 1200px;
+    min-height: 44px;
+    margin: 0 auto;
+    padding: 6px 16px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.cv-subheader-logo .cv-flow-logo {
+    width: 26px;
+    height: 26px;
+}
+.cv-flow-logo.is-icon {
+    color: #6c757d;
+    font-size: 12px;
+}
+body.dark-theme-body .cv-flow-logo.is-icon {
+    color: #9aa0a6;
+}
+.cv-subheader-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.cv-subheader-kind {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #6c757d;
+}
+.cv-subheader-kind[hidden] {
+    display: none;
+}
+.cv-subheader-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 15px;
+    font-weight: 600;
+    color: #212529;
+}
+body.dark-theme-body .cv-subheader-kind {
+    color: #9aa0a6;
+}
+body.dark-theme-body .cv-subheader-title {
+    color: #f1f3f5;
+}
+.cv-subheader-top {
+    margin-left: 2px;
+}
+@media (max-width: 480px) {
+    .cv-subheader-inner {
+        padding: 6px 12px;
+        gap: 8px;
+    }
+    .cv-subheader-kind {
+        display: none;
+    }
+}
+
+/* Phones: pool table cards never grow past the card (long names truncate),
+   and the pool bubbles block loses the desktop 12 px offset. */
+@media (max-width: 768px) {
+    #stake-pool-dashboard .pool-validator-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    #stake-pool-dashboard .pool-validator-row > .pv-col,
+    #stake-pool-dashboard .pv-validator-info,
+    #stake-pool-dashboard .pv-validator-details {
+        min-width: 0;
+    }
+    #stake-pool-dashboard .pv-validator-name.cv-name-line .cv-name-text {
+        max-width: none;
+    }
+    #stake-pool-dashboard .validator-item > .validator-pools {
+        margin-left: 0;
+    }
+}
+@media (hover: none) {
+    #stake-pool-dashboard .pool-validator-row:hover {
+        background: none;
+    }
+}
+
+/* Sub-header epoch steps: older / current / newer. */
+.cv-subheader-epochs {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+.cv-subheader-epochs[hidden] {
+    display: none;
+}
+.cv-ep-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #6c757d;
+    font-size: 12px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.cv-ep-btn:hover:not(:disabled) {
+    background: rgba(128, 128, 128, 0.14);
+}
+.cv-ep-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+body.dark-theme-body .cv-ep-btn {
+    color: #9aa0a6;
+}
+.cv-ep-num {
+    min-width: 50px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.cv-ep-num.is-latest {
+    color: #28a745;
+    background: rgba(40, 167, 69, 0.14);
+}
+.cv-ep-num.is-past {
+    color: #b45309;
+    background: rgba(245, 158, 11, 0.18);
+}
+body.dark-theme-body .cv-ep-num.is-past {
+    color: #f59e0b;
+}
+
+/* ============================================
+   VALIDATOR PAGE (v2.4.0)
+   The page reuses the pool page blocks (header, metric cards, chart blocks)
+   and the main page pool cards; the rules here cover what is new. A rule
+   carries !important only where it has to beat a pool-page rule that does.
+   ============================================ */
+#stake-pool-dashboard #validator-detail-view[data-state="message"] > :not(#cv-vd-message) { display: none; }
+#stake-pool-dashboard .cv-vd-msg { text-align: center; padding: 56px 20px; color: var(--secondary-text-color); }
+#stake-pool-dashboard .cv-vd-msg h2 { margin: 0 0 10px; font-size: 22px; color: var(--text-color); }
+#stake-pool-dashboard .cv-vd-msg p { margin: 0 0 8px; line-height: 1.5; }
+#stake-pool-dashboard .cv-vd-msg-key { font-size: 13px; word-break: break-all; opacity: 0.8; }
+#stake-pool-dashboard .cv-vd-back {
+    display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; padding: 8px 14px;
+    border: 1px solid var(--border-color); border-radius: 999px; color: var(--text-color);
+    font-size: 14px; font-weight: 600; text-decoration: none;
+}
+#stake-pool-dashboard .cv-vd-back:hover { border-color: var(--header-color); color: var(--header-color); }
+#stake-pool-dashboard .cv-vd-spinner {
+    width: 34px; height: 34px; margin: 0 auto 14px; border-radius: 50%;
+    border: 3px solid var(--border-color); border-top-color: var(--header-color);
+    animation: cv-vd-spin 0.8s linear infinite;
+}
+@keyframes cv-vd-spin { to { transform: rotate(360deg); } }
+
+/* Links to the validator page from the lists (name and avatar). */
+#stake-pool-dashboard a.cv-vlink { color: inherit; text-decoration: none; }
+#stake-pool-dashboard a.cv-name-text.cv-vlink:hover { color: var(--header-color); }
+#stake-pool-dashboard a.cv-vlink-avatar { display: flex; flex-shrink: 0; border-radius: 50%; }
+#stake-pool-dashboard a.cv-vlink-avatar:hover .validator-image-wrapper { box-shadow: 0 0 0 2px var(--header-color); }
+
+/* Header */
+#stake-pool-dashboard .cv-vd-header .pool-header-left { min-width: 0; flex: 1 1 320px; align-items: flex-start !important; }
+#stake-pool-dashboard .cv-vd-header .pool-header-info { min-width: 0; }
+#stake-pool-dashboard .cv-vd-avatar { width: 64px; height: 64px; flex-shrink: 0; }
+#stake-pool-dashboard .cv-vd-avatar .validator-image {
+    display: block; width: 64px; height: 64px; box-sizing: border-box; border-radius: 50%;
+    object-fit: cover; border: 2px solid var(--border-color); background: var(--logo-bg);
+}
+#stake-pool-dashboard .cv-vd-avatar .validator-image.fallback {
+    display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; font-weight: 700;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+#stake-pool-dashboard #validator-detail-view.cv-vd-delinquent .cv-vd-avatar { filter: grayscale(1); opacity: 0.55; }
+#stake-pool-dashboard .cv-vd-name-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+#stake-pool-dashboard .cv-vd-name-line .pool-detail-name { overflow-wrap: anywhere; }
+#stake-pool-dashboard .cv-vd-badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+#stake-pool-dashboard .cv-vd-badge.is-inactive { color: #dc3545; background: rgba(220, 53, 69, 0.12); border: 1px solid rgba(220, 53, 69, 0.35); }
+#stake-pool-dashboard .cv-vd-badge.is-new { color: #28a745; background: rgba(40, 167, 69, 0.12); border: 1px solid rgba(40, 167, 69, 0.35); }
+#stake-pool-dashboard .cv-vd-keys { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+#stake-pool-dashboard .cv-vd-then { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+#stake-pool-dashboard .cv-vd-then:empty { display: none; }
+/* Everything that describes a past epoch wears the same yellow as the
+   "Viewing past epoch" pill. */
+#stake-pool-dashboard .cv-vd-then-item,
+#stake-pool-dashboard .cv-vd-asof {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid #ffe08a; background: #fff3cd; color: #7a5b00; font-size: 12px; line-height: 1.3;
+}
+body.dark-theme-body #stake-pool-dashboard .cv-vd-then-item,
+body.dark-theme-body #stake-pool-dashboard .cv-vd-asof { border-color: #5c4a10; background: #3a2d07; color: #ffd166; }
+#stake-pool-dashboard .cv-vd-then-item .cv-key { color: inherit; }
+#stake-pool-dashboard .cv-vd-details .pool-details { margin-top: 4px; color: var(--text-color); }
+#stake-pool-dashboard .cv-vd-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+#stake-pool-dashboard .cv-vd-chips:empty { display: none; }
+#stake-pool-dashboard .cv-vd-chips .cv-meta { margin: 0; }
+#stake-pool-dashboard .cv-vd-nodata { font-size: 12px; font-style: italic; color: var(--secondary-text-color); }
+#stake-pool-dashboard .pool-metrics-grid.cv-vd-metrics { grid-template-columns: repeat(3, 1fr) !important; }
+#stake-pool-dashboard .cv-vd-now { font-size: 12px; font-weight: 500; color: var(--secondary-text-color); white-space: nowrap; }
+#stake-pool-dashboard .cv-vd-of { margin-left: 4px; font-size: 12px; font-weight: 400; opacity: 0.6; }
+
+/* Charts */
+#stake-pool-dashboard #validator-detail-view .chart-no-data { min-height: 96px; }
+#stake-pool-dashboard .cv-chart-point { fill: var(--sparkline-color); }
+#stake-pool-dashboard .chart-tooltip .cv-tip-date { margin-left: 4px; font-weight: 400; color: var(--secondary-text-color); }
+
+/* Pools block and changes */
+#stake-pool-dashboard .cv-vd-block { margin-top: 24px; padding: 20px; }
+#stake-pool-dashboard .cv-vd-block h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 16px; color: var(--text-color); }
+#stake-pool-dashboard .cv-vd-block h3 i { color: var(--header-color); }
+#stake-pool-dashboard .cv-vd-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+#stake-pool-dashboard .cv-vd-sub { margin: 4px 0 0; font-size: 13px; color: var(--secondary-text-color); }
+#stake-pool-dashboard .cv-vd-toggle { display: inline-flex; overflow: hidden; border: 1px solid var(--border-color); border-radius: 8px; }
+#stake-pool-dashboard .cv-vd-toggle button {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 0; cursor: pointer;
+    background: var(--bg-color); color: var(--secondary-text-color); font-family: inherit; font-size: 13px;
+}
+#stake-pool-dashboard .cv-vd-toggle button.active { background: var(--header-color); color: #fff; }
+#stake-pool-dashboard .cv-vd-sources .category-section { margin: 16px 0 0; }
+/* Cards never get wider than their container (narrow phones). */
+#stake-pool-dashboard .cv-vd-sources .sp-groups-grid { grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); }
+#stake-pool-dashboard .cv-vd-sources .category-header .meta { white-space: nowrap; }
+#stake-pool-dashboard .cv-src-card .cv-src-link { display: flex; align-items: center; gap: 15px; min-width: 0; color: inherit; text-decoration: none; }
+#stake-pool-dashboard .cv-src-card .cv-src-link:hover .pool-name { color: var(--header-color); }
+#stake-pool-dashboard .cv-src-initials { font-size: 16px; font-weight: 700; }
+#stake-pool-dashboard .cv-src-card .interactive-chart-container { min-height: 0; margin: 4px 0; }
+#stake-pool-dashboard .cv-vd-small { margin-top: 14px; font-size: 13px; color: var(--secondary-text-color); }
+#stake-pool-dashboard .cv-vd-small span { border-bottom: 1px dashed var(--secondary-text-color); cursor: help; }
+#stake-pool-dashboard .cv-vd-src-text { display: flex; flex-direction: column; line-height: 1.25; }
+#stake-pool-dashboard .cv-vd-src-name { font-weight: 600; }
+#stake-pool-dashboard .cv-vd-src-cat { font-size: 11px; color: var(--secondary-text-color); }
+#stake-pool-dashboard .cv-vd-muted { color: var(--secondary-text-color); }
+#stake-pool-dashboard .cv-vd-pos { color: #28a745; }
+#stake-pool-dashboard .cv-vd-neg { color: #dc3545; }
+#stake-pool-dashboard .cv-vd-changes-list { display: flex; flex-direction: column; margin-top: 14px; }
+#stake-pool-dashboard .cv-vd-change {
+    display: grid; grid-template-columns: 110px 130px minmax(0, 1fr); align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 14px; color: var(--text-color);
+}
+#stake-pool-dashboard .cv-vd-change:last-child { border-bottom: 0; }
+#stake-pool-dashboard .cv-vd-change-epoch,
+#stake-pool-dashboard .cv-vd-more {
+    justify-self: start; padding: 3px 10px; border: 1px solid var(--border-color); border-radius: 999px; cursor: pointer;
+    background: var(--bg-color); color: var(--text-color); font-family: inherit; font-size: 12px; font-weight: 600;
+}
+#stake-pool-dashboard .cv-vd-change-epoch:hover,
+#stake-pool-dashboard .cv-vd-more:hover { border-color: var(--header-color); color: var(--header-color); }
+#stake-pool-dashboard .cv-vd-more { margin-top: 12px; padding: 6px 14px; }
+#stake-pool-dashboard .cv-vd-change-kind { font-size: 13px; color: var(--secondary-text-color); }
+#stake-pool-dashboard .cv-vd-change-text { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; overflow-wrap: anywhere; }
+#stake-pool-dashboard .cv-vd-arrow { font-size: 11px; color: var(--secondary-text-color); }
+#stake-pool-dashboard .cv-vd-changes-foot { margin: 14px 0 0; font-size: 12px; color: var(--secondary-text-color); }
+#stake-pool-dashboard .cv-vd-changes-empty { margin-top: 14px; font-size: 14px; color: var(--secondary-text-color); }
+/* A pool page opened from a validator page scrolls to its table. */
+#stake-pool-dashboard .pool-validators-section { scroll-margin-top: 150px; }
+/* Validator avatar in the sub-header: a photo, not a padded logo. */
+.cv-flow-logo.cv-vd-mini img { padding: 0; object-fit: cover; border-radius: 50%; }
+@media (max-width: 768px) {
+    #stake-pool-dashboard .pool-metrics-grid.cv-vd-metrics { grid-template-columns: repeat(2, 1fr) !important; }
+    #stake-pool-dashboard .cv-vd-avatar,
+    #stake-pool-dashboard .cv-vd-avatar .validator-image { width: 52px; height: 52px; }
+    #stake-pool-dashboard .cv-vd-avatar .validator-image.fallback { font-size: 20px; }
+    #stake-pool-dashboard .cv-vd-block { padding: 12px; }
+    #stake-pool-dashboard .cv-vd-header .pool-header-left { flex: 0 0 auto; }
+    #stake-pool-dashboard #cv-vd-epoch-info .epoch-separator { display: none; }
+    #stake-pool-dashboard .cv-vd-sources .category-section { padding: 10px; }
+    #stake-pool-dashboard .cv-vd-sources .category-header .title { font-size: 18px; }
+    #stake-pool-dashboard .cv-vd-sources .sp-group-card { padding: 18px; }
+    #stake-pool-dashboard .cv-vd-change { grid-template-columns: auto minmax(0, 1fr); }
+    #stake-pool-dashboard .cv-vd-change-text { grid-column: 1 / -1; }
+}
+
+/* ---- v2.4.0 round 2: charts, donut, sources table, search ---- */
+#stake-pool-dashboard #validator-detail-view .desc-wrap:not([data-collapsible="1"]) { cursor: default; }
+#stake-pool-dashboard #validator-detail-view .chart-tooltip:empty { display: none; }
+#stake-pool-dashboard .cv-grid-line { stroke: var(--secondary-text-color); stroke-width: 1; stroke-dasharray: 2 4; opacity: 0.35; }
+#stake-pool-dashboard .cv-grid-label {
+    font-size: 9px; fill: var(--secondary-text-color); stroke: var(--card-bg); stroke-width: 3px;
+    stroke-linejoin: round; paint-order: stroke;
+}
+#stake-pool-dashboard .cv-chart-stats { margin-top: 3px; font-size: 11px; }
+#stake-pool-dashboard .cv-chart-ep {
+    padding: 0 5px; border: 1px solid var(--border-color); border-radius: 999px; background: transparent;
+    color: var(--secondary-text-color); font-family: inherit; font-size: 10px; line-height: 1.5; cursor: pointer;
+}
+#stake-pool-dashboard .cv-chart-ep:hover { border-color: var(--header-color); color: var(--header-color); }
+#stake-pool-dashboard .cv-vd-aux-block h3 .cv-vd-toggle { margin-left: auto; }
+#stake-pool-dashboard .cv-vd-toggle-sm button { padding: 3px 9px; font-size: 11px; font-weight: 500; }
+/* Donut */
+#stake-pool-dashboard .cv-vd-donut { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+#stake-pool-dashboard .cv-vd-donut .chart-no-data { flex: 1 1 100%; }
+#stake-pool-dashboard .cv-donut-wrap { position: relative; flex: 0 0 180px; width: 180px; height: 180px; margin: 0 auto; }
+#stake-pool-dashboard .cv-donut-svg { display: block; width: 180px; height: 180px; overflow: visible; }
+#stake-pool-dashboard .cv-donut-seg { cursor: pointer; transition: stroke-width 0.15s ease, opacity 0.15s ease; }
+#stake-pool-dashboard .cv-donut-svg:hover .cv-donut-seg { opacity: 0.5; }
+#stake-pool-dashboard .cv-donut-svg .cv-donut-seg:hover { opacity: 1; stroke-width: 27; }
+#stake-pool-dashboard .cv-donut-center { position: absolute; left: 50%; top: 50%; width: 76px; height: 76px; transform: translate(-50%, -50%); pointer-events: none; }
+#stake-pool-dashboard .cv-donut-center .validator-image {
+    display: block; width: 76px; height: 76px; box-sizing: border-box; border-radius: 50%; object-fit: cover;
+    border: 2px solid var(--border-color); background: var(--logo-bg);
+}
+#stake-pool-dashboard .cv-donut-center .validator-image.fallback {
+    display: flex; align-items: center; justify-content: center; color: #fff; font-size: 26px; font-weight: 700;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+#stake-pool-dashboard .cv-donut-legend { flex: 1 1 210px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+#stake-pool-dashboard .cv-donut-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 8px; color: var(--text-color); font-size: 13px; text-decoration: none; }
+#stake-pool-dashboard a.cv-donut-row:hover { background: var(--bg-color); color: var(--header-color); }
+#stake-pool-dashboard .cv-donut-dot { flex: 0 0 10px; width: 10px; height: 10px; border-radius: 3px; }
+#stake-pool-dashboard .cv-donut-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#stake-pool-dashboard .cv-donut-share { flex-shrink: 0; font-weight: 600; }
+#stake-pool-dashboard .cv-donut-sol { flex: 0 0 52px; text-align: right; font-size: 12px; color: var(--secondary-text-color); }
+#stake-pool-dashboard .cv-donut-more { padding: 4px 6px; font-size: 12px; color: var(--secondary-text-color); }
+/* Pools block: sort bar and table */
+#stake-pool-dashboard .cv-vd-sortbar { margin-top: 14px; }
+#stake-pool-dashboard .cv-vd-flat-grid { margin-top: 16px; }
+#stake-pool-dashboard .cv-st {
+    margin-top: 14px; overflow: hidden; border: 1px solid var(--border-color); border-radius: 12px;
+    --cv-st-cols: minmax(210px, 2.1fr) 1.1fr 1.5fr 0.8fr 1fr 1fr 1fr 130px;
+}
+#stake-pool-dashboard .cv-st.no-counts { --cv-st-cols: minmax(210px, 2.1fr) 1.1fr 1.5fr 1fr 1fr 1fr 130px; }
+#stake-pool-dashboard .cv-st-row {
+    display: grid; grid-template-columns: var(--cv-st-cols); align-items: center; column-gap: 14px; padding: 10px 16px;
+    border-bottom: 1px solid var(--border-color); color: var(--text-color); font-size: 14px; text-decoration: none;
+}
+#stake-pool-dashboard .cv-st > .cv-st-row:last-child { border-bottom: 0; }
+#stake-pool-dashboard .cv-st-head { padding-top: 9px; padding-bottom: 9px; background: var(--bg-color); }
+#stake-pool-dashboard .cv-st-h {
+    display: flex; align-items: center; justify-content: flex-end; gap: 5px; min-width: 0; padding: 0; border: 0; background: none;
+    font-family: inherit; font-size: 12px; font-weight: 600; color: var(--secondary-text-color); white-space: nowrap; cursor: pointer;
+}
+#stake-pool-dashboard .cv-st-h.cv-st-source { justify-content: flex-start; }
+#stake-pool-dashboard div.cv-st-h { cursor: default; }
+#stake-pool-dashboard .cv-st-h i { font-size: 10px; opacity: 0.45; }
+#stake-pool-dashboard .cv-st-h.is-sorted { color: var(--header-color); }
+#stake-pool-dashboard .cv-st-h.is-sorted i { opacity: 1; }
+#stake-pool-dashboard .cv-st-c { min-width: 0; text-align: right; white-space: nowrap; }
+#stake-pool-dashboard .cv-st-c i { font-size: 12px; }
+#stake-pool-dashboard .cv-st-source { display: flex; align-items: center; gap: 12px; text-align: left; white-space: normal; }
+#stake-pool-dashboard .cv-st .cv-flow-logo { flex: 0 0 36px; width: 36px; height: 36px; }
+#stake-pool-dashboard .cv-st-share { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+#stake-pool-dashboard .cv-st-bar { flex: 1 1 auto; min-width: 24px; height: 6px; overflow: hidden; border-radius: 999px; background: var(--border-color); }
+#stake-pool-dashboard .cv-st-bar i { display: block; height: 100%; border-radius: 999px; background: var(--header-color); }
+#stake-pool-dashboard .cv-st-pct { flex: 0 0 54px; font-weight: 600; }
+#stake-pool-dashboard .cv-st-trend { display: flex; justify-content: flex-end; }
+#stake-pool-dashboard .cv-mini-spark { width: 120px; height: 28px; overflow: visible; }
+#stake-pool-dashboard .cv-mini-spark path { fill: none; stroke: var(--sparkline-color); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+#stake-pool-dashboard .cv-st-group {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 8px 16px;
+    border-bottom: 1px solid var(--border-color); background: var(--bg-color); font-size: 13px; font-weight: 700; color: var(--text-color);
+}
+#stake-pool-dashboard .cv-st-group-meta { font-size: 12px; font-weight: 500; color: var(--secondary-text-color); }
+#stake-pool-dashboard .cv-vd-note { margin: 12px 0 0; font-size: 12px; color: var(--secondary-text-color); }
+/* Validators List: former names, inactive matches, age */
+#stake-pool-dashboard .cv-formerly { font-size: 12px; color: var(--secondary-text-color); }
+#stake-pool-dashboard .cv-formerly b { font-weight: 600; color: var(--text-color); }
+#stake-pool-dashboard .validators-no-results.cv-no-active { padding: 22px 16px 4px; }
+#stake-pool-dashboard .cv-inactive-block { margin-top: 18px; padding: 12px; border: 1px dashed var(--border-color); border-radius: 14px; }
+#stake-pool-dashboard .cv-inactive-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin: 2px 4px 10px; font-size: 15px; font-weight: 700; color: var(--text-color); }
+#stake-pool-dashboard .cv-inactive-head i { font-size: 13px; color: #dc3545; }
+#stake-pool-dashboard .cv-inactive-head span { font-size: 12px; font-weight: 400; color: var(--secondary-text-color); }
+#stake-pool-dashboard .cv-inactive-row {
+    display: grid; grid-template-columns: 40px minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 8px 10px;
+    border-radius: 10px; color: var(--text-color); text-decoration: none;
+}
+#stake-pool-dashboard .cv-inactive-row:hover { background: var(--bg-color); }
+#stake-pool-dashboard .cv-inactive-row:hover .cv-inactive-name { color: var(--header-color); }
+#stake-pool-dashboard .cv-inactive-avatar {
+    display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%;
+    background: #8a94a6; color: #fff; font-size: 15px; font-weight: 700; opacity: 0.75;
+}
+#stake-pool-dashboard .cv-inactive-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+#stake-pool-dashboard .cv-inactive-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+#stake-pool-dashboard .cv-inactive-keys { font-size: 11px; color: var(--secondary-text-color); }
+#stake-pool-dashboard .cv-inactive-meta { font-size: 12px; font-weight: 600; color: #dc3545; white-space: nowrap; }
+#stake-pool-dashboard .cv-inactive-stake { font-size: 12px; color: var(--secondary-text-color); text-align: right; white-space: nowrap; }
+#stake-pool-dashboard .cv-inactive-more { margin: 8px 10px 2px; font-size: 12px; color: var(--secondary-text-color); }
+#stake-pool-dashboard .cv-chip-age i { margin-right: 4px; font-size: 10px; }
+.pool-tooltip-stat.accounts .label i { color: #8a63d2; }
+@media (max-width: 1023px) {
+    #stake-pool-dashboard .cv-st { overflow: visible; border: 0; border-radius: 0; }
+    #stake-pool-dashboard .cv-st-head { display: none; }
+    #stake-pool-dashboard .cv-st-row,
+    #stake-pool-dashboard .cv-st > .cv-st-row:last-child {
+        grid-template-columns: 1fr 1fr; row-gap: 10px; margin-bottom: 10px; padding: 12px;
+        border: 1px solid var(--border-color); border-radius: 12px;
+    }
+    #stake-pool-dashboard .cv-st-source,
+    #stake-pool-dashboard .cv-st-trend { grid-column: 1 / -1; }
+    #stake-pool-dashboard .cv-st-c[data-label] { text-align: left; }
+    #stake-pool-dashboard .cv-st-c[data-label]::before {
+        content: attr(data-label); display: block; margin-bottom: 2px; font-size: 11px; color: var(--secondary-text-color); white-space: normal;
+    }
+    #stake-pool-dashboard .cv-st-share,
+    #stake-pool-dashboard .cv-st-trend { flex-wrap: wrap; justify-content: flex-start; }
+    #stake-pool-dashboard .cv-st-share::before,
+    #stake-pool-dashboard .cv-st-trend::before { flex: 0 0 100%; }
+    #stake-pool-dashboard .cv-mini-spark { width: 100%; }
+    #stake-pool-dashboard .cv-st-group { padding: 6px 2px; border: 0; background: none; }
+    #stake-pool-dashboard .cv-inactive-row { grid-template-columns: 40px minmax(0, 1fr); }
+    #stake-pool-dashboard .cv-inactive-meta,
+    #stake-pool-dashboard .cv-inactive-stake { grid-column: 2; text-align: left; }
+    #stake-pool-dashboard .cv-donut-legend { flex-basis: 100%; }
+}
+
+/* ---- v2.4.0 round 3 ---- */
+#stake-pool-dashboard .cv-zero-run { stroke: var(--secondary-text-color); stroke-width: 1.5; stroke-dasharray: 3 4; opacity: 0.55; }
+#stake-pool-dashboard .cv-mini-spark path.cv-mini-idle { stroke: var(--secondary-text-color); stroke-dasharray: 2 3; opacity: 0.5; }
+#stake-pool-dashboard .cv-mini-spark path.cv-mini-mark { stroke: #f5c518; stroke-width: 7; }
+/* Pools table: the numbers sit close together, the pool and the share bar take the rest. */
+#stake-pool-dashboard .cv-st { --cv-st-cols: minmax(200px, 1.6fr) 110px minmax(130px, 1fr) 70px 96px 100px 96px 120px 18px; }
+#stake-pool-dashboard .cv-st.no-counts { --cv-st-cols: minmax(200px, 1.6fr) 110px minmax(130px, 1fr) 96px 100px 96px 120px 18px; }
+#stake-pool-dashboard .cv-st-row { column-gap: 12px; }
+#stake-pool-dashboard .cv-st-row.is-past { color: var(--secondary-text-color); }
+#stake-pool-dashboard .cv-st-row.is-past .cv-flow-logo,
+#stake-pool-dashboard .cv-src-card.is-past .card-header-logo { filter: grayscale(1); opacity: 0.6; }
+#stake-pool-dashboard .cv-src-card.is-past .pool-name { color: var(--secondary-text-color); }
+#stake-pool-dashboard .cv-vd-past-line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+#stake-pool-dashboard .cv-src-card.is-past .cv-vd-past-line { margin: 0 0 10px; }
+#stake-pool-dashboard .cv-vd-past-badge {
+    padding: 1px 8px; border: 1px solid var(--border-color); border-radius: 999px;
+    font-size: 11px; font-weight: 600; color: var(--secondary-text-color); white-space: nowrap;
+}
+#stake-pool-dashboard .cv-vd-filter { margin-top: 12px; font-size: 13px; color: var(--secondary-text-color); }
+#stake-pool-dashboard .cv-vd-filter b { color: var(--text-color); }
+#stake-pool-dashboard .cv-vd-linkbtn { padding: 0; border: 0; background: none; color: var(--header-color); font: inherit; text-decoration: underline; cursor: pointer; }
+#stake-pool-dashboard .cv-vd-linkbtn:disabled { color: var(--secondary-text-color); text-decoration: none; cursor: default; }
+/* Donut: a slice or a legend row picks a pool for the list below. */
+#stake-pool-dashboard button.cv-donut-row { width: 100%; border: 0; background: none; font-family: inherit; text-align: left; cursor: pointer; }
+#stake-pool-dashboard button.cv-donut-row:hover,
+#stake-pool-dashboard .cv-donut-row.is-selected { background: var(--bg-color); }
+#stake-pool-dashboard .cv-donut-row.is-selected .cv-donut-name { color: var(--header-color); font-weight: 600; }
+#stake-pool-dashboard .cv-donut-svg.has-selection .cv-donut-seg { opacity: 0.35; }
+#stake-pool-dashboard .cv-donut-svg.has-selection .cv-donut-seg.is-selected { opacity: 1; stroke-width: 27; }
+#stake-pool-dashboard .cv-donut-more span { border-bottom: 1px dashed var(--secondary-text-color); cursor: help; }
+/* Cards by category: sections stand next to each other, a category with one
+   card takes one column instead of a whole row. */
+#stake-pool-dashboard .cv-vd-sources .cv-cat-flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: stretch; margin-top: 16px; }
+#stake-pool-dashboard .cv-vd-sources .cv-cat-flow .category-section { min-width: 0; margin: 0; }
+#stake-pool-dashboard .cv-vd-sources .cv-cat-flow .category-section.cv-cat-n2 { grid-column: span 2; }
+#stake-pool-dashboard .cv-vd-sources .cv-cat-flow .category-section.cv-cat-n3 { grid-column: 1 / -1; }
+#stake-pool-dashboard .cv-vd-sources .cv-cat-flow .category-section .sp-groups-grid { grid-template-columns: minmax(0, 1fr); }
+#stake-pool-dashboard .cv-vd-sources .cv-cat-flow .category-section.cv-cat-n2 .sp-groups-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#stake-pool-dashboard .cv-vd-sources .cv-cat-flow .category-section.cv-cat-n3 .sp-groups-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#stake-pool-dashboard .cv-vd-sources .cv-cat-flow .category-header .title { font-size: 18px; }
+/* Notes about the present on a past-epoch page are neutral, not yellow. */
+#stake-pool-dashboard .cv-vd-then-item.is-now,
+body.dark-theme-body #stake-pool-dashboard .cv-vd-then-item.is-now { border-color: var(--border-color); background: var(--bg-color); color: var(--secondary-text-color); }
+#stake-pool-dashboard .cv-vd-then-item.is-now b { color: var(--text-color); }
+#stake-pool-dashboard .cv-vd-unit { font-size: 0.72em; font-weight: 600; color: var(--secondary-text-color); }
+/* Metric cards: six compact tiles in one row on wide screens. */
+@media (min-width: 1100px) {
+    #stake-pool-dashboard .pool-metrics-grid.cv-vd-metrics { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; gap: 10px !important; }
+    #stake-pool-dashboard .cv-vd-metrics .pool-metric-card { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; padding: 12px 14px !important; }
+    #stake-pool-dashboard .cv-vd-metrics .pool-metric-icon { width: auto !important; font-size: 16px !important; }
+    #stake-pool-dashboard .cv-vd-metrics .pool-metric-value { font-size: 16px !important; overflow-wrap: anywhere; }
+    #stake-pool-dashboard .cv-vd-metrics .pool-metric-label { font-size: 11px !important; }
+}
+/* Pool page: rank of the validator inside the pool. */
+#stake-pool-dashboard .pv-rank { flex-shrink: 0; min-width: 34px; font-size: 13px; font-weight: 700; color: var(--secondary-text-color); text-align: center; }
+/* Inactive validators in the search results. */
+#stake-pool-dashboard a.cv-inactive-avatar { overflow: hidden; text-decoration: none; }
+#stake-pool-dashboard .cv-inactive-avatar img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(1); }
+#stake-pool-dashboard a.cv-inactive-name { color: var(--text-color); text-decoration: none; }
+#stake-pool-dashboard a.cv-inactive-name:hover { color: var(--header-color); }
+#stake-pool-dashboard .cv-inactive-keys { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+#stake-pool-dashboard .cv-inactive-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+#stake-pool-dashboard .cv-inactive-chips:empty { display: none; }
+#stake-pool-dashboard .cv-inactive-chips .cv-meta { margin: 0; }
+/* Sub-header: label and title share a baseline, the logo is centred on them. */
+.cv-subheader-logo { display: flex; align-items: center; align-self: center; line-height: 0; }
+/* A tooltip pinned by a click: solid, outlined, selectable. */
+.pool-tooltip.is-pinned {
+    pointer-events: auto; user-select: text; -webkit-user-select: text; background-color: rgba(255, 255, 255, 0.98);
+    border-color: var(--header-color); box-shadow: 0 0 0 1px var(--header-color), 0 12px 36px rgba(0, 0, 0, 0.25);
+}
+body.dark-theme-body .pool-tooltip.is-pinned { background-color: rgba(30, 30, 30, 0.98); border-color: #4fd1bd; box-shadow: 0 0 0 1px #4fd1bd, 0 12px 36px rgba(0, 0, 0, 0.5); }
+@media (max-width: 1099px) {
+    #stake-pool-dashboard .cv-vd-sources .cv-cat-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #stake-pool-dashboard .cv-vd-sources .cv-cat-flow .category-section.cv-cat-n2,
+    #stake-pool-dashboard .cv-vd-sources .cv-cat-flow .category-section.cv-cat-n3 { grid-column: 1 / -1; }
+    #stake-pool-dashboard .cv-vd-sources .cv-cat-flow .category-section.cv-cat-n3 .sp-groups-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 1023px) {
+}
+@media (max-width: 720px) {
+    #stake-pool-dashboard .cv-vd-sources .cv-cat-flow { grid-template-columns: minmax(0, 1fr); }
+    #stake-pool-dashboard .cv-vd-sources .cv-cat-flow .category-section.cv-cat-n2,
+    #stake-pool-dashboard .cv-vd-sources .cv-cat-flow .category-section.cv-cat-n3 { grid-column: auto; }
+    #stake-pool-dashboard .cv-vd-sources .cv-cat-flow .category-section .sp-groups-grid,
+    #stake-pool-dashboard .cv-vd-sources .cv-cat-flow .category-section.cv-cat-n2 .sp-groups-grid,
+    #stake-pool-dashboard .cv-vd-sources .cv-cat-flow .category-section.cv-cat-n3 .sp-groups-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---- v2.4.0 round 4 ---- */
+/* One arrow for every name that opens another page of the dashboard. */
+#stake-pool-dashboard svg.cv-go {
+    display: inline-block; width: 0.82em; height: 0.82em; margin-left: 0.32em; vertical-align: -0.06em; fill: none;
+    stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; opacity: 0; transition: opacity 0.15s ease;
+}
+#stake-pool-dashboard a:hover svg.cv-go,
+#stake-pool-dashboard .sp-pool-card .card-header:hover svg.cv-go { opacity: 1; }
+@media (hover: none) {
+    #stake-pool-dashboard svg.cv-go { opacity: 0.5; }
+}
+#stake-pool-dashboard .cv-nw { white-space: nowrap; }
+/* Pools table: the name is the link; the small chart closes the row. */
+#stake-pool-dashboard .cv-st { --cv-st-cols: minmax(210px, 1.7fr) 110px minmax(130px, 1fr) 70px 96px 100px 84px 132px; }
+#stake-pool-dashboard .cv-st.no-counts { --cv-st-cols: minmax(210px, 1.7fr) 110px minmax(130px, 1fr) 96px 100px 84px 132px; }
+#stake-pool-dashboard .cv-st-trend { padding-left: 12px; }
+#stake-pool-dashboard a.cv-vd-src-name { color: var(--text-color); text-decoration: none; }
+#stake-pool-dashboard a.cv-vd-src-name:hover,
+#stake-pool-dashboard .cv-src-card a.cv-src-link:hover .pool-name { color: var(--header-color); }
+/* Which pools to show (next to Table / Cards). */
+#stake-pool-dashboard .cv-vd-head-tools { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
+#stake-pool-dashboard .cv-vd-count { margin-left: 6px; padding: 0 6px; border-radius: 999px; background: rgba(128, 128, 128, 0.22); font-size: 11px; font-weight: 600; }
+#stake-pool-dashboard .cv-vd-toggle button.active .cv-vd-count { background: rgba(255, 255, 255, 0.28); }
+#stake-pool-dashboard .cv-vd-kept { font-size: 12px; font-style: italic; color: var(--secondary-text-color); cursor: help; }
+/* Donut legend: pool logos next to the colour dots. */
+#stake-pool-dashboard .cv-donut-row .cv-flow-logo { flex: 0 0 20px; width: 20px; height: 20px; }
+/* Validators list: the mark of a validator that is inactive now (past epochs). */
+#stake-pool-dashboard .cv-gone-line { margin: 1px 0 2px; }
+#stake-pool-dashboard .cv-gone-badge {
+    display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border: 1px solid rgba(220, 53, 69, 0.35); border-radius: 999px;
+    background: rgba(220, 53, 69, 0.1); color: #dc3545; font-size: 11px; font-weight: 600;
+}
+#stake-pool-dashboard .stake-stat.active[data-cv-flow] { cursor: default; }
+/* Tooltip pieces (tooltips live in body, so no dashboard scope). */
+.cv-tip-who { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(128, 128, 128, 0.3); font-size: 13px; font-weight: 700; }
+.cv-tip-who .cv-flow-logo { flex: 0 0 22px; width: 22px; height: 22px; }
+.pool-tooltip-title.cv-tip-pool { display: flex; align-items: center; gap: 8px; }
+.cv-tip-dim { margin-left: 6px; font-weight: 400; opacity: 0.65; }
+/* Sub-header: logo, label and title centred on one line. */
+.cv-subheader-text { align-items: center; }
+.cv-subheader-kind { position: relative; top: 1px; line-height: 1; }
+.cv-subheader-title { line-height: 1.25; }
+
+/* ---- v2.4.0 round 5 ---- */
+/* A staker's logo opens its page too; on small screens a corner icon does
+   (there is no hover arrow there). */
+#stake-pool-dashboard a.cv-st-logo { display: flex; flex-shrink: 0; border-radius: 50%; }
+#stake-pool-dashboard a.cv-st-logo:hover .cv-flow-logo { box-shadow: 0 0 0 2px var(--header-color); }
+#stake-pool-dashboard .cv-corner { display: none; padding: 4px; color: var(--secondary-text-color); font-size: 13px; line-height: 1; text-decoration: none; }
+#stake-pool-dashboard .cv-corner:hover { color: var(--header-color); }
+/* Docs: the card about the validator page spans both columns. */
+#stake-pool-dashboard .docs-grid-main .doc-wide { grid-column: 1 / -1; }
+@media (min-width: 1280px) {
+    /* Stake numbers of a list row, a little larger where there is room (narrower rows would wrap). */
+    #stake-pool-dashboard .validator-item .stake-stat { font-size: 14.5px; }
+    #stake-pool-dashboard .validator-item .stake-stat i { font-size: 13px; }
+}
+@media (max-width: 1023px) {
+    #stake-pool-dashboard .cv-st-row { position: relative; }
+    #stake-pool-dashboard .cv-st-row .cv-corner { display: block; position: absolute; top: 12px; right: 10px; }
+    #stake-pool-dashboard .cv-st-row .cv-st-source { padding-right: 26px; }
+    #stake-pool-dashboard .cv-st-trend { padding-left: 0; }
+    #stake-pool-dashboard .cv-src-card .cv-corner { display: block; flex-shrink: 0; margin-left: auto; }
+    #stake-pool-dashboard .cv-st svg.cv-go,
+    #stake-pool-dashboard .cv-src-card svg.cv-go { display: none; }
+}
+@media (max-width: 768px) {
+    #stake-pool-dashboard .cv-vd-head-tools { justify-content: flex-start; width: 100%; }
+    /* Top card on phones: the cluster and the validators count give way (the count is in the list below). */
+    #stake-pool-dashboard .sp-summary-card.cv-phone-hide { display: none; }
+}
+
+/* ---- v2.4.0 round 6 ---- */
+/* A logo inside a link keeps its own colour (the Other Stakes icon is drawn with currentColor). */
+#stake-pool-dashboard a.cv-st-logo { color: inherit; }
+/* Stakers with no stake in the epoch: the numbers step back, the chart stays. */
+#stake-pool-dashboard .cv-st-row.is-past .cv-st-c:not(.cv-st-source):not(.cv-st-trend) { opacity: 0.45; }
+#stake-pool-dashboard .cv-src-card.is-past .stat-item .value,
+#stake-pool-dashboard .cv-src-card.is-past .breakdown-item .value { color: var(--secondary-text-color); }
+/* "Viewing past epoch" pill of the pool and validator pages in the dark theme
+   (the older rule looked for .dark-theme above the dashboard root and never matched). */
+body.dark-theme-body #stake-pool-dashboard .pool-epoch-stale { border-color: #5c4a10; background: #3a2d07; color: #ffd166; }
+/* Docs: icons lead the lines of the validator page card. */
+#stake-pool-dashboard .doc-wide ul { padding-left: 0; list-style: none; }
+#stake-pool-dashboard .doc-wide li { position: relative; padding-left: 30px; }
+#stake-pool-dashboard .doc-wide li > i:first-child { position: absolute; left: 0; top: 0.3em; width: 20px; text-align: center; color: var(--header-color); }
+#stake-pool-dashboard .doc-wide .cv-doc-i { margin: 0 2px; color: var(--header-color); }
+#stake-pool-dashboard .doc-wide .cv-doc-i.is-past { color: #d9a400; }
+@media (max-width: 480px) {
+    /* Phones: the past-epoch pill and the epoch select share one row. */
+    #stake-pool-dashboard .controls-left,
+    #stake-pool-dashboard .pool-controls-left { flex-wrap: nowrap; gap: 8px; }
+    #stake-pool-dashboard .controls-left .epoch-control .label,
+    #stake-pool-dashboard .pool-controls-left .pool-epoch-control .label { display: none; }
+    #stake-pool-dashboard .epoch-stale,
+    #stake-pool-dashboard .pool-epoch-stale { flex-shrink: 0; padding: 6px 9px; white-space: nowrap; }
+    #stake-pool-dashboard #epoch-select,
+    #stake-pool-dashboard #pool-epoch-select,
+    #stake-pool-dashboard #validator-epoch-select { min-width: 0; }
+}
+
+/* ---- v2.4.0 round 7 ---- */
+/* Donut: the ring and the legend hang from the top of the block, so the ring
+   keeps its place when the legend gets longer or shorter between epochs. */
+#stake-pool-dashboard .cv-vd-donut { align-items: flex-start; }
+
+/* ============================================
+   ISOMETRIC POOL SPRITES (v3.0.0)
+   Places marked with data-logo-iso show the isometric sprite of a pool.
+   The sprite stands on its own: no plate, no border, no padding.
+   A pool without a sprite (or a sprite that failed to load) shows its
+   flat logo in the same manner: no plate, turned a little, with a side
+   face drawn by stacked shadows, so the row keeps one style.
+   Small places (tooltips, legends, sort buttons, the bubbles of the
+   validators list) are not marked and keep the flat logo on its plate.
+   ============================================ */
+#stake-pool-dashboard { --iso-side: #35575d; }
+body.dark-theme-body #stake-pool-dashboard { --iso-side: #93a8ab; }
+
+/* Wrappers lose the plate. */
+#stake-pool-dashboard .card-header-logo:has(> img[data-logo-iso]),
+#stake-pool-dashboard .cv-st .cv-flow-logo:has(> img[data-logo-iso]),
+#stake-pool-dashboard .pool-validators-stat-card .stat-icon:has(> img[data-logo-iso]),
+#stake-pool-dashboard .stake-distribution-block .stake-distribution-center:has(> img[data-logo-iso]) {
+    background: transparent;
+    border-color: transparent;
+    border-radius: 0;
+    overflow: visible;
+}
+/* Stakers table on the validator page: the row logo grows to 40 px. */
+#stake-pool-dashboard .cv-st .cv-flow-logo:has(> img[data-logo-iso]) {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+}
+#stake-pool-dashboard .pool-validators-stat-card .stat-icon:has(> img[data-logo-iso]) {
+    width: 40px;
+    height: 40px;
+}
+/* Pool page: the header image is its own plate. */
+#stake-pool-dashboard .pool-detail-image[data-logo-iso] {
+    background: transparent !important;
+    border-color: transparent !important;
+    border-radius: 0 !important;
+}
+
+/* The sprite itself. */
+#stake-pool-dashboard .card-header-logo > img[data-logo-iso][src^="/pool-logos/"],
+#stake-pool-dashboard .cv-st .cv-flow-logo > img[data-logo-iso][src^="/pool-logos/"],
+#stake-pool-dashboard .pool-validators-stat-card .stat-icon > img[data-logo-iso][src^="/pool-logos/"] {
+    padding: 0;
+    object-fit: contain;
+}
+#stake-pool-dashboard .pool-detail-image[data-logo-iso][src^="/pool-logos/"] {
+    padding: 0 !important;
+}
+/* A square sprite inside the round hole of the donut: 15% padding keeps
+   its corners inside the ring. */
+#stake-pool-dashboard .stake-distribution-block .stake-distribution-center > img[data-logo-iso][src^="/pool-logos/"] {
+    padding: 15%;
+}
+
+/* The flat logo standing in for a sprite. */
+#stake-pool-dashboard .card-header-logo > img[data-logo-iso]:not([src^="/pool-logos/"]),
+#stake-pool-dashboard .cv-st .cv-flow-logo > img[data-logo-iso]:not([src^="/pool-logos/"]),
+#stake-pool-dashboard .pool-validators-stat-card .stat-icon > img[data-logo-iso]:not([src^="/pool-logos/"]) {
+    padding: 10%;
+    object-fit: contain;
+    transform: skewY(-14deg) scaleX(0.88);
+    filter: drop-shadow(1px 1px 0 var(--iso-side)) drop-shadow(1px 1px 0 var(--iso-side)) drop-shadow(1px 1px 0 var(--iso-side));
+}
+#stake-pool-dashboard .pool-detail-image[data-logo-iso]:not([src^="/pool-logos/"]) {
+    padding: 6px !important;
+    transform: skewY(-14deg) scaleX(0.88);
+    filter: drop-shadow(1px 1px 0 var(--iso-side)) drop-shadow(1px 1px 0 var(--iso-side)) drop-shadow(1px 1px 0 var(--iso-side)) drop-shadow(1px 1px 0 var(--iso-side));
+}
+#stake-pool-dashboard .stake-distribution-block .stake-distribution-center > img[data-logo-iso]:not([src^="/pool-logos/"]) {
+    padding: 18%;
+    transform: skewY(-14deg) scaleX(0.88);
+    filter: drop-shadow(1px 1px 0 var(--iso-side)) drop-shadow(1px 1px 0 var(--iso-side)) drop-shadow(1px 1px 0 var(--iso-side)) drop-shadow(1px 1px 0 var(--iso-side)) drop-shadow(1px 1px 0 var(--iso-side)) drop-shadow(1px 1px 0 var(--iso-side));
+}
+
+/* ============================================
+   STAKEMAP 3.0.0 DETAILS
+   ============================================ */
+/* Pool cards of the main view: the name is the way to the pool page, so it
+   takes the link colour under the pointer, like names do elsewhere. */
+#stake-pool-dashboard .sp-pool-card .card-header .pool-name { transition: color 0.15s ease; }
+#stake-pool-dashboard .sp-pool-card:not(.sp-pool-card-nonclickable) .card-header:hover .pool-name { color: var(--header-color); }
+
+/* "Other Stakes" in the stakers table of the validator page: the same size
+   as the sprites next to it, the glyph in the proportion of the cards. */
+#stake-pool-dashboard .cv-st .cv-flow-logo.is-other {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+}
+#stake-pool-dashboard .cv-st .cv-flow-logo.is-other svg {
+    width: 58%;
+    height: 58%;
+}
+
+/* A signpost from the map kit next to the Documentation title. */
+#stake-pool-dashboard .cv-docs-title .cv-decor-sign {
+    width: 46px;
+    height: 50px;
+    margin: -14px 0 -8px 14px;
+    vertical-align: middle;
+    pointer-events: none;
+    user-select: none;
+}
+
+/* ============================================
+   PALETTE (v3.0.0)
+   Cream paper for the light page and the brand teal as the accent, in
+   place of the earlier grey page and blue accent. Everything follows
+   through the variables; removing this block brings the earlier colours
+   back. Status colours keep their meaning: green = activating or latest,
+   red = deactivating, yellow = a past epoch.
+   ============================================ */
+.sofzp-dashboard-section {
+    --bg-color: #faf6ea; --card-bg: #ffffff; --border-color: #e7e0cc; --logo-bg: #f3efe2;
+    --header-color: #0c7c73;
+    --sparkline-color: #0c7c73; --sparkline-gradient-start: rgba(12, 124, 115, 0.28); --sparkline-gradient-end: rgba(12, 124, 115, 0);
+    --chart-bg-color: rgba(12, 124, 115, 0.05);
+}
+.sofzp-dashboard-section.dark-theme {
+    --bg-color: #14130f; --card-bg: #1f1e1a; --border-color: #38352d; --logo-bg: #2b2a25;
+    --header-color: #4fd1bd;
+    --sparkline-color: #4fd1bd; --sparkline-gradient-start: rgba(79, 209, 189, 0.28); --sparkline-gradient-end: rgba(79, 209, 189, 0);
+    --chart-bg-color: rgba(79, 209, 189, 0.05);
+}
+/* The dark-theme accent is light, so text and icons on an accent fill
+   turn dark there (white on it was hard to read). */
+body.dark-theme-body #stake-pool-dashboard .sp-tab-link.active,
+body.dark-theme-body #stake-pool-dashboard .sort-btn.active,
+body.dark-theme-body #stake-pool-dashboard .validators-sort-btn.active,
+body.dark-theme-body #stake-pool-dashboard .validators-load-more-btn,
+body.dark-theme-body #stake-pool-dashboard .epoch-dynamics-scale-toggle.active,
+body.dark-theme-body #stake-pool-dashboard .pool-validators-sort-btn.active,
+body.dark-theme-body #stake-pool-dashboard .cv-vd-toggle button.active {
+    color: #062a27;
+}
+/* The Learn More / Website button is filled on wide screens only; on
+   narrow ones it is an outline and keeps the accent colour for its text. */
+@media (min-width: 769px) {
+    body.dark-theme-body #stake-pool-dashboard .pool-official-link,
+    body.dark-theme-body #stake-pool-dashboard .pool-official-link:hover {
+        color: #062a27 !important;
+    }
+}
+
+/* ============================================
+   THE "OTHER" SPRITE (v3.0.0)
+   ============================================ */
+/* A group without a registry image ("Other Stakes") with a sprite of its
+   own: the sprite sits in front of the glyph, the glyph is the fallback. */
+#stake-pool-dashboard .card-header-logo:has(> img[data-logo-stem]) > svg,
+#stake-pool-dashboard .cv-flow-logo:has(> img[data-logo-stem]) > svg,
+#stake-pool-dashboard .pool-detail-svg-fallback:has(> img[data-logo-stem]) > svg {
+    display: none;
+}
+#stake-pool-dashboard .pool-detail-svg-fallback:has(> img[data-logo-stem]) {
+    background: transparent !important;
+    border-color: transparent !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+}
+#stake-pool-dashboard .pool-detail-svg-fallback > img[data-logo-stem] {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* ============================================
+   MAIN NAVIGATION (v3.0.0): Pools / Validators / Documentation
+   Three stations in one bar in place of the tab ears: the open one is
+   filled, each carries its piece of the map kit (a flagged plot, a
+   building that follows the theme, a signpost).
+   ============================================ */
+#stake-pool-dashboard .sp-tabs-nav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding: 8px;
+    margin-bottom: 22px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+}
+#stake-pool-dashboard .sp-tab-link {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-width: 0;
+    min-height: 60px;
+    padding: 6px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 11px;
+    background: var(--bg-color);
+    box-shadow: none;
+    transform: none;
+    color: var(--text-color);
+    font-size: 16px;
+    font-weight: 600;
+    text-align: left;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+#stake-pool-dashboard .sp-tab-link::before {
+    content: none;
+}
+#stake-pool-dashboard .sp-tab-link:hover {
+    background: var(--bg-color);
+    border-color: var(--header-color);
+    color: var(--header-color);
+    transform: none;
+    box-shadow: none;
+}
+#stake-pool-dashboard .sp-tab-link.active,
+#stake-pool-dashboard .sp-tab-link.active:hover {
+    background: var(--header-color);
+    border-color: var(--header-color);
+    color: #fff;
+    font-weight: 700;
+    transform: none;
+    box-shadow: none;
+}
+#stake-pool-dashboard .cv-nav-ico {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+}
+#stake-pool-dashboard .cv-nav-short {
+    display: none;
+}
+/* A piece that has a day and a night version follows the page theme. */
+:root[data-theme='dark'] #stake-pool-dashboard .cv-only-light,
+:root:not([data-theme='dark']) #stake-pool-dashboard .cv-only-dark {
+    display: none;
+}
+@media (max-width: 768px) {
+    #stake-pool-dashboard .sp-tabs-nav {
+        gap: 6px;
+        padding: 6px;
+        margin-bottom: 18px;
+    }
+    #stake-pool-dashboard .sp-tab-link {
+        flex-direction: column;
+        gap: 2px;
+        min-height: 0;
+        padding: 8px 4px 9px;
+        font-size: 13px;
+        text-align: center;
+    }
+    #stake-pool-dashboard .cv-nav-ico {
+        flex-basis: 40px;
+        width: 40px;
+        height: 40px;
+    }
+    #stake-pool-dashboard .cv-nav-full {
+        display: none;
+    }
+    #stake-pool-dashboard .cv-nav-short {
+        display: inline;
+    }
+}
+
+/* ============================================
+   SMALL THINGS (v3.0.0)
+   ============================================ */
+/* Documentation title: the signpost follows the text on wide screens and
+   moves to the free right side when the title wraps on narrow ones. */
+#stake-pool-dashboard .cv-docs-title {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+#stake-pool-dashboard .cv-docs-title .cv-decor-sign {
+    flex: none;
+    margin: -14px 0 -8px 0;
+}
+@media (max-width: 768px) {
+    #stake-pool-dashboard .cv-docs-title .cv-decor-sign {
+        margin-left: auto;
+    }
+}
+
+/* A label with a shorter twin for narrow screens. */
+#stake-pool-dashboard .cv-narrow-only { display: none; }
+@media (max-width: 480px) {
+    #stake-pool-dashboard .cv-wide-only { display: none; }
+    #stake-pool-dashboard .cv-narrow-only { display: inline; }
+}
+.support-banner .support-links a { white-space: nowrap; }
+
+/* Bar under the header: on a tab it shows the piece of the map kit of
+   that tab instead of a plain glyph. */
+.cv-subheader-logo .cv-flow-logo.is-kit {
+    width: 30px;
+    height: 30px;
+    background: transparent;
+    border-color: transparent;
+    border-radius: 0;
+    overflow: visible;
+}
+.cv-subheader-logo .cv-flow-logo.is-kit img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    object-fit: contain;
+}
+:root[data-theme='dark'] .cv-subheader-logo .cv-only-light,
+:root:not([data-theme='dark']) .cv-subheader-logo .cv-only-dark {
+    display: none;
+}
+
+/* Support buttons of the Documentation tab: the brand teal in place of the
+   bright one, on which white text was hard to read in the light theme. */
+.support-banner .support-links a {
+    background-color: #0c7c73 !important;
+}
+.support-banner .support-links a:hover {
+    background-color: #0a675f !important;
+    box-shadow: 0 8px 18px rgba(12, 124, 115, 0.3);
+}
+.dark-theme .support-banner .support-links a {
+    background-color: #0f8f84 !important;
+}
+.dark-theme .support-banner .support-links a:hover {
+    background-color: #12a195 !important;
+}

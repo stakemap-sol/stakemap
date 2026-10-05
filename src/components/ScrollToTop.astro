@@ -1,0 +1,69 @@
+---
+// Floating scroll-to-top button. Appears after 400px of scroll.
+---
+
+<button id="scroll-to-top-btn" class="scroll-top" aria-label="Scroll to top" type="button">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20" aria-hidden="true">
+    <polyline points="18 15 12 9 6 15"></polyline>
+  </svg>
+</button>
+
+<style>
+  .scroll-top {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--color-card);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--color-shadow-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(8px);
+    transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease,
+      background-color 0.15s ease, color 0.15s ease;
+    z-index: 60;
+    padding: 0;
+  }
+  .scroll-top.is-visible {
+    opacity: 0.85;
+    visibility: visible;
+    transform: translateY(0);
+  }
+  .scroll-top:hover {
+    opacity: 1;
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+  }
+
+  @media (max-width: 480px) {
+    .scroll-top {
+      bottom: 14px;
+      right: 14px;
+      width: 36px;
+      height: 36px;
+    }
+  }
+</style>
+
+<script>
+  const btn = document.getElementById('scroll-to-top-btn');
+  if (btn) {
+    const onScroll = () => {
+      btn.classList.toggle('is-visible', window.scrollY > 400);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    btn.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    onScroll();
+  }
+</script>

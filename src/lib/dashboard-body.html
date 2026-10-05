@@ -1,0 +1,440 @@
+<div id="stake-pool-dashboard" class="sofzp-dashboard-section">
+    <div id="sofzp-loader-overlay">
+        <div class="loader-content">
+            <div class="loader-spinner"></div>
+            <div class="loader-text">Loading data... <span id="loader-progress-text">0%</span></div>
+        </div>
+    </div>
+
+    <div class="dashboard-content-container">
+		<!-- Breadcrumbs navigation (always visible) -->
+		<nav id="breadcrumbs-nav" class="breadcrumbs-nav">
+			<div class="breadcrumbs-left">
+				<a href="#" id="breadcrumb-home" title="Home">
+					<i class="fas fa-home"></i>
+				</a>
+				<span class="breadcrumb-separator">/</span>
+				<a href="#" id="breadcrumb-section">Pools</a>
+				<span class="breadcrumb-separator breadcrumb-detail-sep" style="display:none;">/</span>
+				<span id="breadcrumb-current" class="breadcrumb-current"></span>
+			</div>
+			<div class="breadcrumbs-right">
+				<label class="theme-switch theme-switch-small">
+					<input type="checkbox" id="theme-toggle-breadcrumb"><span class="slider round"></span>
+				</label>
+			</div>
+		</nav>
+
+		<!-- Main Dashboard View -->
+		<div id="main-dashboard-view" style="display: flex; flex-direction: column; gap: 20px;">
+			<div class="controls-bar">
+			  <div class="controls-left">
+				<div class="epoch-stale" id="epoch-stale-pill">
+				  <i class="fas fa-hourglass-half"></i><span>Viewing past epoch</span>
+				</div>
+			
+				<div class="epoch-control">
+				  <i class="fas fa-layer-group"></i>
+				  <span class="label">Epoch</span>
+				  <select id="epoch-select"></select>
+				</div>
+			
+				<div class="epoch-hint">You can select a previous epoch to view</div>
+			  </div>
+			</div>
+			
+			<div id="summary-container" class="sp-block sp-summary-block"></div>
+			
+			<div id="info-notes-container"></div>
+			
+			<div>
+				<div class="sp-tabs-nav">
+					<button class="sp-tab-link active" data-tab="pools"><img class="cv-nav-ico" src="/brand/decor/nav-pools.webp" alt="" width="44" height="44"><span class="cv-nav-full">Pools Analytics</span><span class="cv-nav-short">Pools</span></button>
+					<button class="sp-tab-link" data-tab="validators"><img class="cv-nav-ico cv-only-light" src="/brand/decor/building-day.webp" alt="" width="44" height="44"><img class="cv-nav-ico cv-only-dark" src="/brand/decor/building-night.webp" alt="" width="44" height="44"><span class="cv-nav-full">Validators List</span><span class="cv-nav-short">Validators</span></button>
+					<button class="sp-tab-link" data-tab="docs"><img class="cv-nav-ico" src="/brand/decor/nav-docs.webp" alt="" width="44" height="44"><span class="cv-nav-full">Documentation</span><span class="cv-nav-short">Docs</span></button>
+				</div>
+
+				<div id="tab-content-pools" class="sp-tab-content active">
+					<div class="sp-sorting-bar" id="sorting-bar">
+						<span class="label">Sort:</span>
+						<button class="sort-btn" data-sort="stake"><i class="fas fa-coins"></i> By Stake</button>
+						<button class="sort-btn" data-sort="validators"><i class="fas fa-user-check"></i> By Validators</button>
+						<button class="sort-btn" data-sort="activating"><i class="fas fa-arrow-trend-up"></i> By Activating</button>
+						<button class="sort-btn" data-sort="deactivating"><i class="fas fa-arrow-trend-down"></i> By Deactivating</button>
+						<button class="sort-btn active" data-sort="category"><i class="fas fa-folder-tree"></i> By Category</button>
+					</div>
+					<div id="groups-grid-container" class="sp-groups-grid"></div>
+				</div>
+
+				<div id="tab-content-validators" class="sp-tab-content">
+					<div id="validators-table-container"></div>
+				</div>
+				
+				<div id="tab-content-docs" class="sp-tab-content">
+					<h2 class="sp-block-header cv-docs-title">Documentation & Resources<img class="cv-decor-sign" src="/brand/decor/signpost.webp" alt="" aria-hidden="true" width="46" height="50" loading="lazy"></h2>
+					<div class="doc-card support-banner">
+						<h3><i class="fas fa-heart"></i>Support the Project</h3>
+						<p>Your support helps keep this research alive and StakeMap running. Please consider:</p>
+						<div class="support-links">
+							<a href="https://github.com/SOFZP/Solana-Stake-Pools-Research" target="_blank" rel="noopener noreferrer">
+								<img class="support-btn-icon" src="https://avatars.githubusercontent.com/u/80635831" alt="GitHub Profile">
+								Starring the Repository 
+								<i class="fas fa-external-link-alt fa-xs new-tab-icon"></i>
+							</a>
+							<a href="https://cryptovik.info/#stake" target="_blank" rel="noopener noreferrer">
+								<img class="support-btn-icon" src="/brand/cryptovik.png" alt="CryptoVik Validator">
+								Staking to my Node 
+								<i class="fas fa-external-link-alt fa-xs new-tab-icon"></i>
+							</a>
+							<a href="https://x.com/stakemap_sol" target="_blank" rel="noopener noreferrer">
+								<img class="support-btn-icon" src="/brand/stakemap-avatar-64.png" alt="StakeMap on X">
+								<span class="cv-wide-only">Following StakeMap on X</span><span class="cv-narrow-only">Following on X</span>
+								<i class="fas fa-external-link-alt fa-xs new-tab-icon"></i>
+							</a>
+						</div>
+					</div>
+
+					<div class="docs-grid-main">
+						<div class="doc-card doc-intro">
+						  <h3><i class="fas fa-book-open"></i>How StakeMap Works</h3>
+						  <p>StakeMap continuously analyzes validator stakes and presents clear, actionable metrics. Below is a brief overview of how it operates and how to use it effectively.</p>
+						  <ul>
+							<li><strong>Automatic checks:</strong> <b>Live data</b> is refreshed <b>continuously</b> throughout the epoch. Complete snapshots of <b>all validators</b> and <b>all available stakes</b> are archived several times per epoch and at every <b>epoch boundary</b>.</li>
+							<li><strong>Data pipeline:</strong> Each scan is normalized, aggregated by validator and stake pool, and then visualized in the widgets and charts you see across StakeMap.</li>
+							  <li><b>Validator History:</b> Every validator seen since epoch 820 has its own history file, one entry per finalized epoch. A validator page reads that file and adds the live epoch on top, so stepping through epochs is instant. Validators that hold no stake any more keep their pages.</li>
+						  </ul>
+						  <p><strong>Features:</strong> Categories, Sorting, and Historical data views allow you to explore the stake distribution in various ways.</p>
+						</div>
+
+						<div class="doc-card">
+							<h3><i class="fas fa-users-cog"></i>Using The Validators List</h3>
+							<p>The "Validators List" tab provides a comprehensive, searchable view of all validators included in the stake pool analysis.</p>
+							<ul>
+							  <li><b>Search:</b> Find validators by name, identity key, vote account, or even by the pools they are in. Former names work as well, and validators that hold no stake any more are listed under the results.</li>
+							  <li><b>Sorting:</b> Rank validators by their total active stake, by the amount of activating/deactivating stake, or by vote account age.</li>
+							  <li><b>Pool Overview:</b> Quickly see which major pools a validator participates in and the stake amount from each.</li>
+							  <li><b>Validator pages:</b> Click a validator's name or avatar to open its page: stake history, its stakers, and a log of name, identity, commission and client changes.</li>
+							</ul>
+							<p class="small-note"><b>Vote account age</b> counts the epochs in which a vote account voted. It is a property of the vote account: a validator that moves to a new vote account starts again from zero. The numbers come from the Jito validator history where it covers the account and from this project's own records otherwise; "&ge; N" means the account is older than those records reach.</p>
+						</div>
+						<div class="doc-card doc-wide">
+							<h3><i class="fas fa-id-card"></i>Reading a Validator Page</h3>
+							<p>A click on a validator's name or avatar <i class="fas fa-circle-user cv-doc-i" aria-hidden="true"></i> anywhere on StakeMap opens its page.</p>
+							<ul>
+							  <li><i class="fas fa-layer-group" aria-hidden="true"></i><b>One epoch at a time:</b> The numbers, the donut and the list of stakers show the selected epoch; the charts show the whole history with that epoch marked. Change the epoch in the bar at the top, with a click on a chart, or with the small epoch numbers under the charts. Yellow marks <i class="fas fa-hourglass-half cv-doc-i is-past" aria-hidden="true"></i> mean a past epoch.</li>
+							  <li><i class="fas fa-table-list" aria-hidden="true"></i><b>Stakers:</b> Everyone who stakes with the validator in that epoch: pools, delegation programs, known holders, and the rest as <i class="fas fa-users cv-doc-i" aria-hidden="true"></i> "Other Stakes". A name <i class="fas fa-arrow-right cv-doc-i" aria-hidden="true"></i> opens the page of that pool or program with this validator selected. "All epochs" adds those that staked here in other epochs.</li>
+							  <li><i class="fas fa-chart-pie" aria-hidden="true"></i><b>Donut:</b> A click on a slice or a legend row leaves only that staker in the list; a second click brings the others back.</li>
+							  <li><i class="fas fa-thumbtack" aria-hidden="true"></i><b>Top cards:</b> Hover a card for the breakdown; click it to keep the tooltip on screen.</li>
+							</ul>
+						</div>
+					</div>
+
+					<div class="docs-grid">
+					  <div class="doc-card">
+						<h3><i class="fas fa-code-branch"></i>Contribute Stake Pools & Stakeholders</h3>
+						<p>Our analysis relies on a curated list of <b>stake pools</b> and key <b>stakeholders</b>. Please submit PRs to add or update entries in our source of truth CSV file.</p>
+						<a href="https://github.com/SOFZP/Solana-Stake-Pools-Research/blob/main/stakepools_list.csv" target="_blank" rel="noopener">Edit stakepools_list.csv <i class="fas fa-external-link-alt fa-xs"></i></a>
+					  </div>
+					  <div class="doc-card">
+						<h3><i class="fas fa-database"></i>Use Our Stakes & Pools Data</h3>
+						<p>All historic and current epoch <b>stake</b> and <b>pool aggregation</b> data is public. <b>Live JSON</b> is served from <b>data.stakemap.info</b> and is refreshed continuously throughout the epoch. The data is available under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. When using it, please attribute to <b>StakeMap by CryptoVik</b>.</p>
+						<a href="https://github.com/SOFZP/Solana-Stake-Pools-Research/blob/main/DATA_API.md" target="_blank" rel="noopener">JSON API Reference <i class="fas fa-external-link-alt fa-xs"></i></a>
+						<a href="https://github.com/SOFZP/Solana-Stake-Pools-Research/tree/main/stakepool-data/mainnet-beta" target="_blank" rel="noopener">Access All Epoch Data <i class="fas fa-external-link-alt fa-xs"></i></a>
+					  </div>
+					  <div class="doc-card">
+						<h3><i class="fas fa-check-double"></i>Stake Pool Checker (CLI)</h3>
+						<p>A command-line tool that analyzes a validator's presence across stake pools. JSON & screen modes. Handy for automation and research.</p>
+						<a href="https://github.com/SOFZP/Solana-Stake-Pools-Checker" target="_blank" rel="noopener">Explore the Checker Tool <i class="fas fa-external-link-alt fa-xs"></i></a>
+					  </div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Pool Detail View (hidden by default) -->
+		<div id="pool-detail-view" style="display:none;">
+			<!-- Pool header with main stats -->
+			<div class="sp-block pool-detail-header">
+				<div class="pool-header-main">
+					<div class="pool-header-left">
+						<img id="pool-detail-image" class="pool-detail-image" src="" alt="">
+						<div class="pool-header-info">
+							<h1 id="pool-detail-name" class="pool-detail-name"></h1>
+							<div id="pool-detail-categories" class="pool-categories-tags"></div>
+						</div>
+					</div>
+					<div class="pool-header-right">
+						<a id="pool-detail-url" class="pool-official-link" href="#" target="_blank" rel="noopener">
+							<i class="fas fa-external-link-alt"></i> Learn More
+						</a>
+					</div>
+				</div>
+				<p id="pool-detail-description" class="pool-detail-description"></p>
+				
+				<!-- Controls bar like on main page -->
+				<div class="pool-controls-bar">
+					<div class="pool-controls-left">
+						<!-- Past epoch warning pill -->
+						<div class="pool-epoch-stale" id="pool-epoch-stale-pill">
+							<i class="fas fa-hourglass-half"></i><span>Viewing past epoch</span>
+						</div>
+						
+						<!-- Epoch selector in main page style -->
+						<div class="pool-epoch-control">
+							<i class="fas fa-layer-group"></i>
+							<span class="label">Epoch</span>
+							<select id="pool-epoch-select"></select>
+						</div>
+					</div>
+					
+					<div class="pool-controls-right">
+						<div class="pool-epoch-info-compact" id="pool-epoch-info">
+							<span class="epoch-number" id="pool-epoch-value"></span>
+							<span class="current-epoch-badge" id="pool-current-epoch-badge" style="display:none;">
+								<i class="fas fa-check-circle"></i> current
+							</span>
+							<span class="past-epoch-badge" id="pool-past-epoch-badge" style="display:none;">
+								<i class="fas fa-history"></i> past
+							</span>
+							<span class="epoch-percent" id="pool-epoch-progress"></span>
+							<span class="epoch-separator">&bull;</span>
+							<span class="snapshot-info">
+								<span class="snapshot-label">Snapshot:</span>
+								<span class="snapshot-value" id="pool-timestamp-value"></span>
+							</span>
+						</div>
+					</div>
+				</div>
+				
+				<!-- Main metrics - styled like main page -->
+				<div class="pool-metrics-grid">
+					<div class="pool-metric-card">
+						<i class="fas fa-chart-pie pool-metric-icon"></i>
+						<div class="pool-metric-info">
+							<span id="pool-metric-stake" class="pool-metric-value">0 SOL</span>
+							<span class="pool-metric-label">Active Stake</span>
+						</div>
+					</div>
+					<div class="pool-metric-card">
+						<i class="fas fa-users pool-metric-icon"></i>
+						<div class="pool-metric-info">
+							<span id="pool-metric-validators" class="pool-metric-value">0</span>
+							<span class="pool-metric-label">Active Validators</span>
+						</div>
+					</div>
+					<div class="pool-metric-card">
+						<i class="fas fa-arrow-trend-up pool-metric-icon activating"></i>
+						<div class="pool-metric-info">
+							<span id="pool-metric-activating" class="pool-metric-value positive">+0 SOL</span>
+							<span class="pool-metric-label">Activating</span>
+						</div>
+					</div>
+					<div class="pool-metric-card">
+						<i class="fas fa-arrow-trend-down pool-metric-icon deactivating"></i>
+						<div class="pool-metric-info">
+							<span id="pool-metric-deactivating" class="pool-metric-value negative">-0 SOL</span>
+							<span class="pool-metric-label">Deactivating</span>
+						</div>
+					</div>
+				</div>
+				
+				<!-- Authority keys -->
+				<div class="pool-authority-keys">
+					<h3><i class="fas fa-key"></i> Authority Keys</h3>
+					<div id="pool-authority-list" class="authority-keys-list"></div>
+				</div>
+			</div>
+			
+			<!-- Charts section -->
+			<div class="pool-charts-section">
+				<div class="pool-charts-grid">
+					<div class="sp-block pool-chart-block">
+						<h3 id="pool-stake-history-title"><i class="fas fa-chart-line"></i> <span>Stake History</span></h3>
+						<div class="interactive-chart-container pool-sparkline" id="pool-stake-history-chart"></div>
+					</div>
+					
+					<div class="sp-block pool-chart-block">
+						<h3 id="pool-validators-history-title"><i class="fas fa-users"></i> <span>Validators Count</span></h3>
+						<div class="interactive-chart-container pool-sparkline" id="pool-validators-history-chart"></div>
+					</div>
+					
+					<div class="sp-block pool-chart-block stake-distribution-block">
+						<h3 id="pool-stake-distribution-title">
+							<i class="fas fa-chart-pie"></i> <span>Stake Distribution</span>
+							<span class="stake-distribution-subtitle" id="stake-distribution-subtitle">Top validators by pool stake</span>
+						</h3>
+						<div class="stake-distribution-content">
+							<div class="stake-distribution-chart-wrapper">
+								<div class="stake-distribution-donut" id="pool-stake-distribution-chart"></div>
+								<div class="stake-distribution-center" id="stake-distribution-center">
+								</div>
+							</div>
+							<div class="stake-distribution-legend" id="stake-distribution-legend">
+							</div>
+						</div>
+					</div>
+					
+					<div class="sp-block pool-chart-block epoch-dynamics-block">
+						<h3 id="pool-epoch-dynamics-title"><i class="fas fa-clock"></i> <span>Epoch Dynamics</span></h3>
+						<div class="epoch-dynamics-legend">
+							<span class="legend-item activating"><span class="legend-dot"></span> Activating</span>
+							<span class="legend-item deactivating"><span class="legend-dot"></span> Deactivating</span>
+							<div class="epoch-dynamics-scale-wrapper">
+								<button class="epoch-dynamics-scale-toggle" id="epoch-dynamics-scale-toggle">
+									<i class="fas fa-arrows-alt-v"></i>
+									<span class="toggle-label">Unified</span>
+								</button>
+								<span class="scale-info-icon" id="scale-info-icon">
+									<i class="fas fa-info-circle"></i>
+								</span>
+							</div>
+						</div>
+						<div class="interactive-chart-container pool-sparkline" id="pool-epoch-dynamics-chart"></div>
+						<div class="chart-placeholder" id="pool-epoch-dynamics-placeholder">
+							<p>Epoch dynamics will be shown here when data is available</p>
+						</div>
+					</div>
+				</div>
+			</div>
+			
+			<!-- Validators table -->
+			<div class="sp-block pool-validators-section">
+				<div class="pool-validators-info-notes" id="pool-validators-info-notes">
+				</div>
+				
+				<div class="pool-validators-search-container" id="pool-validators-search-container">
+					<i class="fas fa-search pool-validators-search-icon"></i>
+					<input type="text" 
+						   id="pool-validators-search" 
+						   class="pool-validators-search-input" 
+						   placeholder="Search name, key or client, join several with +">
+					<button class="pool-validators-search-clear" id="pool-validators-search-clear">
+						<i class="fas fa-times"></i>
+					</button>
+				</div>
+				
+				<div id="pool-validators-stats-summary" class="pool-validators-stats-summary">
+				</div>
+				
+				<div class="pool-validators-sort-bar" id="pool-validators-sort-bar">
+				</div>
+				
+				<div id="pool-validators-table" class="pool-validators-table"></div>
+			</div>
+			
+			<div class="sp-block pool-extended-info" id="pool-extended-info" style="display:none;">
+				<h3><i class="fas fa-info-circle"></i> Pool Requirements & Rules</h3>
+				<div id="pool-extended-content" class="pool-extended-content">
+				</div>
+			</div>
+		</div>
+
+		<!-- Validator Detail View (hidden by default) -->
+		<div id="validator-detail-view" style="display:none;">
+			<div class="sp-block pool-detail-header cv-vd-header">
+				<div class="pool-header-main">
+					<div class="pool-header-left">
+						<div id="cv-vd-avatar" class="cv-vd-avatar"></div>
+						<div class="pool-header-info">
+							<div class="cv-vd-name-line">
+								<h1 id="cv-vd-name" class="pool-detail-name"></h1>
+								<span id="cv-vd-name-copy"></span>
+								<span id="cv-vd-namepill"></span>
+								<span id="cv-vd-status"></span>
+							</div>
+							<div id="cv-vd-keys" class="cv-keys cv-vd-keys"></div>
+							<div id="cv-vd-chips" class="cv-vd-chips"></div>
+							<div id="cv-vd-then" class="cv-vd-then"></div>
+						</div>
+					</div>
+					<div class="pool-header-right">
+						<a id="cv-vd-website" class="pool-official-link" target="_blank" rel="noopener noreferrer">
+							<i class="fas fa-external-link-alt"></i> Website
+						</a>
+					</div>
+				</div>
+				<div id="cv-vd-details" class="cv-vd-details"></div>
+
+				<div class="pool-controls-bar">
+					<div class="pool-controls-left">
+						<div class="pool-epoch-stale" id="cv-vd-stale-pill">
+							<i class="fas fa-hourglass-half"></i><span>Viewing past epoch</span>
+						</div>
+						<div class="pool-epoch-control">
+							<i class="fas fa-layer-group"></i>
+							<span class="label">Epoch</span>
+							<select id="validator-epoch-select"></select>
+						</div>
+					</div>
+					<div class="pool-controls-right">
+						<div class="pool-epoch-info-compact" id="cv-vd-epoch-info"></div>
+					</div>
+				</div>
+
+				<div id="cv-vd-metrics" class="pool-metrics-grid cv-vd-metrics"></div>
+			</div>
+
+			<div class="pool-charts-section">
+				<div class="pool-charts-grid">
+					<div class="sp-block pool-chart-block">
+						<h3><i class="fas fa-chart-line"></i> <span id="cv-vd-stake-title">Stake History</span></h3>
+						<div class="interactive-chart-container pool-sparkline" id="cv-vd-stake-chart"></div>
+					</div>
+					<div class="sp-block pool-chart-block cv-vd-aux-block">
+						<h3>
+							<i class="fas fa-wallet" id="cv-vd-aux-icon"></i> <span id="cv-vd-aux-title">Stake Accounts</span>
+							<span class="cv-vd-toggle cv-vd-toggle-sm" id="cv-vd-aux-toggle" role="group" aria-label="Chart metric">
+								<button type="button" data-aux="accounts">Accounts</button>
+								<button type="button" data-aux="rank">Rank</button>
+							</span>
+						</h3>
+						<div class="interactive-chart-container pool-sparkline" id="cv-vd-aux-chart"></div>
+					</div>
+					<div class="sp-block pool-chart-block cv-vd-donut-block">
+						<h3><i class="fas fa-chart-pie"></i> <span id="cv-vd-donut-title">Stake Distribution</span></h3>
+						<div id="cv-vd-donut" class="cv-vd-donut"></div>
+					</div>
+					<div class="sp-block pool-chart-block epoch-dynamics-block">
+						<h3><i class="fas fa-clock"></i> <span id="cv-vd-dyn-title">Epoch Dynamics</span></h3>
+						<div class="epoch-dynamics-legend">
+							<span class="legend-item activating"><span class="legend-dot"></span> Activating</span>
+							<span class="legend-item deactivating"><span class="legend-dot"></span> Deactivating</span>
+							<div class="epoch-dynamics-scale-wrapper">
+								<button type="button" class="epoch-dynamics-scale-toggle" id="cv-vd-scale-toggle" data-cv-tip="Unified: one scale for both directions&#10;Separate: each direction on its own scale">
+									<i class="fas fa-arrows-alt-v"></i>
+									<span class="toggle-label">Unified</span>
+								</button>
+							</div>
+						</div>
+						<div class="interactive-chart-container pool-sparkline" id="cv-vd-dyn-chart"></div>
+					</div>
+				</div>
+			</div>
+
+			<div class="sp-block cv-vd-block cv-vd-sources">
+				<div class="cv-vd-section-head">
+					<div>
+						<h3><i class="fas fa-layer-group"></i> <span id="cv-vd-sources-title">Stakers</span></h3>
+						<p class="cv-vd-sub" id="cv-vd-sources-sub"></p>
+					</div>
+					<div class="cv-vd-head-tools">
+					<div id="cv-vd-scope"></div>
+					<div class="cv-vd-toggle" id="cv-vd-view-toggle" role="group" aria-label="Stakers view">
+						<button type="button" data-view="table"><i class="fas fa-table-list" aria-hidden="true"></i>Table</button>
+						<button type="button" data-view="cards"><i class="fas fa-table-cells-large" aria-hidden="true"></i>Cards</button>
+					</div>
+					</div>
+				</div>
+				<div class="sp-sorting-bar cv-vd-sortbar" id="cv-vd-sortbar"></div>
+				<div id="cv-vd-sources-body"></div>
+			</div>
+
+			<div class="sp-block cv-vd-block cv-vd-changes">
+				<h3><i class="fas fa-clock-rotate-left"></i> <span id="cv-vd-changes-title">Changes</span></h3>
+				<div id="cv-vd-changes-body"></div>
+			</div>
+
+			<div id="cv-vd-message"></div>
+		</div>
+    </div>
+</div>

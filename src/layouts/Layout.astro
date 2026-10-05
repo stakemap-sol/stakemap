@@ -1,0 +1,133 @@
+---
+import '../styles/global.css';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import ScrollToTop from '../components/ScrollToTop.astro';
+import JsonLd from '../components/JsonLd.astro';
+import { SITE } from '../lib/site';
+import { themeInitScript } from '../lib/theme-init';
+
+interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+  // Page-specific JSON-LD blocks, added to the base Organization and
+  // WebSite blocks emitted on every indexable page.
+  jsonLd?: object | object[];
+  // When true: robots noindex, no canonical, no social cards, no JSON-LD.
+  noindex?: boolean;
+}
+
+const { title, description, ogImage, jsonLd, noindex = false } = Astro.props;
+
+const finalTitle = title ?? SITE.title;
+const finalDesc = description ?? SITE.description;
+const canonicalUrl = new URL(Astro.url.pathname, SITE.url);
+const ogImgUrl = new URL(ogImage ?? SITE.ogImage, SITE.url);
+
+const builderOrg = {
+  '@type': 'Organization',
+  name: SITE.builder.name,
+  url: SITE.builder.url,
+  sameAs: [SITE.builder.x.url],
+};
+
+const baseJsonLd: object[] = noindex
+  ? []
+  : [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: SITE.name,
+        url: SITE.url,
+        logo: new URL('/icon-512.png', SITE.url).href,
+        description: SITE.description,
+        sameAs: [SITE.x.url],
+        founder: builderOrg,
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: SITE.name,
+        alternateName: [SITE.tagline, SITE.formerName],
+        url: SITE.url,
+        inLanguage: 'en-US',
+        publisher: builderOrg,
+      },
+    ];
+
+const allJsonLd: object[] = jsonLd
+  ? [...baseJsonLd, ...(Array.isArray(jsonLd) ? jsonLd : [jsonLd])]
+  : baseJsonLd;
+
+// Plausible Analytics. Rendered only in production builds, so local dev
+// sessions never reach the stats.
+const plausibleInit =
+  'window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init();';
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content={SITE.themeColor} />
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+
+  <title>{finalTitle}</title>
+  <meta name="description" content={finalDesc} />
+
+  {noindex && <meta name="robots" content="noindex,nofollow" />}
+
+  {!noindex && (
+    <>
+      <link rel="canonical" href={canonicalUrl.href} />
+
+      <!-- Open Graph -->
+      <meta property="og:type" content="website" />
+      <meta property="og:site_name" content={SITE.name} />
+      <meta property="og:title" content={finalTitle} />
+      <meta property="og:description" content={finalDesc} />
+      <meta property="og:url" content={canonicalUrl.href} />
+      <meta property="og:image" content={ogImgUrl.href} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
+      <meta property="og:image:alt" content={`${SITE.name} - ${SITE.tagline}`} />
+      <meta property="og:locale" content="en_US" />
+
+      <!-- Twitter card -->
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content={finalTitle} />
+      <meta name="twitter:description" content={finalDesc} />
+      <meta name="twitter:image" content={ogImgUrl.href} />
+      <meta name="twitter:site" content={`@${SITE.x.handle}`} />
+      <meta name="twitter:creator" content={`@${SITE.builder.x.handle}`} />
+    </>
+  )}
+
+  <!-- Theme init: sets data-theme before the first paint -->
+  <script is:inline set:html={themeInitScript}></script>
+
+  <!-- Plausible analytics: production builds only -->
+  {import.meta.env.PROD && <script is:inline async src={SITE.plausibleSrc}></script>}
+  {import.meta.env.PROD && <script is:inline set:html={plausibleInit}></script>}
+
+  {allJsonLd.length > 0 && <JsonLd data={allJsonLd} />}
+
+  <!-- Page-specific head content (styles and fonts of the dashboard) -->
+  <slot name="head" />
+</head>
+
+<body>
+  <Header />
+  <main>
+    <slot />
+  </main>
+  <Footer />
+  <ScrollToTop />
+</body>
+</html>

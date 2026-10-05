@@ -1,0 +1,129 @@
+/* ----------------------------------------------------------------------
+   Global tokens, theme variables, base styles of the site chrome.
+   The dashboard brings its own stylesheet (public/dashboard-assets).
+   ---------------------------------------------------------------------- */
+
+:root,
+:root[data-theme='light'] {
+  --color-bg: #faf6ea;
+  --color-bg-soft: #f4eedd;
+  --color-card: #ffffff;
+  --color-text: #1a1c23;
+  --color-text-muted: #5b6470;
+  --color-border: #e4dcc6;
+
+  --color-primary: #0f8f86;
+  --color-primary-dark: #0b6b66;
+  --color-primary-light: #7fe3cc;
+
+  --color-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --color-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+
+  /* Brand: deep teal, mint and warm yellow, taken from the StakeMap mark. */
+  --brand-teal: #074449;
+  --brand-teal-2: #0c5a5a;
+  --brand-mint: #9dfad9;
+  --brand-yellow: #fddb89;
+  --header-bg: linear-gradient(90deg, #063b40 0%, #0a4f52 55%, #0d615c 100%);
+
+  --radius: 16px;
+  --font-mono: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+}
+
+:root[data-theme='dark'] {
+  --color-bg: #14130f;
+  --color-bg-soft: #1a1915;
+  --color-card: #22211c;
+  --color-text: #f3f1ea;
+  --color-text-muted: #b3afa3;
+  --color-border: #38352d;
+
+  --color-primary: #2bb8a8;
+  --color-primary-dark: #5fd6c2;
+  --color-primary-light: #7fe3cc;
+
+  --color-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --color-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+
+  --header-bg: linear-gradient(90deg, #042b2f 0%, #073a3d 55%, #0a4844 100%);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* The sticky header is about 64 px tall. The buffer keeps anchor jumps
+     and scrollIntoView targets clear of it. */
+  scroll-padding-top: 80px;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
+    Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  font-size: 16px;
+  line-height: 1.5;
+  background: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
+
+  /* Column flex so main grows and the footer sits at the bottom of the
+     viewport on short pages (404). */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+a:not([class]) {
+  color: var(--color-primary-dark);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+a:not([class]):hover {
+  text-decoration: underline;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+.container {
+  max-width: 1180px;
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+
+@media (max-width: 600px) {
+  .container {
+    padding-inline: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

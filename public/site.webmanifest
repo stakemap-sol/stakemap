@@ -1,0 +1,13 @@
+{
+  "name": "StakeMap",
+  "short_name": "StakeMap",
+  "description": "The map of Solana stake",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#fdfdf9",
+  "theme_color": "#074449",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

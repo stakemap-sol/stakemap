@@ -1,0 +1,172 @@
+---
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import Layout from '../layouts/Layout.astro';
+import { SITE } from '../lib/site';
+// Raw HTML body of the dashboard. It lives in src/lib so Astro does not
+// generate a route of its own for it. Assets come from /dashboard-assets/.
+import dashboardBody from '../lib/dashboard-body.html?raw';
+
+const publicDir = path.join(process.cwd(), 'public');
+
+// The dashboard version lives in one place: DASHBOARD_VERSION in the JS
+// bundle. It is read at build time so the JSON-LD softwareVersion and the
+// cache-busting query can never drift from the code. A missing constant
+// fails the build on purpose.
+const versionMatch = fs
+  .readFileSync(path.join(publicDir, 'dashboard-assets', 'stake-dashboard.js'), 'utf8')
+  .match(/const DASHBOARD_VERSION = '([^']+)';/);
+if (!versionMatch) {
+  throw new Error('DASHBOARD_VERSION not found in public/dashboard-assets/stake-dashboard.js');
+}
+const DASHBOARD_VERSION = versionMatch[1];
+
+// Isometric pool sprites: the dashboard is told which ones this build
+// ships, so it never asks for a file that is not there. A sprite is keyed
+// by the stem of the registry image file (imgs/jpool.svg -> jpool.webp).
+// The version is a hash of the files: it changes only when a sprite does.
+const isoDir = path.join(publicDir, 'pool-logos');
+const isoStems = fs.existsSync(path.join(isoDir, '96'))
+  ? fs
+      .readdirSync(path.join(isoDir, '96'))
+      .filter((f) => f.endsWith('.webp') && fs.existsSync(path.join(isoDir, '256', f)))
+      .map((f) => f.slice(0, -'.webp'.length))
+      .sort()
+  : [];
+const isoHash = crypto.createHash('md5');
+for (const stem of isoStems) {
+  isoHash.update(stem);
+  isoHash.update(fs.readFileSync(path.join(isoDir, '96', `${stem}.webp`)));
+  isoHash.update(fs.readFileSync(path.join(isoDir, '256', `${stem}.webp`)));
+}
+const isoConfig = JSON.stringify({
+  base: '/pool-logos/',
+  v: isoHash.digest('hex').slice(0, 8),
+  stems: isoStems,
+}).replace(/</g, '\\u003c');
+
+const api = `${SITE.data.apiBase}/mainnet-beta`;
+const builder = {
+  '@type': 'Organization',
+  name: SITE.builder.name,
+  url: SITE.builder.url,
+};
+const download = (name: string, contentUrl: string, encodingFormat = 'application/json') => ({
+  '@type': 'DataDownload',
+  name,
+  contentUrl,
+  encodingFormat,
+});
+
+// WebApplication + Dataset structured data, so search engines and AI
+// agents can find StakeMap both as a tool and as an open dataset.
+const pageJsonLd: object[] = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: SITE.name,
+    alternateName: SITE.formerName,
+    url: `${SITE.url}/`,
+    applicationCategory: 'AnalyticsApplication',
+    operatingSystem: 'Web',
+    softwareVersion: DASHBOARD_VERSION,
+    isAccessibleForFree: true,
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+    },
+    description:
+      'On-chain view of Solana stake: which stake pools, delegation programs and known stakeholders stake on which validators. Live data is refreshed continuously throughout the epoch, and complete snapshots are archived several times per epoch and at every epoch boundary.',
+    creator: builder,
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Dataset',
+    name: 'StakeMap dataset: Solana stake by pool and validator',
+    alternateName: 'Solana Stake Pools Research Dataset',
+    description:
+      'Per-epoch snapshots of stake from all major Solana stake pools, delegation programs, DeFi protocols, exchange pools, private pools and large individual stakeholders, validator by validator. Open data since epoch 820 (July 2025), growing every epoch.',
+    url: SITE.data.repoUrl,
+    keywords: ['solana', 'stake pools', 'staking', 'lst', 'validator', 'delegation program', 'dataset', 'epoch'],
+    license: SITE.data.licenseUrl,
+    isAccessibleForFree: true,
+    temporalCoverage: '2025-07/..',
+    dateModified: new Date().toISOString(),
+    creator: builder,
+    publisher: {
+      '@type': 'Organization',
+      name: SITE.name,
+      url: SITE.url,
+    },
+    distribution: [
+      download('Live snapshot of the current epoch', `${api}/live.json`),
+      download('Per-epoch history of every pool', `${api}/aggregated-history.json`),
+      download('Manifest of archived epoch snapshots', `${api}/manifest.json`),
+      download('Index of validators seen since epoch 820', `${api}/validators/index.json`),
+      download('Registry of pools, programs and stakeholders', `${SITE.data.apiBase}/registry/stakepools_list.csv`, 'text/csv'),
+    ],
+  },
+];
+---
+
+<Layout jsonLd={pageJsonLd}>
+  <Fragment slot="head">
+    <!-- Font Awesome icons used throughout the dashboard -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+
+    <!-- Inter font, matches what the dashboard CSS expects -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    />
+
+    <!-- The data API: the first request goes out a little sooner -->
+    <link rel="preconnect" href="https://data.stakemap.info" crossorigin />
+
+    <!-- Dashboard styles, served from public/dashboard-assets -->
+    <link rel="stylesheet" href={`/dashboard-assets/stake-dashboard.css?v=${DASHBOARD_VERSION}`} />
+  </Fragment>
+
+  <!-- Runs before the dashboard script: carries an earlier theme choice
+       stored under the dashboard's first key over to siteTheme, which is
+       the single source of truth for the theme. -->
+  <script is:inline>
+    (function () {
+      try {
+        var legacy = localStorage.getItem('dashboardTheme');
+        var current = localStorage.getItem('siteTheme');
+        if (legacy && !current) {
+          localStorage.setItem('siteTheme', legacy);
+        }
+      } catch (_) {
+        /* storage blocked, nothing to carry over */
+      }
+    })();
+  </script>
+
+  <!-- The isometric pool sprites this build ships -->
+  <script is:inline set:html={`window.CV_ISO_LOGOS=${isoConfig};`}></script>
+
+  <Fragment set:html={dashboardBody} />
+
+  <!-- Dashboard application script. Loaded after the dashboard body so
+       getElementById finds its targets. -->
+  <script src={`/dashboard-assets/stake-dashboard.js?v=${DASHBOARD_VERSION}`} is:inline></script>
+</Layout>
+
+<style is:global>
+  /* The dashboard manages its own padding inside .dashboard-content-container.
+     Reset main padding so it does not double-pad. */
+  main {
+    padding: 0;
+  }
+</style>

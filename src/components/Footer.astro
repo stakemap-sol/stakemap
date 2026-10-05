@@ -1,0 +1,321 @@
+---
+import { SITE } from '../lib/site';
+
+const emailB64 = Buffer.from(SITE.email).toString('base64');
+const year = new Date().getFullYear();
+const X_PATH =
+  'M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z';
+const GITHUB_PATH =
+  'M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12';
+---
+
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <!-- Block 1: StakeMap -->
+    <div class="footer-top">
+      <a href="/" class="footer-brand">
+        <img src="/brand/stakemap-avatar-96.png" alt="" width="40" height="40" class="footer-mark" />
+        <span class="footer-brand-text">
+          <span class="footer-brand-name">{SITE.name}</span>
+          <span class="footer-brand-tagline">{SITE.tagline}</span>
+        </span>
+      </a>
+
+      <div class="footer-socials">
+        <a href={SITE.x.url} target="_blank" rel="noopener" aria-label={`${SITE.name} on X`} title={`${SITE.name} on X`} class="social">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" aria-hidden="true"><path d={X_PATH}></path></svg>
+        </a>
+        <a href={SITE.data.repoUrl} target="_blank" rel="noopener" aria-label={`${SITE.name} data on GitHub`} title={`${SITE.name} data on GitHub`} class="social">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" aria-hidden="true"><path d={GITHUB_PATH}></path></svg>
+        </a>
+        <a href="#" data-em={emailB64} aria-label="Email" title="Email" class="social email-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+            <polyline points="22,6 12,13 2,6"></polyline>
+          </svg>
+        </a>
+      </div>
+    </div>
+
+    <div class="footer-divider"></div>
+
+    <div class="footer-bottom">
+      <!-- Block 2: the builder -->
+      <div class="footer-builder">
+        <div class="byline-main">
+          <a href={SITE.builder.url} target="_blank" rel="noopener" class="byline-link">
+            <img src={SITE.builder.avatar} alt="" width="22" height="22" class="byline-avatar" />
+            <span>Built and run by <strong>{SITE.builder.name}</strong></span>
+          </a>
+          <span class="byline-role">{SITE.builder.role}</span>
+        </div>
+        <div class="builder-actions">
+          <!-- On the map a validator is a building. This one is the builder's:
+               day or night by the theme, and it opens the validator's page. -->
+          <a href={SITE.builder.validatorPath} data-cv-nav class="builder-home" title={`${SITE.builder.name} validator on ${SITE.name}`} aria-label={`${SITE.builder.name} validator on ${SITE.name}`}>
+            <img src="/brand/decor/building-day.webp" alt="" width="30" height="30" class="only-light" loading="lazy" />
+            <img src="/brand/decor/building-night.webp" alt="" width="30" height="30" class="only-dark" loading="lazy" />
+          </a>
+          <a href={SITE.builder.stakeUrl} target="_blank" rel="noopener" class="foot-link">Stake with the builder</a>
+          <span class="builder-icons">
+            <a href={SITE.builder.url} target="_blank" rel="noopener" aria-label={`${SITE.builder.name} website`} title={`${SITE.builder.name} website`} class="social social-sm">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              </svg>
+            </a>
+            <a href={SITE.builder.x.url} target="_blank" rel="noopener" aria-label={`${SITE.builder.name} on X`} title={`${SITE.builder.name} on X`} class="social social-sm">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden="true"><path d={X_PATH}></path></svg>
+            </a>
+            <a href={SITE.builder.githubUrl} target="_blank" rel="noopener" aria-label={`${SITE.builder.name} on GitHub`} title={`${SITE.builder.name} on GitHub`} class="social social-sm">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15" aria-hidden="true"><path d={GITHUB_PATH}></path></svg>
+            </a>
+          </span>
+        </div>
+      </div>
+
+      <div class="footer-divider footer-divider-narrow"></div>
+
+      <!-- Block 3: useful links -->
+      <div class="footer-links">
+        <div class="links-row">
+          <a href={SITE.data.apiDocsUrl} target="_blank" rel="noopener" class="foot-link">Data API</a>
+          <a href={SITE.data.repoUrl} target="_blank" rel="noopener" class="foot-link">Open data on GitHub</a>
+          <a href={SITE.data.licenseUrl} target="_blank" rel="noopener" class="foot-link">License {SITE.data.licenseName}</a>
+          <a href="/llms.txt" class="foot-link">llms.txt</a>
+        </div>
+        <div class="meta-row">
+          <span class="foot-static"><span aria-hidden="true">&#127482;&#127462;</span> Stand with Ukraine</span>
+          <span class="copy">&copy; {year} {SITE.builder.name}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    position: relative;
+    background: var(--color-bg-soft);
+    border-top: 1px solid var(--color-border);
+    padding: 28px 0 24px;
+    margin-top: 40px;
+  }
+  .builder-home {
+    display: inline-flex;
+    align-items: flex-end;
+    margin: -4px -6px -2px 0;
+    transition: transform 0.15s ease;
+  }
+  .builder-home:hover {
+    transform: translateY(-2px);
+  }
+  .builder-home img {
+    display: block;
+    width: 30px;
+    height: 30px;
+  }
+  /* Day building on the light theme, night building on the dark one. */
+  :global([data-theme='dark']) .builder-home .only-light,
+  :global(:root:not([data-theme='dark'])) .builder-home .only-dark {
+    display: none;
+  }
+  .footer-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .footer-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    color: inherit;
+    text-decoration: none;
+  }
+  .footer-mark {
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .footer-brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+  }
+  .footer-brand-name {
+    font-weight: 800;
+    font-size: 17px;
+    color: var(--color-text);
+  }
+  .footer-brand-tagline {
+    font-size: 13px;
+    color: var(--color-text-muted);
+  }
+  .footer-socials,
+  .builder-icons {
+    display: inline-flex;
+    gap: 8px;
+  }
+  .social {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .social:hover {
+    color: var(--color-primary-dark);
+    border-color: var(--color-primary);
+    text-decoration: none;
+  }
+  .social-sm {
+    width: 28px;
+    height: 28px;
+  }
+
+  .footer-divider {
+    height: 1px;
+    background: var(--color-border);
+  }
+  .footer-divider-narrow {
+    display: none;
+  }
+
+  .footer-bottom {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px 40px;
+    font-size: 13px;
+    color: var(--color-text-muted);
+  }
+  .footer-builder {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 620px;
+  }
+  .byline-main {
+    line-height: 1.6;
+  }
+  /* The role has its own line under the name. */
+  .byline-role {
+    display: block;
+    margin-top: 2px;
+  }
+  .byline-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--color-text);
+    text-decoration: none;
+    vertical-align: middle;
+  }
+  .byline-link:hover strong {
+    text-decoration: underline;
+  }
+  .byline-avatar {
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .builder-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px 16px;
+    flex-wrap: wrap;
+  }
+  .footer-links {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .links-row,
+  .meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px 18px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .foot-link {
+    color: var(--color-primary-dark);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .foot-link:hover {
+    text-decoration: underline;
+  }
+  .foot-static {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: default;
+  }
+  .copy {
+    font-size: 12px;
+  }
+
+  /* Narrow screens: three blocks one under another, each with its line. */
+  @media (max-width: 480px) {
+    /* Four links in two even columns instead of one of them dropping alone
+       to a second line. */
+    .links-row {
+      display: grid;
+      grid-template-columns: auto auto;
+      justify-content: start;
+      gap: 10px 28px;
+    }
+  }
+  @media (max-width: 820px) {
+    .footer-bottom {
+      flex-direction: column;
+      gap: 18px;
+    }
+    .footer-builder {
+      max-width: none;
+    }
+    .footer-divider-narrow {
+      display: block;
+      align-self: stretch;
+    }
+    .footer-links {
+      align-items: flex-start;
+    }
+    .links-row,
+    .meta-row {
+      justify-content: flex-start;
+    }
+  }
+</style>
+
+<script>
+  // The address is kept out of the markup and assembled on a click.
+  const link = document.querySelector('.email-link') as HTMLAnchorElement | null;
+  if (link) {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const data = link.dataset.em;
+      if (!data) return;
+      try {
+        window.location.href = `mailto:${atob(data)}`;
+      } catch (_) {
+        /* ignore */
+      }
+    });
+  }
+</script>
