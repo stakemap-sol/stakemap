@@ -1,8 +1,16 @@
 ---
+import fs from 'node:fs';
+import path from 'node:path';
 import { SITE } from '../lib/site';
 
 const emailB64 = Buffer.from(SITE.email).toString('base64');
 const year = new Date().getFullYear();
+// The app version next to the copyright: the same constant the page wrapper
+// reads (DASHBOARD_VERSION in the app bundle), so the two never drift.
+const versionMatch = fs
+  .readFileSync(path.join(process.cwd(), 'public', 'dashboard-assets', 'stake-dashboard.js'), 'utf8')
+  .match(/const DASHBOARD_VERSION = '([^']+)';/);
+const appVersion = versionMatch ? versionMatch[1] : '';
 const X_PATH =
   'M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z';
 const GITHUB_PATH =
@@ -14,7 +22,7 @@ const GITHUB_PATH =
     <!-- Block 1: StakeMap -->
     <div class="footer-top">
       <a href="/" class="footer-brand">
-        <img src="/brand/stakemap-avatar-96.png" alt="" width="40" height="40" class="footer-mark" />
+        <img src="/brand/stakemap-avatar-96.png?v=2" alt="" width="40" height="40" class="footer-mark" />
         <span class="footer-brand-text">
           <span class="footer-brand-name">{SITE.name}</span>
           <span class="footer-brand-tagline">{SITE.tagline}</span>
@@ -86,8 +94,11 @@ const GITHUB_PATH =
           <a href="/llms.txt" class="foot-link">llms.txt</a>
         </div>
         <div class="meta-row">
-          <span class="foot-static"><span aria-hidden="true">&#127482;&#127462;</span> Stand with Ukraine</span>
-          <span class="copy">&copy; {year} {SITE.builder.name}</span>
+          <span class="foot-static foot-ua"><img src="/brand/decor/flag-ua.webp" alt="" width="21" height="24" class="foot-flag" loading="lazy" /> Stand with Ukraine</span>
+          <span class="meta-tail">
+            {appVersion && <span class="foot-static foot-version">{SITE.name} v{appVersion}</span>}
+            <span class="copy">&copy; {year} {SITE.builder.name}</span>
+          </span>
         </div>
       </div>
     </div>
@@ -269,6 +280,38 @@ const GITHUB_PATH =
   .copy {
     font-size: 12px;
   }
+  .foot-flag {
+    display: block;
+    width: 21px;
+    height: 24px;
+  }
+  /* The version and the copyright stay together; on narrow screens they
+     take the line under "Stand with Ukraine". */
+  .meta-tail {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+  }
+  /* The builder's own links carry his colour, so they read apart from the
+     project's links above. */
+  .footer-builder {
+    --builder-color: #009288;
+    --builder-ink: #00766e;
+  }
+  :global(:root[data-theme='dark']) .footer-builder {
+    --builder-ink: #5fd6c8;
+  }
+  .builder-icons .social {
+    background: color-mix(in srgb, var(--builder-color) 13%, transparent);
+    border-color: color-mix(in srgb, var(--builder-color) 40%, transparent);
+    color: var(--builder-ink);
+  }
+  .builder-icons .social:hover {
+    background: color-mix(in srgb, var(--builder-color) 24%, transparent);
+    border-color: var(--builder-color);
+    color: var(--builder-ink);
+  }
 
   /* Narrow screens: three blocks one under another, each with its line. */
   @media (max-width: 480px) {
@@ -299,6 +342,11 @@ const GITHUB_PATH =
     .links-row,
     .meta-row {
       justify-content: flex-start;
+    }
+    .meta-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
     }
   }
 </style>

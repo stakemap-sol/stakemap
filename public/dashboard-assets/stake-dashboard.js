@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Dashboard release version, shown in the info line. The wrapper page
     // (src/pages/index.astro) parses this exact
     // line at build time for the JSON-LD softwareVersion: keep the format.
-    const DASHBOARD_VERSION = '3.0.0';
+    const DASHBOARD_VERSION = '3.1.0';
     const FALLBACK_JSON_URL = 'https://raw.githubusercontent.com/SOFZP/Solana-Stake-Pools-Research/main/stakepool-data/mainnet-beta/820/mainnet-beta-4.json';
     const MANIFEST_URL = 'https://raw.githubusercontent.com/SOFZP/Solana-Stake-Pools-Research/main/stakepool-data/mainnet-beta/manifest.json';
     // Phase 3: R2 live data endpoints. The manifest may carry live_data_url and
@@ -51,11 +51,24 @@ document.addEventListener('DOMContentLoaded', function () {
     // the rest of the session asks the copy first.
     const MANIFEST_TIMEOUT_MS = 10000;
     let preferDataMirror = false;
+    // The data repo can sit under two owners inside one manifest: files
+    // published before its move to the organisation keep the earlier owner
+    // in their URLs, newer files carry the new one. Both map to the same
+    // path on the data API.
+    const DATA_REPO_OWNERS = ['SOFZP', 'stakemap-sol'];
     function dataMirrorUrl(url) {
+        if (typeof url !== 'string') return null;
         const githubBase = MANIFEST_URL.replace(/[^/]*$/, '');
         const mirrorBase = LIVE_DATA_URL_DEFAULT.replace(/[^/]*$/, '');
-        return (typeof url === 'string' && url.indexOf(githubBase) === 0)
-            ? mirrorBase + url.slice(githubBase.length) : null;
+        const bases = [githubBase];
+        DATA_REPO_OWNERS.forEach((owner) => {
+            const b = githubBase.replace(/^(https:\/\/raw\.githubusercontent\.com\/)[^/]+\//, '$1' + owner + '/');
+            if (bases.indexOf(b) === -1) bases.push(b);
+        });
+        for (let i = 0; i < bases.length; i++) {
+            if (url.indexOf(bases[i]) === 0) return mirrorBase + url.slice(bases[i].length);
+        }
+        return null;
     }
     async function fetchWithMirror(url, options, timeoutMs) {
         const mirror = dataMirrorUrl(url);
@@ -230,6 +243,20 @@ document.addEventListener('DOMContentLoaded', function () {
         return num.toFixed(0);
     };
     
+    // A SOL amount in two forms for a stat card: the full number, and a short
+    // one that narrow screens show instead (441.74M). The tooltip with the
+    // full number opens only while the short form is on screen.
+    const shortSol = (sol) => sol >= 1e6 ? (sol / 1e6).toFixed(2) + 'M'
+        : (sol >= 1e3 ? (sol / 1e3).toFixed(1) + 'K' : formatNumber(sol, 2));
+    const numPairHtml = (sol, digits) => '<span class="cv-num-full">' + formatNumber(sol, digits) +
+        '</span><span class="cv-num-short">' + shortSol(sol) + '</span>';
+    // Stat cards carry the isometric icons of the StakeMap set: one file per
+    // meaning, the same in both themes.
+    const cardIco = (name, extraClass) => '<img class="cv-ico' + (extraClass ? ' ' + extraClass : '') +
+        '" src="/brand/icons/' + name + '.webp" alt="" aria-hidden="true" width="48" height="48" decoding="async">';
+    const shortTipAttr = (label, sol) => ' data-cv-tip="' + label + ': ' + formatNumber(sol, 2) +
+        ' SOL" data-cv-tip-when="short"';
+
     const shortenPubkey = (pubkey) => {
         if (!pubkey) return '';
         if (pubkey.length <= 12) return pubkey;
@@ -495,15 +522,19 @@ document.addEventListener('DOMContentLoaded', function () {
     const COPY_ICONS = '<i class="fas fa-copy cv-copy-icon" aria-hidden="true"></i>' +
         '<i class="fas fa-check cv-copied-icon" aria-hidden="true"></i>';
 
+    // Tooltips of copy controls are the shared glass tooltip, shown where a
+    // pointer can hover (on a touch screen a tap is the copy itself).
+    const CV_CAN_HOVER = !!(window.matchMedia && window.matchMedia('(hover: hover)').matches);
+    const cvHoverTip = (escapedText) => CV_CAN_HOVER ? ' data-cv-tip="' + escapedText + '"' : '';
     function copyButtonHtml(text, label) {
         const l = escapeHtml(label);
-        return '<button type="button" class="cv-copy-btn" data-cv-copy="' + escapeHtml(text) + '" title="' + l +
-            '" aria-label="' + l + '">' + COPY_ICONS + '</button>';
+        return '<button type="button" class="cv-copy-btn" data-cv-copy="' + escapeHtml(text) + '"' + cvHoverTip(l) +
+            ' aria-label="' + l + '">' + COPY_ICONS + '</button>';
     }
 
     function keyTokenHtml(label, key) {
         const k = escapeHtml(key);
-        return '<button type="button" class="cv-key" data-cv-copy="' + k + '" title="' + k + '" aria-label="Copy ' +
+        return '<button type="button" class="cv-key" data-cv-copy="' + k + '"' + cvHoverTip(k) + ' aria-label="Copy ' +
             escapeHtml(label) + ' key"><span class="cv-key-label">' + escapeHtml(label) + '</span>' +
             '<span class="cv-key-val">' + escapeHtml(shortenPubkey(key)) + '</span>' + COPY_ICONS + '</button>';
     }
@@ -899,31 +930,31 @@ document.addEventListener('DOMContentLoaded', function () {
 
         container.innerHTML = `
             <div class="validators-stat-card">
-                <i class="fas fa-users"></i>
+                ${cardIco('people')}
                 <div class="stat-info">
                     <div class="stat-value">${visibleCount}</div>
-                    <div class="stat-label">Validators shown${searchQuery ? ` (of ${totalCount})` : ''}${epochNote}</div>
+                    <div class="stat-label">Validators${searchQuery ? ` (of ${totalCount})` : ''}${epochNote}</div>
                 </div>
             </div>
             <div class="validators-stat-card">
-                <i class="fas fa-chart-pie"></i>
+                ${cardIco('active-stake')}
                 <div class="stat-info">
-                    <div class="stat-value">${formatNumber(lamportsToSol(totalActiveStake), 1)}</div>
-                    <div class="stat-label">Total Active SOL${epochNote}</div>
+                    <div class="stat-value"${shortTipAttr('Total active stake', lamportsToSol(totalActiveStake))}>${numPairHtml(lamportsToSol(totalActiveStake), 1)}</div>
+                    <div class="stat-label">Active stake${epochNote}</div>
                 </div>
             </div>
             <div class="validators-stat-card">
-                <i class="fas fa-arrow-trend-up" style="color: #28a745;"></i>
+                ${cardIco('activating')}
                 <div class="stat-info">
-                    <div class="stat-value">${formatNumber(lamportsToSol(totalActivatingStake), 1)}</div>
-                    <div class="stat-label">Total Activating SOL${epochNote}</div>
+                    <div class="stat-value"${shortTipAttr('Activating', lamportsToSol(totalActivatingStake))}>${numPairHtml(lamportsToSol(totalActivatingStake), 1)}</div>
+                    <div class="stat-label">Activating${epochNote}</div>
                 </div>
             </div>
             <div class="validators-stat-card">
-                <i class="fas fa-arrow-trend-down" style="color: #dc3545;"></i>
+                ${cardIco('deactivating')}
                 <div class="stat-info">
-                    <div class="stat-value">${formatNumber(lamportsToSol(totalDeactivatingStake), 1)}</div>
-                    <div class="stat-label">Total Deactivating SOL${epochNote}</div>
+                    <div class="stat-value"${shortTipAttr('Deactivating', lamportsToSol(totalDeactivatingStake))}>${numPairHtml(lamportsToSol(totalDeactivatingStake), 1)}</div>
+                    <div class="stat-label">Deactivating${epochNote}</div>
                 </div>
             </div>
         `;
@@ -983,6 +1014,10 @@ document.addEventListener('DOMContentLoaded', function () {
     function showCvTip(el) {
         const text = el.getAttribute('data-cv-tip');
         if (!text) return;
+        if (el.getAttribute('data-cv-tip-when') === 'short') {
+            const shortForm = el.querySelector('.cv-num-short');
+            if (!shortForm || getComputedStyle(shortForm).display === 'none') return;
+        }
         const old = document.getElementById('dynamic-pool-tooltip');
         if (old) old.remove();
         const tip = document.createElement('div');
@@ -1002,7 +1037,11 @@ document.addEventListener('DOMContentLoaded', function () {
         let left = rect.left + rect.width / 2 - tr.width / 2;
         if (left < PAD) left = PAD;
         if (left + tr.width > window.innerWidth - PAD) left = window.innerWidth - tr.width - PAD;
-        if (top < PAD) top = rect.bottom + 10;
+        // Tooltips of the bar under the header open below the bar, so they
+        // never cover the header.
+        const bar = el.closest ? el.closest('#cv-subheader') : null;
+        if (bar) top = bar.getBoundingClientRect().bottom + 6;
+        else if (top < PAD) top = rect.bottom + 10;
         tip.style.top = top + 'px';
         tip.style.left = left + 'px';
         tip.classList.add('visible');
@@ -1041,6 +1080,10 @@ document.addEventListener('DOMContentLoaded', function () {
         const banner = document.getElementById('cv-staleness-banner');
         if (banner && banner.style.display !== 'none') top += Math.round(banner.getBoundingClientRect().height);
         subheaderEl.style.top = top + 'px';
+        // Everything the page scrolls to (the tab bar, a table) stops below
+        // the sticky layers: the header, the banner and this bar.
+        document.documentElement.style.setProperty('--cv-sticky-offset',
+            (top + Math.round(subheaderEl.getBoundingClientRect().height) + 12) + 'px');
         // Side margins follow the site header: its logo on the left, its buttons on the right.
         const headerInner = header ? (header.querySelector('.header-inner') || header.firstElementChild) : null;
         const barInner = subheaderEl.querySelector('.cv-subheader-inner');
@@ -1056,6 +1099,27 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Tooltips of the bar are the shared glass tooltip (data-cv-tip), never
+    // the browser's own. A button gets one only where a pointer can hover:
+    // on a touch screen a tap is the action itself.
+    const SUBHEADER_HOVER = !!(window.matchMedia && window.matchMedia('(hover: hover)').matches);
+    function subheaderTip(el, text, always) {
+        if (!el) return;
+        el.removeAttribute('title');
+        if (text && (always || SUBHEADER_HOVER)) el.setAttribute('data-cv-tip', text);
+        else el.removeAttribute('data-cv-tip');
+    }
+
+    // How long ago a snapshot was taken, in words.
+    function subheaderAgoText(iso) {
+        const t = Date.parse(iso);
+        if (!isFinite(t)) return '';
+        const min = Math.max(0, Math.round((Date.now() - t) / 60000));
+        if (min < 1) return 'updated just now';
+        if (min < 60) return 'updated ' + min + ' min ago';
+        return 'updated ' + Math.floor(min / 60) + ' h ' + (min % 60) + ' min ago';
+    }
+
     function subheaderSyncEpoch() {
         if (!subheaderEl) return;
         const box = subheaderEl.querySelector('.cv-subheader-epochs');
@@ -1064,15 +1128,53 @@ document.addEventListener('DOMContentLoaded', function () {
         box.hidden = false;
         const num = box.querySelector('.cv-ep-num');
         const epoch = Number(sel.value);
-        num.textContent = isFinite(epoch) ? String(epoch) : sel.value;
+        box.querySelector('.cv-ep-val').textContent = isFinite(epoch) ? String(epoch) : sel.value;
         // Green for the latest epoch, yellow for a historical one.
         const isLatest = epoch === Number(latestEpochNumber);
         num.classList.toggle('is-latest', isLatest);
         num.classList.toggle('is-past', !isLatest);
-        num.title = isLatest ? 'Latest epoch' : 'Historical epoch';
         box.querySelector('[data-ep="older"]').disabled = sel.selectedIndex >= sel.options.length - 1;
         box.querySelector('[data-ep="newer"]').disabled = sel.selectedIndex <= 0;
         box.querySelector('[data-ep="latest"]').disabled = sel.selectedIndex <= 0;
+        // The picker over the number mirrors the view's own epoch selector.
+        const pick = box.querySelector('.cv-ep-select');
+        if (pick.__cvFor !== sel || pick.options.length !== sel.options.length ||
+            (pick.options.length && pick.options[0].value !== sel.options[0].value)) {
+            pick.innerHTML = sel.innerHTML;
+            pick.__cvFor = sel;
+        }
+        pick.value = sel.value;
+        // Latest epoch: how far it is and how fresh the data is. Any other
+        // epoch: a "past epoch" mark. The exact snapshot time is in the tooltip.
+        const meta = box.querySelector('.cv-ep-meta');
+        const entry = epochMap.get(epoch);
+        const md = entry && entry.metadata ? entry.metadata : null;
+        const pct = md && md.epoch_completed_percent !== undefined && md.epoch_completed_percent !== null &&
+            isFinite(Number(md.epoch_completed_percent)) ? Number(md.epoch_completed_percent) : null;
+        let snap = '';
+        if (md && md.timestamp_utc && isFinite(Date.parse(md.timestamp_utc))) {
+            try {
+                const f = formatLocalSnapshot(md.timestamp_utc);
+                snap = f.dt + ' ' + f.tzShort;
+            } catch (_) {
+                snap = '';
+            }
+        }
+        if (isLatest) {
+            const ago = md && md.timestamp_utc ? subheaderAgoText(md.timestamp_utc) : '';
+            meta.innerHTML = (pct !== null ? '<span class="cv-ep-pct">' + Math.floor(pct) + '%</span>' : '') +
+                (ago ? '<span class="cv-ep-ago">' + (pct !== null ? ' &middot; ' : '') + ago + '</span>' : '');
+            subheaderTip(meta, 'Epoch ' + epoch + (pct !== null ? ' is ' + pct.toFixed(2) + '% complete' : '') +
+                (snap ? '\nData snapshot: ' + snap : ''), true);
+            subheaderTip(num, 'Latest epoch\nClick to choose another epoch');
+        } else {
+            meta.innerHTML = '<span class="cv-ep-past">past epoch</span>';
+            subheaderTip(meta, 'Epoch ' + epoch + ', a past epoch' +
+                (pct !== null ? '\nSnapshot taken at ' + pct.toFixed(2) + '% of the epoch' : '') +
+                (snap ? '\n' + snap : ''), true);
+            subheaderTip(num, 'Past epoch\nClick to choose another epoch');
+        }
+        meta.hidden = !meta.innerHTML;
     }
 
     function subheaderBindSelect(sel) {
@@ -1089,15 +1191,24 @@ document.addEventListener('DOMContentLoaded', function () {
         subheaderEl = document.createElement('div');
         subheaderEl.id = 'cv-subheader';
         subheaderEl.className = 'cv-subheader';
-        subheaderEl.innerHTML = '<div class="cv-subheader-inner"><span class="cv-subheader-logo"></span>' +
+        subheaderEl.innerHTML = '<div class="cv-subheader-inner">' +
+            '<button type="button" class="cv-sub-crumb" hidden><span class="cv-sub-crumb-logo"></span><span class="cv-sub-crumb-title"></span></button>' +
+            '<span class="cv-sub-sep" hidden aria-hidden="true"><i class="fas fa-chevron-right"></i></span>' +
+            '<span class="cv-subheader-logo"></span>' +
             '<span class="cv-subheader-text"><span class="cv-subheader-kind"></span><span class="cv-subheader-title"></span></span>' +
             '<span class="cv-subheader-epochs" hidden>' +
-            '<button type="button" class="cv-ep-btn" data-ep="older" aria-label="Previous epoch" title="Previous epoch"><i class="fas fa-chevron-left" aria-hidden="true"></i></button>' +
-            '<span class="cv-ep-num"></span>' +
-            '<button type="button" class="cv-ep-btn" data-ep="newer" aria-label="Next epoch" title="Next epoch"><i class="fas fa-chevron-right" aria-hidden="true"></i></button>' +
-            '<button type="button" class="cv-ep-btn" data-ep="latest" aria-label="Latest epoch" title="Latest epoch"><i class="fas fa-angles-right" aria-hidden="true"></i></button>' +
+            '<button type="button" class="cv-ep-btn" data-ep="older" aria-label="Previous epoch"><i class="fas fa-chevron-left" aria-hidden="true"></i></button>' +
+            '<span class="cv-ep-num"><span class="cv-ep-val"></span><i class="fas fa-caret-down cv-ep-caret" aria-hidden="true"></i>' +
+            '<select class="cv-ep-select" aria-label="Choose an epoch"></select></span>' +
+            '<button type="button" class="cv-ep-btn" data-ep="newer" aria-label="Next epoch"><i class="fas fa-chevron-right" aria-hidden="true"></i></button>' +
+            '<button type="button" class="cv-ep-btn" data-ep="latest" aria-label="Latest epoch"><i class="fas fa-angles-right" aria-hidden="true"></i></button>' +
+            '<span class="cv-ep-meta" hidden></span>' +
             '</span>' +
-            '<button type="button" class="cv-ep-btn cv-subheader-top" aria-label="Back to the top" title="Back to the top"><i class="fas fa-arrow-up" aria-hidden="true"></i></button></div>';
+            '<button type="button" class="cv-ep-btn cv-subheader-top" aria-label="Back to the top"><i class="fas fa-arrow-up" aria-hidden="true"></i></button></div>';
+        subheaderTip(subheaderEl.querySelector('[data-ep="older"]'), 'Previous epoch');
+        subheaderTip(subheaderEl.querySelector('[data-ep="newer"]'), 'Next epoch');
+        subheaderTip(subheaderEl.querySelector('[data-ep="latest"]'), 'Latest epoch');
+        subheaderTip(subheaderEl.querySelector('.cv-subheader-top'), 'Back to the top');
         subheaderEl.querySelector('.cv-subheader-top').addEventListener('click', () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         });
@@ -1115,6 +1226,31 @@ document.addEventListener('DOMContentLoaded', function () {
                 subheaderSyncEpoch();
             });
         });
+        // The epoch number is a picker: any epoch of the view in one click.
+        const pick = subheaderEl.querySelector('.cv-ep-select');
+        // The tooltip gives way to the open list.
+        pick.addEventListener('mousedown', () => {
+            cvTipTarget = null;
+            if (window.hidePoolTooltip) window.hidePoolTooltip();
+        });
+        pick.addEventListener('change', () => {
+            const sel = subheaderEpochSelect;
+            if (!sel || sel.value === pick.value) return;
+            sel.value = pick.value;
+            sel.dispatchEvent(new Event('change'));
+            subheaderSyncEpoch();
+        });
+        // The way back from a pool or a validator page to its list. The
+        // hidden breadcrumb still owns that route: the main view, the tab,
+        // and a scroll to the tab bar.
+        subheaderEl.querySelector('.cv-sub-crumb').addEventListener('click', (e) => {
+            const crumb = document.getElementById('breadcrumb-section');
+            if (!crumb) return;
+            crumb.dataset.tab = e.currentTarget.getAttribute('data-tab') || 'pools';
+            crumb.click();
+        });
+        // "updated N min ago" keeps counting while the page stays open.
+        setInterval(() => { if (subheaderEpochSelect) subheaderSyncEpoch(); }, 30000);
         const anchor = document.getElementById('cv-staleness-banner') || document.querySelector('header');
         if (anchor && anchor.parentNode) anchor.insertAdjacentElement('afterend', subheaderEl);
         else document.body.insertBefore(subheaderEl, document.body.firstChild);
@@ -1123,15 +1259,30 @@ document.addEventListener('DOMContentLoaded', function () {
         return subheaderEl;
     }
 
-    // kind: small label ("Pool", later "Validator"; empty for tabs), title,
+    // kind: "Pool" or "Validator" on their pages (empty for tabs), title,
     // logoHtml: a logo circle, syncImg: an on-page logo whose resolved src the
     // bar mirrors (light/dark variants are resolved there), epochSelect: the
     // view's epoch <select>, or null for no epoch steps.
     function subheaderSet(kind, title, logoHtml, syncImg, epochSelect) {
         const el = subheaderEnsure();
+        // On a pool or a validator page the bar starts with the way back to
+        // the list (its kit piece and name), so the small label is not needed.
+        const crumbTab = kind === 'Pool' ? 'pools' : (kind === 'Validator' ? 'validators' : null);
+        const crumb = el.querySelector('.cv-sub-crumb');
+        const sep = el.querySelector('.cv-sub-sep');
+        crumb.hidden = !crumbTab;
+        sep.hidden = !crumbTab;
+        if (crumbTab) {
+            const t = SUBHEADER_TABS[crumbTab];
+            crumb.setAttribute('data-tab', crumbTab);
+            subheaderTip(crumb, 'Back to ' + t.title);
+            crumb.setAttribute('aria-label', 'Back to ' + t.title);
+            crumb.querySelector('.cv-sub-crumb-logo').innerHTML = kitLogoHtml(t.kit);
+            crumb.querySelector('.cv-sub-crumb-title').textContent = t.title;
+        }
         const kindEl = el.querySelector('.cv-subheader-kind');
         kindEl.textContent = kind || '';
-        kindEl.hidden = !kind;
+        kindEl.hidden = !kind || !!crumbTab;
         el.querySelector('.cv-subheader-title').textContent = title;
         el.querySelector('.cv-subheader-logo').innerHTML = logoHtml || '';
         if (subheaderImgObserver) { subheaderImgObserver.disconnect(); subheaderImgObserver = null; }
@@ -2005,16 +2156,19 @@ document.addEventListener('DOMContentLoaded', function () {
         };
     }
     
+    // Defaults stay out of the address: a plain visit keeps the bare URL,
+    // a parameter shows up only when the visitor changes something.
+    const URL_DEFAULTS = { tab: 'pools', sort: 'category', epoch: 'latest' };
     function setUrlState({tab, sort, epoch, search}) {
         const url = new URL(window.location);
-        if (tab) url.searchParams.set('tab', tab); 
-        else url.searchParams.delete('tab');
-        if (sort) url.searchParams.set('sort', sort); 
-        else url.searchParams.delete('sort');
-        if (epoch) url.searchParams.set('epoch', epoch); 
-        else url.searchParams.delete('epoch');
-		if (search) url.searchParams.set('search', search);
-		else url.searchParams.delete('search');
+        const put = (key, value) => {
+            if (value && value !== URL_DEFAULTS[key]) url.searchParams.set(key, value);
+            else url.searchParams.delete(key);
+        };
+        put('tab', tab);
+        put('sort', sort);
+        put('epoch', epoch);
+        put('search', search);
         history.replaceState(null, '', url);
     }
 
@@ -2236,54 +2390,37 @@ document.addEventListener('DOMContentLoaded', function () {
             `<div class="summary-chart-wrapper">
                 <div class="interactive-chart-container" id="summary-chart-container"></div>
             </div>` : '';
-        const localSnap = formatLocalSnapshot(metadata.timestamp_utc);
         
+        const cardValue = (lamports) => numPairHtml(lamportsToSol(lamports), 2);
+        const cardTip = (label, lamports) => shortTipAttr(label, lamportsToSol(lamports));
         document.getElementById('summary-container').innerHTML = `
-            <div class="sp-summary-card">
-                <span class="title"><i class="fas fa-clock icon"></i>Snapshot Time</span>
-                <span class="value">${localSnap.dt} <span class="small-text">${localSnap.tzShort}</span></span>
-            </div>
-            <div class="sp-summary-card">
-                <span class="title"><i class="fas fa-layer-group icon"></i>Epoch</span>
-                <span class="value">${metadata.epoch} ${isStale ? '<span class="epoch-flag">past</span>' : ''} 
-                    <span class="small-text">(${(metadata.epoch_completed_percent).toFixed(2)}%)</span>
-                </span>
-            </div>
-            <div class="sp-summary-card cv-phone-hide">
-                <span class="title"><i class="fas fa-server icon"></i>Cluster</span>
-                <span class="value">${metadata.cluster_name}</span>
-            </div>
-            <div class="sp-summary-card cv-phone-hide">
-                <span class="title"><i class="fas fa-users icon"></i>Active Validators</span>
-                <span class="value">${activeValidatorsCount}</span>
-            </div>
             <div class="sp-summary-card total-stake-card">
-                <span class="title"><i class="fas fa-coins icon"></i>Stake Distribution</span>
+                <span class="title"><i class="fas fa-coins icon"></i>Solana Mainnet Stake</span>
                 ${summaryChartHtml}
                 <div class="total-stake-grid">
-                    <div class="total-stake-item">
-                        <i class="fas fa-chart-pie icon" id="total-stake-icon"></i>
+                    <div class="total-stake-item"${cardTip('Total active stake', totalStake)}>
+                        ${cardIco('active-stake')}
                         <div class="stake-info">
-                            <span class="value">${formatNumber(lamportsToSol(totalStake), 2)}</span>
+                            <span class="value">${cardValue(totalStake)}</span>
                             <span class="label">Total Active Stake${epochNote}</span>
                         </div>
                     </div>
-                    <div class="total-stake-item">
-                        <i class="fas fa-arrow-trend-up icon" id="activating-stake-icon"></i>
+                    <div class="total-stake-item"${cardTip('Activating', activatingStake)}>
+                        ${cardIco('activating')}
                         <div class="stake-info">
-                            <span class="value">${formatNumber(lamportsToSol(activatingStake), 2)}</span>
+                            <span class="value">${cardValue(activatingStake)}</span>
                             <span class="label">Activating${epochNote}</span>
                         </div>
                     </div>
-                    <div class="total-stake-item">
-                        <i class="fas fa-arrow-trend-down icon" id="deactivating-stake-icon"></i>
+                    <div class="total-stake-item"${cardTip('Deactivating', deactivatingStake)}>
+                        ${cardIco('deactivating')}
                         <div class="stake-info">
-                            <span class="value">${formatNumber(lamportsToSol(deactivatingStake), 2)}</span>
+                            <span class="value">${cardValue(deactivatingStake)}</span>
                             <span class="label">Deactivating${epochNote}</span>
                         </div>
                     </div>
                     <div class="total-stake-item">
-                        <i class="fas fa-sitemap icon" id="total-validators-icon"></i>
+                        ${cardIco('validators')}
                         <div class="stake-info">
                             <span class="value">${validators.length}</span>
                             <span class="label">Total Included Validators${epochNote}</span>
@@ -2670,30 +2807,10 @@ document.addEventListener('DOMContentLoaded', function () {
     // INFO NOTES
     // ============================================
     function renderInfoNotes(minStakeSol, isStale, selEpoch, latestEpoch) {
-        const stale = isStale
-            ? `<span class="stale">
-                <i class="fas fa-hourglass-half"></i>
-                You are viewing data from&nbsp;<b>epoch ${selEpoch}</b> 
-                <b>&nbsp;</b> latest is<b>&nbsp;</b><b>${latestEpoch}</b>
-               </span>`
-            : '';
-
-        document.getElementById('info-notes-container').innerHTML = `
-            <div class="sp-info-container">
-                <div class="sp-info-line">
-                    <i class="fas fa-info-circle"></i>
-                    <div>Validators count as active from <b class="nowrap">${formatNumber(minStakeSol, 1)} SOL</b> of active or activating stake. Pool figures use the stake from that pool.</div>
-                </div>
-                <div class="sp-info-line">
-                    <i class="fas fa-sync-alt"></i>
-                    <div>Live data is refreshed continuously throughout the epoch. Complete snapshots are archived several times per epoch and at every epoch boundary.</div>
-                </div>
-                ${stale}
-                <div class="sp-info-line sp-info-version">
-                    <i class="fas fa-code-branch"></i>
-                    <div>StakeMap v${DASHBOARD_VERSION}</div>
-                </div>
-            </div>`;
+        // The notes that stood here have moved: the counting rule is in the
+        // Documentation, the version is in the footer, and the bar under the
+        // header marks a past epoch. The hidden pill still carries that state.
+        document.getElementById('info-notes-container').innerHTML = '';
 
         const pill = document.getElementById('epoch-stale-pill');
         if (pill) pill.style.display = isStale ? 'inline-flex' : 'none';
@@ -2836,6 +2953,31 @@ document.addEventListener('DOMContentLoaded', function () {
     // In-session cache for lazy-loaded full epoch snapshots. Keyed by epoch number.
     // Saves bandwidth when user switches between previously-visited epochs.
     const fullEpochCache = new Map();
+    // Only a few full past snapshots stay in memory (each is several MB of
+    // JSON and far more once parsed). The one unused for the longest gives
+    // its place back to the light entry built from the aggregated history
+    // and is loaded again when somebody opens that epoch.
+    const FULL_EPOCHS_KEPT = 3;
+    const pseudoEpochStash = new Map();
+    function trimFullEpochCache(justLoaded) {
+        if (fullEpochCache.size <= FULL_EPOCHS_KEPT) return;
+        // Never the epoch that was just loaded, nor one a view has selected.
+        const keep = new Set([justLoaded]);
+        ['epoch-select', 'pool-epoch-select', 'validator-epoch-select'].forEach((id) => {
+            const sel = document.getElementById(id);
+            if (sel && sel.value !== '') keep.add(Number(sel.value));
+        });
+        for (const epoch of Array.from(fullEpochCache.keys())) {
+            if (fullEpochCache.size <= FULL_EPOCHS_KEPT) break;
+            if (keep.has(epoch)) continue;
+            fullEpochCache.delete(epoch);
+            const pseudo = pseudoEpochStash.get(epoch);
+            if (!pseudo) continue;
+            epochMap.set(epoch, pseudo);
+            const i = allEpochData.findIndex(d => d.metadata && d.metadata.epoch === epoch);
+            if (i >= 0) allEpochData[i] = pseudo;
+        }
+    }
     
     // Convert one aggregated entry into a pseudo-snapshot matching the shape the
     // rest of the dashboard expects. Three independent invariants are preserved:
@@ -2913,7 +3055,11 @@ document.addEventListener('DOMContentLoaded', function () {
     async function loadEpochFull(epoch) {
         // Check in-session cache first
         if (fullEpochCache.has(epoch)) {
-            return fullEpochCache.get(epoch);
+            // A hit moves the epoch to the "recently used" end.
+            const hit = fullEpochCache.get(epoch);
+            fullEpochCache.delete(epoch);
+            fullEpochCache.set(epoch, hit);
+            return hit;
         }
         
         // Get source URL from epochMap pseudo-entry
@@ -2942,11 +3088,13 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             const fullData = await response.json();
             fullEpochCache.set(epoch, fullData);
+            pseudoEpochStash.set(epoch, epochData);
             // Also replace pseudo entry in epochMap so future reads hit full data
             epochMap.set(epoch, fullData);
             // Update allEpochData index too
             const idx = allEpochData.findIndex(d => d.metadata && d.metadata.epoch === epoch);
             if (idx >= 0) allEpochData[idx] = fullData;
+            trimFullEpochCache(epoch);
             return fullData;
         } catch (err) {
             console.error(`Lazy load failed for epoch ${epoch}:`, err);
@@ -3290,7 +3438,7 @@ document.addEventListener('DOMContentLoaded', function () {
         'docs': 'Documentation'
     };
     
-	function activateTab(targetTab) {
+	function activateTab(targetTab, opts) {
 		requestAnimationFrame(() => subheaderShowTab(targetTab));
 		document.querySelectorAll('.sp-tab-link').forEach(item => 
 			item.classList.remove('active')
@@ -3351,7 +3499,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		}
 		
         const tabsNav = document.querySelector('.sp-tabs-nav');
-        if (tabsNav) {
+        if (tabsNav && opts && opts.scroll) {
             tabsNav.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 	}
@@ -3691,7 +3839,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const p = new URLSearchParams();
         p.set('pool', group);
         const n = Number(epoch);
-        p.set('epoch', (!isFinite(n) || n === Number(latestEpochNumber)) ? 'latest' : String(n));
+        if (isFinite(n) && n !== Number(latestEpochNumber)) p.set('epoch', String(n));
         if (vote) p.set('find', vote);
         return window.location.pathname + '?' + p.toString();
     }
@@ -4089,6 +4237,20 @@ document.addEventListener('DOMContentLoaded', function () {
         cvVdRenderStatic(m, sel);
         cvVdRenderEpoch();
     }
+    // The name in the page header is a copy control of the same kind as the
+    // ID and Vote keys next to it: it copies the validator's name, or the
+    // full vote account when the validator has no name.
+    function cvVdSetName(shown, realName, vote) {
+        const h = document.getElementById('cv-vd-name');
+        if (!h) return;
+        const value = realName || vote || shown;
+        h.removeAttribute('title');
+        h.innerHTML = '<button type="button" class="cv-key cv-key-name" data-cv-copy="' + escapeHtml(value) + '"' +
+            (realName ? '' : cvHoverTip(escapeHtml(value))) + ' aria-label="' + (realName ? 'Copy name' : 'Copy vote account') +
+            '"><span class="cv-key-name-text">' + escapeHtml(shown) + '</span>' + COPY_ICONS + '</button>';
+        const slot = document.getElementById('cv-vd-name-copy');
+        if (slot) slot.innerHTML = '';
+    }
     function cvVdMiniAvatarHtml(m) {
         if (m.iconUrl && !brokenImages.has(m.iconUrl)) {
             return '<span class="cv-flow-logo cv-vd-mini"><img src="' + escapeHtml(m.iconUrl) + '" alt=""></span>';
@@ -4099,9 +4261,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function cvVdRenderStatic(m, sel) {
         const $ = id => document.getElementById(id);
         $('cv-vd-avatar').innerHTML = cvVdAvatarHtml(m);
-        $('cv-vd-name').textContent = m.displayName;
-        $('cv-vd-name').title = m.displayName;
-        $('cv-vd-name-copy').innerHTML = m.realName ? copyButtonHtml(m.rawName, 'Copy name') : '';
+        cvVdSetName(m.displayName, m.realName ? m.rawName : '', m.vote);
         let status = '';
         if (!m.isActive && m.lastEpoch !== null) {
             status = '<span class="cv-vd-badge is-inactive" data-cv-tip="Last seen with stake in epoch ' + m.lastEpoch + '">' +
@@ -4204,8 +4364,7 @@ document.addEventListener('DOMContentLoaded', function () {
         m.avatarHtml = avatarHtml;
         m.shownIcon = shownIcon;
         m.shownIdentity = shownIdentity;
-        $('cv-vd-name').textContent = shownName;
-        $('cv-vd-name').title = shownName;
+        cvVdSetName(shownName, hasRealName(shownRaw) ? shownRaw : '', m.vote);
         // On a past epoch a yellow pill marks a name that is not the current one.
         const namePill = $('cv-vd-namepill');
         if (namePill) {
@@ -4213,7 +4372,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 ? '<span class="cv-vd-asof" data-cv-tip="The name of this validator in epoch ' + E + '"><i class="fas fa-hourglass-half" aria-hidden="true"></i>name in epoch ' + E + '</span>'
                 : '';
         }
-        $('cv-vd-name-copy').innerHTML = hasRealName(shownRaw) ? copyButtonHtml(shownRaw, 'Copy name') : '';
         $('cv-vd-keys').innerHTML = (shownIdentity ? keyTokenHtml('ID', shownIdentity) : '') + keyTokenHtml('Vote', m.vote);
         $('cv-vd-avatar').innerHTML = avatarHtml;
         const crumb = $('breadcrumb-current');
@@ -4248,11 +4406,11 @@ document.addEventListener('DOMContentLoaded', function () {
         $('cv-vd-chips').innerHTML = chips;
         // Metric cards; the details of each open in a tooltip (hover) that a click pins.
         const note = isPast ? ' in epoch ' + E : '';
-        const card = (icon, cls, valueHtml, label, tipKind) =>
-            '<div class="pool-metric-card"' + (tipKind ? ' data-cv-vdtip="' + tipKind + '"' : '') + '>' +
-            '<i class="fas ' + icon + ' pool-metric-icon' + (cls ? ' ' + cls : '') + '"></i><div class="pool-metric-info">' +
+        const card = (icon, cls, valueHtml, label, tipKind, extraAttr) =>
+            '<div class="pool-metric-card"' + (tipKind ? ' data-cv-vdtip="' + tipKind + '"' : '') + (extraAttr || '') + '>' +
+            cardIco(icon, 'cv-ico-metric') + '<div class="pool-metric-info">' +
             '<span class="pool-metric-value' + (cls === 'activating' ? ' positive' : (cls === 'deactivating' ? ' negative' : '')) + '">' +
-            valueHtml + '</span><span class="pool-metric-label">' + escapeHtml(label + note) + '</span></div></div>';
+            valueHtml + '</span><span class="pool-metric-label">' + escapeHtml(label) + '</span></div></div>';
         let ageHtml = '-';
         const ageThen = cvAgeAt(m, entry);
         const ageNow = cvAgeNow(m);
@@ -4263,13 +4421,23 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
         const sol = '<small class="cv-vd-unit"> SOL</small>';
+        // An amount of a million SOL or more is shown in whole SOL, so the
+        // larger number fits its card; the exact amount stays in the tooltip.
+        const cardSol = (lamports) => {
+            const v = lamportsToSol(lamports);
+            return numPairHtml(v, v >= 1e6 ? 0 : 2);
+        };
+        const activeSol = lamportsToSol(entry ? entry.active : 0);
+        const activeTip = activeSol >= 1e6
+            ? ' data-cv-tip="Active stake: ' + formatNumber(activeSol, 2) + ' SOL"'
+            : shortTipAttr('Active stake', activeSol);
         $('cv-vd-metrics').innerHTML = !entry ? '' : (
-            card('fa-chart-pie', '', formatNumber(lamportsToSol(entry.active), 2) + sol, 'Active Stake') +
-            card('fa-ranking-star', '', entry.rank ? '#' + formatNumber(entry.rank) : '-', 'Stake Rank', 'rank') +
-            card('fa-wallet', '', entry.accounts !== null ? formatNumber(entry.accounts) : '-', 'Stake Accounts', 'accounts') +
-            card('fa-hourglass-half', '', ageHtml, 'Vote Account Age', 'age') +
-            card('fa-arrow-trend-up', 'activating', (entry.activating > 0 ? '+' + formatNumber(lamportsToSol(entry.activating), 2) : '0') + sol, 'Activating', 'activating') +
-            card('fa-arrow-trend-down', 'deactivating', (entry.deactivating > 0 ? '-' + formatNumber(lamportsToSol(entry.deactivating), 2) : '0') + sol, 'Deactivating', 'deactivating'));
+            card('active-stake', '', cardSol(entry.active) + sol, 'Active Stake', null, activeTip) +
+            card('stake-rank', '', entry.rank ? '#' + formatNumber(entry.rank) : '-', 'Stake Rank', 'rank') +
+            card('stake-accounts', '', entry.accounts !== null ? formatNumber(entry.accounts) : '-', 'Stake Accounts', 'accounts') +
+            card('vote-account-age', '', ageHtml, 'Vote Account Age', 'age') +
+            card('activating', 'activating', (entry.activating > 0 ? '+' + cardSol(entry.activating) : '0') + sol, 'Activating', 'activating') +
+            card('deactivating', 'deactivating', (entry.deactivating > 0 ? '-' + cardSol(entry.deactivating) : '0') + sol, 'Deactivating', 'deactivating'));
         // History charts.
         const small = ' <small class="cv-vd-of">' + escapeHtml(shownName) + '</small>';
         const stakeBox = $('cv-vd-stake-chart');
@@ -5385,12 +5553,26 @@ document.addEventListener('DOMContentLoaded', function () {
     // MAIN ФУНКЦІЯ
     // ============================================
     async function main() {
+        // A reload or a return from another site starts at the top: the page
+        // is rebuilt from data, so an offset restored by the browser would
+        // land on another place. The browser's own restoring is switched
+        // off while the page loads and comes back for Back and Forward
+        // inside the app.
+        try {
+            if ('scrollRestoration' in window.history) {
+                window.history.scrollRestoration = 'manual';
+                const restoreAuto = () => setTimeout(() => {
+                    try { window.history.scrollRestoration = 'auto'; } catch (_) { /* ignore */ }
+                }, 1500);
+                if (document.readyState === 'complete') restoreAuto();
+                else window.addEventListener('load', restoreAuto, { once: true });
+            }
+        } catch (_) { /* older browsers */ }
         const loader = document.getElementById('sofzp-loader-overlay');
         document.getElementById('stake-pool-dashboard').classList.add('is-loading');
 
         // Показуємо скелетони
         document.getElementById('summary-container').innerHTML = 
-            Array(4).fill('<div class="sp-summary-card"><div class="skeleton skeleton-text-small"></div><div class="skeleton skeleton-text"></div></div>').join('') + 
             '<div class="sp-summary-card total-stake-card"><div class="skeleton skeleton-text-small" style="width: 30%;"></div><div class="skeleton skeleton-text" style="height: 100px;"></div></div>';
         
         document.getElementById('groups-grid-container').innerHTML = 
@@ -5509,6 +5691,18 @@ document.addEventListener('DOMContentLoaded', function () {
             loader.classList.add('hidden');
         }
         document.getElementById('stake-pool-dashboard').classList.remove('is-loading');
+        // A plain visit starts at the top. A link that names another tab (or a
+        // reload on that tab) starts at the tab bar, where its content begins.
+        if (!urlState.validator && !new URLSearchParams(window.location.search).get('pool')) {
+            if (initialTab === 'pools') {
+                window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+            } else {
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    const tabsNavAtLoad = document.querySelector('.sp-tabs-nav');
+                    if (tabsNavAtLoad) tabsNavAtLoad.scrollIntoView({ behavior: 'instant', block: 'start' });
+                }));
+            }
+        }
 
         // ============================================
         // EVENT LISTENERS
@@ -5545,7 +5739,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('.sp-tab-link').forEach(link => {
             link.addEventListener('click', (e) => {
                 const targetTab = e.currentTarget.getAttribute('data-tab');
-                activateTab(targetTab);
+                activateTab(targetTab, { scroll: true });
             });
         });
 
@@ -5775,7 +5969,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 poolEpochSelect.onchange = async function() {
                     const newEpoch = this.value;
                     const params = new URLSearchParams(window.location.search);
-                    params.set('epoch', newEpoch);
+                    if (Number(newEpoch) === Number(latestEpochNumber)) params.delete('epoch');
+                    else params.set('epoch', newEpoch);
                     const newUrl = window.location.pathname + '?' + params.toString();
                     window.history.replaceState({}, '', newUrl);
                     
@@ -5811,8 +6006,8 @@ document.addEventListener('DOMContentLoaded', function () {
             // Використовуємо poolEpochSelect, а не головний epochSelect
             if (poolEpochSelect && poolEpochSelect.value) {
                 const selectedEpoch = poolEpochSelect.value;
-                const epochForUrl = (Number(selectedEpoch) === Number(latestEpochNumber)) ? 'latest' : selectedEpoch;
-                params.set('epoch', epochForUrl);
+                if (Number(selectedEpoch) === Number(latestEpochNumber)) params.delete('epoch');
+                else params.set('epoch', selectedEpoch);
             }
             params.delete('validator');
             // Opened from a validator page (?find=<vote>): the table starts filtered to that validator.
@@ -6108,10 +6303,24 @@ document.addEventListener('DOMContentLoaded', function () {
             const activatingSol = lamportsToSol(poolStats.activating_lamports);
             const deactivatingSol = lamportsToSol(poolStats.deactivating_lamports);
             
-            document.getElementById('pool-metric-stake').textContent = `${formatNumber(activeSol)} SOL`;
+            // Narrow screens show a short number (1.67M SOL); the exact one
+            // is in the card's tooltip while the short form is on screen.
+            const setPoolMetric = (id, label, sol, sign) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.innerHTML = (sol > 0 || !sign)
+                    ? sign + '<span class="cv-num-full">' + formatNumber(sol) + '</span><span class="cv-num-short">' + shortSol(sol) + '</span><small class="cv-unit"> SOL</small>'
+                    : '0<small class="cv-unit"> SOL</small>';
+                const cardEl = el.closest('.pool-metric-card');
+                if (cardEl) {
+                    cardEl.setAttribute('data-cv-tip', label + ': ' + formatNumber(sol, 2) + ' SOL');
+                    cardEl.setAttribute('data-cv-tip-when', 'short');
+                }
+            };
+            setPoolMetric('pool-metric-stake', 'Active stake', activeSol, '');
             document.getElementById('pool-metric-validators').textContent = poolStats.validator_count;
-            document.getElementById('pool-metric-activating').textContent = activatingSol > 0 ? `+${formatNumber(activatingSol)} SOL` : '0 SOL';
-            document.getElementById('pool-metric-deactivating').textContent = deactivatingSol > 0 ? `-${formatNumber(deactivatingSol)} SOL` : '0 SOL';
+            setPoolMetric('pool-metric-activating', 'Activating', activatingSol, '+');
+            setPoolMetric('pool-metric-deactivating', 'Deactivating', deactivatingSol, '-');
             
             poolValidators = poolValidatorsList;
             
@@ -7301,35 +7510,11 @@ document.addEventListener('DOMContentLoaded', function () {
         
         // Оновлення інфо-блоку для валідаторів пулу
         function updatePoolValidatorsInfoNotes() {
+            // The notes that stood here are gone, like on the main page: the
+            // counting rule is in the Documentation and the bar under the
+            // header marks a past epoch.
             const container = document.getElementById('pool-validators-info-notes');
-            if (!container || !currentPoolGroup) return;
-            
-            const poolDef = latestPoolDefinitions.find(p => p.group === currentPoolGroup);
-            const poolName = poolDef ? (poolDef.long_name || poolDef.short_name) : currentPoolGroup;
-            
-            // Отримуємо поточну епоху
-            const poolEpochSelect = document.getElementById('pool-epoch-select');
-            const currentEpoch = poolEpochSelect ? poolEpochSelect.value : latestEpochNumber;
-            const isStale = Number(currentEpoch) !== Number(latestEpochNumber);
-            
-            const minStakeSol = lamportsToSol(MIN_ACTIVE_STAKE);
-            
-            container.innerHTML = `
-                <div class="info-line">
-                    <i class="fas fa-info-circle"></i>
-                    <span>Validators in <strong>${escapeHtml(poolName)}</strong> with at least <strong>${minStakeSol} SOL</strong> of active or activating stake from this pool</span>
-                </div>
-                <div class="info-line">
-                    <i class="fas fa-sync-alt"></i>
-                    <span>Live data is refreshed continuously throughout the epoch. Complete snapshots are archived several times per epoch and at every epoch boundary.</span>
-                </div>
-                ${isStale ? `
-                <div class="info-line">
-                    <i class="fas fa-hourglass-half" style="color: #f0ad4e;"></i>
-                    <span>You are viewing data from <strong>epoch ${currentEpoch}</strong>, latest is <span class="epoch-link">${latestEpochNumber}</span></span>
-                </div>
-                ` : ''}
-            `;
+            if (container) container.innerHTML = '';
         }
         
         // Оновлення статистики валідаторів пулу
@@ -7371,32 +7556,37 @@ document.addEventListener('DOMContentLoaded', function () {
             const isFiltered = poolSearchQuery && visibleCount < totalCount;
             const forCountText = isFiltered ? ` · ${visibleCount} shown` : '';
             
+            // The cards do not repeat the pool's name; their tooltips say it,
+            // with the pool's logo, on a line of its own.
+            const poolTip = (lead) => cvRich('<div class="cv-tip-lead">' + lead + '</div><div class="pool-tooltip-title cv-tip-pool">' +
+                cvMiniLogoHtml(isValidHttpUrl(poolImage) ? resolveLogoUrlSync(poolImage, isDarkStatCard) : '', poolLongName, currentPoolGroup) +
+                '<span>' + escapeHtml(poolLongName) + '</span></div>');
             container.innerHTML = `
-                <div class="pool-validators-stat-card">
+                <div class="pool-validators-stat-card"${poolTip('Validators with stake from')}>
                     <div class="stat-icon">${poolIconHtml}</div>
                     <div class="stat-info">
                         <div class="stat-value">${visibleCount}</div>
-                        <div class="stat-label">Validators in <strong>${poolLongName}</strong>${poolSearchQuery ? ` (of ${totalCount})` : ''} ${epochNote}</div>
+                        <div class="stat-label">Validators${poolSearchQuery ? ` (of ${totalCount})` : ''} ${epochNote}</div>
+                    </div>
+                </div>
+                <div class="pool-validators-stat-card"${poolTip('Active stake on these validators from')}>
+                    <div class="stat-icon stat-icon-plain">${cardIco('active-stake')}</div>
+                    <div class="stat-info">
+                        <div class="stat-value"${shortTipAttr('Pool stake', lamportsToSol(totalPoolStake))}>${numPairHtml(lamportsToSol(totalPoolStake), 1)}</div>
+                        <div class="stat-label">Pool stake${forCountText} ${epochNote}</div>
                     </div>
                 </div>
                 <div class="pool-validators-stat-card">
-                    <div class="stat-icon stat-icon-plain"><i class="fas fa-chart-pie"></i></div>
+                    <div class="stat-icon stat-icon-plain">${cardIco('activating')}</div>
                     <div class="stat-info">
-                        <div class="stat-value">${formatNumber(lamportsToSol(totalPoolStake), 1)}</div>
-                        <div class="stat-label"><strong>${poolLongName}</strong> Stake${forCountText} ${epochNote}</div>
-                    </div>
-                </div>
-                <div class="pool-validators-stat-card">
-                    <div class="stat-icon stat-icon-plain"><i class="fas fa-arrow-trend-up" style="color: #28a745;"></i></div>
-                    <div class="stat-info">
-                        <div class="stat-value">${formatNumber(lamportsToSol(totalActivatingStake), 1)}</div>
+                        <div class="stat-value"${shortTipAttr('Activating', lamportsToSol(totalActivatingStake))}>${numPairHtml(lamportsToSol(totalActivatingStake), 1)}</div>
                         <div class="stat-label">Activating${forCountText} ${epochNote}</div>
                     </div>
                 </div>
                 <div class="pool-validators-stat-card">
-                    <div class="stat-icon stat-icon-plain"><i class="fas fa-arrow-trend-down" style="color: #dc3545;"></i></div>
+                    <div class="stat-icon stat-icon-plain">${cardIco('deactivating')}</div>
                     <div class="stat-info">
-                        <div class="stat-value">${formatNumber(lamportsToSol(totalDeactivatingStake), 1)}</div>
+                        <div class="stat-value"${shortTipAttr('Deactivating', lamportsToSol(totalDeactivatingStake))}>${numPairHtml(lamportsToSol(totalDeactivatingStake), 1)}</div>
                         <div class="stat-label">Deactivating${forCountText} ${epochNote}</div>
                     </div>
                 </div>

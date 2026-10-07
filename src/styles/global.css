@@ -58,7 +58,8 @@ html {
   scroll-behavior: smooth;
   /* The sticky header is about 64 px tall. The buffer keeps anchor jumps
      and scrollIntoView targets clear of it. */
-  scroll-padding-top: 80px;
+  /* The app measures its sticky header and bar into --cv-sticky-offset. */
+  scroll-padding-top: var(--cv-sticky-offset, 80px);
 }
 
 body {

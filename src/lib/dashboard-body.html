@@ -73,7 +73,7 @@
 				<div id="tab-content-docs" class="sp-tab-content">
 					<h2 class="sp-block-header cv-docs-title">Documentation & Resources<img class="cv-decor-sign" src="/brand/decor/signpost.webp" alt="" aria-hidden="true" width="46" height="50" loading="lazy"></h2>
 					<div class="doc-card support-banner">
-						<h3><i class="fas fa-heart"></i>Support the Project</h3>
+						<h3><img class="cv-decor-heart" src="/brand/decor/heart.webp" alt="" aria-hidden="true" width="28" height="28" loading="lazy">Support the Project</h3>
 						<p>Your support helps keep this research alive and StakeMap running. Please consider:</p>
 						<div class="support-links">
 							<a href="https://github.com/SOFZP/Solana-Stake-Pools-Research" target="_blank" rel="noopener noreferrer">
@@ -101,6 +101,7 @@
 						  <ul>
 							<li><strong>Automatic checks:</strong> <b>Live data</b> is refreshed <b>continuously</b> throughout the epoch. Complete snapshots of <b>all validators</b> and <b>all available stakes</b> are archived several times per epoch and at every <b>epoch boundary</b>.</li>
 							<li><strong>Data pipeline:</strong> Each scan is normalized, aggregated by validator and stake pool, and then visualized in the widgets and charts you see across StakeMap.</li>
+							<li><strong>Counting rule:</strong> A validator counts from <b>0.1 SOL</b> of active or activating stake. The figures of a pool use only the stake that comes from that pool.</li>
 							  <li><b>Validator History:</b> Every validator seen since epoch 820 has its own history file, one entry per finalized epoch. A validator page reads that file and adds the live epoch on top, so stepping through epochs is instant. Validators that hold no stake any more keep their pages.</li>
 						  </ul>
 						  <p><strong>Features:</strong> Categories, Sorting, and Historical data views allow you to explore the stake distribution in various ways.</p>
@@ -209,28 +210,28 @@
 				<!-- Main metrics - styled like main page -->
 				<div class="pool-metrics-grid">
 					<div class="pool-metric-card">
-						<i class="fas fa-chart-pie pool-metric-icon"></i>
+						<img class="cv-ico cv-ico-metric" src="/brand/icons/active-stake.webp" alt="" aria-hidden="true" width="48" height="48" decoding="async">
 						<div class="pool-metric-info">
 							<span id="pool-metric-stake" class="pool-metric-value">0 SOL</span>
 							<span class="pool-metric-label">Active Stake</span>
 						</div>
 					</div>
 					<div class="pool-metric-card">
-						<i class="fas fa-users pool-metric-icon"></i>
+						<img class="cv-ico cv-ico-metric" src="/brand/icons/people.webp" alt="" aria-hidden="true" width="48" height="48" decoding="async">
 						<div class="pool-metric-info">
 							<span id="pool-metric-validators" class="pool-metric-value">0</span>
 							<span class="pool-metric-label">Active Validators</span>
 						</div>
 					</div>
 					<div class="pool-metric-card">
-						<i class="fas fa-arrow-trend-up pool-metric-icon activating"></i>
+						<img class="cv-ico cv-ico-metric" src="/brand/icons/activating.webp" alt="" aria-hidden="true" width="48" height="48" decoding="async">
 						<div class="pool-metric-info">
 							<span id="pool-metric-activating" class="pool-metric-value positive">+0 SOL</span>
 							<span class="pool-metric-label">Activating</span>
 						</div>
 					</div>
 					<div class="pool-metric-card">
-						<i class="fas fa-arrow-trend-down pool-metric-icon deactivating"></i>
+						<img class="cv-ico cv-ico-metric" src="/brand/icons/deactivating.webp" alt="" aria-hidden="true" width="48" height="48" decoding="async">
 						<div class="pool-metric-info">
 							<span id="pool-metric-deactivating" class="pool-metric-value negative">-0 SOL</span>
 							<span class="pool-metric-label">Deactivating</span>
