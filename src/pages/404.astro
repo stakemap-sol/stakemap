@@ -5,23 +5,52 @@ import { SITE } from '../lib/site';
 
 <Layout title={`Page not found - ${SITE.name}`} noindex>
   <section class="nf">
-    <img src="/brand/decor/signpost-tile.webp" alt="" width="150" height="123" class="nf-mark" />
-    <h1>404</h1>
-    <p>This page is not on the map.</p>
-    <a href="/" class="nf-link">Open {SITE.name}</a>
+    <div class="nf-card">
+      <img src="/brand/decor/signpost-tile.webp" alt="" width="150" height="123" class="nf-mark" />
+      <h1>404</h1>
+      <p>This page is not on the map.</p>
+      <a href="/" class="nf-link">Open {SITE.name}</a>
+    </div>
   </section>
 </Layout>
 
 <style>
+  /* The open sea of the map fills the page down to the footer (whose top
+     margin it covers); the message stands on a card. */
   .nf {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    margin-bottom: -40px;
     padding: 64px 24px;
     text-align: center;
+    background: #1fc3cf url('/brand/decor/map-sea-light.webp') center / cover no-repeat;
+  }
+  :global(:root[data-theme='dark']) .nf {
+    background-color: #0b4a4f;
+    background-image: url('/brand/decor/map-sea-dark.webp');
+  }
+  @media (max-width: 640px) {
+    .nf {
+      padding: 44px 20px;
+      background-image: url('/brand/decor/map-sea-light-960.webp');
+    }
+    :global(:root[data-theme='dark']) .nf {
+      background-image: url('/brand/decor/map-sea-dark-960.webp');
+    }
+  }
+  .nf-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 30px 44px 34px;
+    border: 1px solid var(--color-border);
+    border-radius: 22px;
+    background: var(--color-card);
+    box-shadow: 0 18px 44px rgba(4, 50, 54, 0.22);
   }
   .nf-mark {
     width: 150px;

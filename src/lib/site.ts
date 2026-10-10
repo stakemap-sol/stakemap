@@ -22,8 +22,8 @@ export const SITE = {
   // Open data: the dataset, the registry and the API reference.
   data: {
     apiBase: 'https://data.stakemap.info/v1',
-    repoUrl: 'https://github.com/SOFZP/Solana-Stake-Pools-Research',
-    apiDocsUrl: 'https://github.com/SOFZP/Solana-Stake-Pools-Research/blob/main/DATA_API.md',
+    repoUrl: 'https://github.com/stakemap-sol/Solana-Stake-Pools-Research',
+    apiDocsUrl: 'https://github.com/stakemap-sol/Solana-Stake-Pools-Research/blob/main/DATA_API.md',
     licenseName: 'CC BY 4.0',
     licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
     startEpoch: 820,

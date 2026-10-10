@@ -10,7 +10,7 @@
 		<!-- Breadcrumbs navigation (always visible) -->
 		<nav id="breadcrumbs-nav" class="breadcrumbs-nav">
 			<div class="breadcrumbs-left">
-				<a href="#" id="breadcrumb-home" title="Home">
+				<a href="#" id="breadcrumb-home">
 					<i class="fas fa-home"></i>
 				</a>
 				<span class="breadcrumb-separator">/</span>
@@ -49,20 +49,13 @@
 			
 			<div>
 				<div class="sp-tabs-nav">
-					<button class="sp-tab-link active" data-tab="pools"><img class="cv-nav-ico" src="/brand/decor/nav-pools.webp" alt="" width="44" height="44"><span class="cv-nav-full">Pools Analytics</span><span class="cv-nav-short">Pools</span></button>
-					<button class="sp-tab-link" data-tab="validators"><img class="cv-nav-ico cv-only-light" src="/brand/decor/building-day.webp" alt="" width="44" height="44"><img class="cv-nav-ico cv-only-dark" src="/brand/decor/building-night.webp" alt="" width="44" height="44"><span class="cv-nav-full">Validators List</span><span class="cv-nav-short">Validators</span></button>
-					<button class="sp-tab-link" data-tab="docs"><img class="cv-nav-ico" src="/brand/decor/nav-docs.webp" alt="" width="44" height="44"><span class="cv-nav-full">Documentation</span><span class="cv-nav-short">Docs</span></button>
+					<a class="sp-tab-link active" data-tab="pools" href="/" aria-current="page"><img class="cv-nav-ico" src="/brand/decor/nav-pools.webp" alt="" width="44" height="44"><span class="cv-nav-full">Pools Analytics</span><span class="cv-nav-short">Pools</span></a>
+					<a class="sp-tab-link" data-tab="validators" href="/?tab=validators"><img class="cv-nav-ico cv-only-light" src="/brand/decor/building-day.webp" alt="" width="44" height="44"><img class="cv-nav-ico cv-only-dark" src="/brand/decor/building-night.webp" alt="" width="44" height="44"><span class="cv-nav-full">Validators List</span><span class="cv-nav-short">Validators</span></a>
+					<a class="sp-tab-link" data-tab="docs" href="/?tab=docs"><img class="cv-nav-ico" src="/brand/decor/nav-docs.webp" alt="" width="44" height="44"><span class="cv-nav-full">Documentation</span><span class="cv-nav-short">Docs</span></a>
 				</div>
 
 				<div id="tab-content-pools" class="sp-tab-content active">
-					<div class="sp-sorting-bar" id="sorting-bar">
-						<span class="label">Sort:</span>
-						<button class="sort-btn" data-sort="stake"><i class="fas fa-coins"></i> By Stake</button>
-						<button class="sort-btn" data-sort="validators"><i class="fas fa-user-check"></i> By Validators</button>
-						<button class="sort-btn" data-sort="activating"><i class="fas fa-arrow-trend-up"></i> By Activating</button>
-						<button class="sort-btn" data-sort="deactivating"><i class="fas fa-arrow-trend-down"></i> By Deactivating</button>
-						<button class="sort-btn active" data-sort="category"><i class="fas fa-folder-tree"></i> By Category</button>
-					</div>
+					<div class="cv-sortbar" id="sorting-bar"><div class="cv-sort-row" data-cv-scroll="x"><span class="cv-sort-sign" data-cv-tip="Sort"><i class="fas fa-arrow-down-wide-short" aria-hidden="true"></i></span><button type="button" class="sort-btn active" data-sort="category"><i class="fas fa-folder-tree" aria-hidden="true"></i><span>Category</span></button><button type="button" class="sort-btn" data-sort="stake"><i class="fas fa-coins" aria-hidden="true"></i><span>Stake</span></button><button type="button" class="sort-btn" data-sort="validators"><i class="fas fa-user-check" aria-hidden="true"></i><span>Validators</span></button><button type="button" class="sort-btn" data-sort="activating"><i class="fas fa-arrow-trend-up" aria-hidden="true"></i><span>Activating</span></button><button type="button" class="sort-btn" data-sort="deactivating"><i class="fas fa-arrow-trend-down" aria-hidden="true"></i><span>Deactivating</span></button></div><button type="button" class="cv-scroll-arrow cv-scroll-next" tabindex="-1" aria-hidden="true"><i class="fas fa-chevron-right"></i></button><button type="button" class="cv-scroll-arrow cv-scroll-prev" tabindex="-1" aria-hidden="true"><i class="fas fa-chevron-left"></i></button></div>
 					<div id="groups-grid-container" class="sp-groups-grid"></div>
 				</div>
 
@@ -76,7 +69,7 @@
 						<h3><img class="cv-decor-heart" src="/brand/decor/heart.webp" alt="" aria-hidden="true" width="28" height="28" loading="lazy">Support the Project</h3>
 						<p>Your support helps keep this research alive and StakeMap running. Please consider:</p>
 						<div class="support-links">
-							<a href="https://github.com/SOFZP/Solana-Stake-Pools-Research" target="_blank" rel="noopener noreferrer">
+							<a href="https://github.com/stakemap-sol/Solana-Stake-Pools-Research" target="_blank" rel="noopener noreferrer">
 								<img class="support-btn-icon" src="https://avatars.githubusercontent.com/u/80635831" alt="GitHub Profile">
 								Starring the Repository 
 								<i class="fas fa-external-link-alt fa-xs new-tab-icon"></i>
@@ -114,6 +107,7 @@
 							  <li><b>Search:</b> Find validators by name, identity key, vote account, or even by the pools they are in. Former names work as well, and validators that hold no stake any more are listed under the results.</li>
 							  <li><b>Sorting:</b> Rank validators by their total active stake, by the amount of activating/deactivating stake, or by vote account age.</li>
 							  <li><b>Pool Overview:</b> Quickly see which major pools a validator participates in and the stake amount from each.</li>
+							  <li><b>Keys:</b> The two round signs of a validator - a key and a ballot box - copy its identity key and its vote account key. On a computer, hover a sign to see the key first. The page of a validator shows both keys in full.</li>
 							  <li><b>Validator pages:</b> Click a validator's name or avatar to open its page: stake history, its stakers, and a log of name, identity, commission and client changes.</li>
 							</ul>
 							<p class="small-note"><b>Vote account age</b> counts the epochs in which a vote account voted. It is a property of the vote account: a validator that moves to a new vote account starts again from zero. The numbers come from the Jito validator history where it covers the account and from this project's own records otherwise; "&ge; N" means the account is older than those records reach.</p>
@@ -124,7 +118,8 @@
 							<ul>
 							  <li><i class="fas fa-layer-group" aria-hidden="true"></i><b>One epoch at a time:</b> The numbers, the donut and the list of stakers show the selected epoch; the charts show the whole history with that epoch marked. Change the epoch in the bar at the top, with a click on a chart, or with the small epoch numbers under the charts. Yellow marks <i class="fas fa-hourglass-half cv-doc-i is-past" aria-hidden="true"></i> mean a past epoch.</li>
 							  <li><i class="fas fa-table-list" aria-hidden="true"></i><b>Stakers:</b> Everyone who stakes with the validator in that epoch: pools, delegation programs, known holders, and the rest as <i class="fas fa-users cv-doc-i" aria-hidden="true"></i> "Other Stakes". A name <i class="fas fa-arrow-right cv-doc-i" aria-hidden="true"></i> opens the page of that pool or program with this validator selected. "All epochs" adds those that staked here in other epochs.</li>
-							  <li><i class="fas fa-chart-pie" aria-hidden="true"></i><b>Donut:</b> A click on a slice or a legend row leaves only that staker in the list; a second click brings the others back.</li>
+							  <li><i class="fas fa-circle-nodes" aria-hidden="true"></i><b>Three views:</b> Table, Cards and Bubbles show the same stakers. In Bubbles the size of a bubble is the stake and its colour is the stake on the move: green in, red out, stronger for a larger movement. In every view a dashed green or red outline with the word "new" or "leaving" marks a staker whose whole stake is arriving or leaving. In the table a dot stands where there is nothing to show. On a phone the table keeps the main columns, and a tap on a row opens the rest. The page of a pool shows its validators the same two ways: as a list or as bubbles.</li>
+							  <li><i class="fas fa-chart-pie" aria-hidden="true"></i><b>Donut:</b> A click on a slice or a legend row leaves only that staker in the list; a second click or Reset brings the others back.</li>
 							  <li><i class="fas fa-thumbtack" aria-hidden="true"></i><b>Top cards:</b> Hover a card for the breakdown; click it to keep the tooltip on screen.</li>
 							</ul>
 						</div>
@@ -134,13 +129,13 @@
 					  <div class="doc-card">
 						<h3><i class="fas fa-code-branch"></i>Contribute Stake Pools & Stakeholders</h3>
 						<p>Our analysis relies on a curated list of <b>stake pools</b> and key <b>stakeholders</b>. Please submit PRs to add or update entries in our source of truth CSV file.</p>
-						<a href="https://github.com/SOFZP/Solana-Stake-Pools-Research/blob/main/stakepools_list.csv" target="_blank" rel="noopener">Edit stakepools_list.csv <i class="fas fa-external-link-alt fa-xs"></i></a>
+						<a href="https://github.com/stakemap-sol/Solana-Stake-Pools-Research/blob/main/stakepools_list.csv" target="_blank" rel="noopener">Edit stakepools_list.csv <i class="fas fa-external-link-alt fa-xs"></i></a>
 					  </div>
 					  <div class="doc-card">
 						<h3><i class="fas fa-database"></i>Use Our Stakes & Pools Data</h3>
 						<p>All historic and current epoch <b>stake</b> and <b>pool aggregation</b> data is public. <b>Live JSON</b> is served from <b>data.stakemap.info</b> and is refreshed continuously throughout the epoch. The data is available under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. When using it, please attribute to <b>StakeMap by CryptoVik</b>.</p>
-						<a href="https://github.com/SOFZP/Solana-Stake-Pools-Research/blob/main/DATA_API.md" target="_blank" rel="noopener">JSON API Reference <i class="fas fa-external-link-alt fa-xs"></i></a>
-						<a href="https://github.com/SOFZP/Solana-Stake-Pools-Research/tree/main/stakepool-data/mainnet-beta" target="_blank" rel="noopener">Access All Epoch Data <i class="fas fa-external-link-alt fa-xs"></i></a>
+						<a href="https://github.com/stakemap-sol/Solana-Stake-Pools-Research/blob/main/DATA_API.md" target="_blank" rel="noopener">JSON API Reference <i class="fas fa-external-link-alt fa-xs"></i></a>
+						<a href="https://github.com/stakemap-sol/Solana-Stake-Pools-Research/tree/main/stakepool-data/mainnet-beta" target="_blank" rel="noopener">Access All Epoch Data <i class="fas fa-external-link-alt fa-xs"></i></a>
 					  </div>
 					  <div class="doc-card">
 						<h3><i class="fas fa-check-double"></i>Stake Pool Checker (CLI)</h3>
@@ -158,7 +153,7 @@
 			<div class="sp-block pool-detail-header">
 				<div class="pool-header-main">
 					<div class="pool-header-left">
-						<img id="pool-detail-image" class="pool-detail-image" src="" alt="">
+						<div class="cv-plot" id="pool-detail-plot"><img id="pool-detail-image" class="pool-detail-image" src="" alt=""></div>
 						<div class="pool-header-info">
 							<h1 id="pool-detail-name" class="pool-detail-name"></h1>
 							<div id="pool-detail-categories" class="pool-categories-tags"></div>
@@ -263,6 +258,7 @@
 						<h3 id="pool-stake-distribution-title">
 							<i class="fas fa-chart-pie"></i> <span>Stake Distribution</span>
 							<span class="stake-distribution-subtitle" id="stake-distribution-subtitle">Top validators by pool stake</span>
+							<button type="button" class="cv-reset" id="pool-donut-reset" hidden><i class="fas fa-rotate-left" aria-hidden="true"></i>Reset</button>
 						</h3>
 						<div class="stake-distribution-content">
 							<div class="stake-distribution-chart-wrapper">
@@ -270,7 +266,10 @@
 								<div class="stake-distribution-center" id="stake-distribution-center">
 								</div>
 							</div>
-							<div class="stake-distribution-legend" id="stake-distribution-legend">
+							<div class="cv-legend-wrap">
+								<div class="stake-distribution-legend" id="stake-distribution-legend" data-cv-scroll="y"></div>
+								<button type="button" class="cv-scroll-arrow cv-scroll-next" tabindex="-1" aria-hidden="true"><i class="fas fa-chevron-down"></i></button>
+								<button type="button" class="cv-scroll-arrow cv-scroll-prev" tabindex="-1" aria-hidden="true"><i class="fas fa-chevron-up"></i></button>
 							</div>
 						</div>
 					</div>
@@ -303,21 +302,27 @@
 				<div class="pool-validators-info-notes" id="pool-validators-info-notes">
 				</div>
 				
-				<div class="pool-validators-search-container" id="pool-validators-search-container">
-					<i class="fas fa-search pool-validators-search-icon"></i>
-					<input type="text" 
-						   id="pool-validators-search" 
-						   class="pool-validators-search-input" 
-						   placeholder="Search name, key or client, join several with +">
-					<button class="pool-validators-search-clear" id="pool-validators-search-clear">
-						<i class="fas fa-times"></i>
-					</button>
+				<div class="cv-pv-tools">
+					<div class="pool-validators-search-container" id="pool-validators-search-container">
+						<i class="fas fa-search pool-validators-search-icon"></i>
+						<input type="text" 
+							   id="pool-validators-search" 
+							   class="pool-validators-search-input" 
+							   placeholder="Search name, key or client, join several with +">
+						<button class="pool-validators-search-clear" id="pool-validators-search-clear">
+							<i class="fas fa-times"></i>
+						</button>
+					</div>
+					<div class="cv-vd-toggle" id="pool-validators-view-toggle" role="group" aria-label="Validators view">
+						<button type="button" data-view="list"><i class="fas fa-list" aria-hidden="true"></i>List</button>
+						<button type="button" data-view="bubbles"><svg class="cv-ico-bubbles" viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><circle cx="5.2" cy="6.2" r="4.4"/><circle cx="12.6" cy="4" r="2.6"/><circle cx="11.2" cy="12" r="3.2"/></svg>Bubbles</button>
+					</div>
 				</div>
 				
 				<div id="pool-validators-stats-summary" class="pool-validators-stats-summary">
 				</div>
 				
-				<div class="pool-validators-sort-bar" id="pool-validators-sort-bar">
+				<div class="cv-sortbar" id="pool-validators-sort-bar">
 				</div>
 				
 				<div id="pool-validators-table" class="pool-validators-table"></div>
@@ -392,7 +397,7 @@
 						<div class="interactive-chart-container pool-sparkline" id="cv-vd-aux-chart"></div>
 					</div>
 					<div class="sp-block pool-chart-block cv-vd-donut-block">
-						<h3><i class="fas fa-chart-pie"></i> <span id="cv-vd-donut-title">Stake Distribution</span></h3>
+						<h3><i class="fas fa-chart-pie"></i> <span id="cv-vd-donut-title">Stake Distribution</span><button type="button" class="cv-reset" id="cv-vd-donut-reset" data-cv-pool-clear="1" hidden><i class="fas fa-rotate-left" aria-hidden="true"></i>Reset</button></h3>
 						<div id="cv-vd-donut" class="cv-vd-donut"></div>
 					</div>
 					<div class="sp-block pool-chart-block epoch-dynamics-block">
@@ -416,17 +421,17 @@
 				<div class="cv-vd-section-head">
 					<div>
 						<h3><i class="fas fa-layer-group"></i> <span id="cv-vd-sources-title">Stakers</span></h3>
-						<p class="cv-vd-sub" id="cv-vd-sources-sub"></p>
 					</div>
 					<div class="cv-vd-head-tools">
 					<div id="cv-vd-scope"></div>
 					<div class="cv-vd-toggle" id="cv-vd-view-toggle" role="group" aria-label="Stakers view">
 						<button type="button" data-view="table"><i class="fas fa-table-list" aria-hidden="true"></i>Table</button>
 						<button type="button" data-view="cards"><i class="fas fa-table-cells-large" aria-hidden="true"></i>Cards</button>
+						<button type="button" data-view="bubbles"><svg class="cv-ico-bubbles" viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><circle cx="5.2" cy="6.2" r="4.4"/><circle cx="12.6" cy="4" r="2.6"/><circle cx="11.2" cy="12" r="3.2"/></svg>Bubbles</button>
 					</div>
 					</div>
 				</div>
-				<div class="sp-sorting-bar cv-vd-sortbar" id="cv-vd-sortbar"></div>
+				<div class="cv-sortbar cv-vd-sortbar" id="cv-vd-sortbar"></div>
 				<div id="cv-vd-sources-body"></div>
 			</div>
 

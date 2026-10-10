@@ -30,13 +30,13 @@ const GITHUB_PATH =
       </a>
 
       <div class="footer-socials">
-        <a href={SITE.x.url} target="_blank" rel="noopener" aria-label={`${SITE.name} on X`} title={`${SITE.name} on X`} class="social">
+        <a href={SITE.x.url} target="_blank" rel="noopener" aria-label={`${SITE.name} on X`} data-cv-tip={`${SITE.name} on X`} class="social">
           <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" aria-hidden="true"><path d={X_PATH}></path></svg>
         </a>
-        <a href={SITE.data.repoUrl} target="_blank" rel="noopener" aria-label={`${SITE.name} data on GitHub`} title={`${SITE.name} data on GitHub`} class="social">
+        <a href={SITE.data.repoUrl} target="_blank" rel="noopener" aria-label={`${SITE.name} data on GitHub`} data-cv-tip={`${SITE.name} data on GitHub`} class="social">
           <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" aria-hidden="true"><path d={GITHUB_PATH}></path></svg>
         </a>
-        <a href="#" data-em={emailB64} aria-label="Email" title="Email" class="social email-link">
+        <a href="#" data-em={emailB64} aria-label="Email" data-cv-tip="Email" class="social email-link">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true">
             <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
             <polyline points="22,6 12,13 2,6"></polyline>
@@ -60,23 +60,23 @@ const GITHUB_PATH =
         <div class="builder-actions">
           <!-- On the map a validator is a building. This one is the builder's:
                day or night by the theme, and it opens the validator's page. -->
-          <a href={SITE.builder.validatorPath} data-cv-nav class="builder-home" title={`${SITE.builder.name} validator on ${SITE.name}`} aria-label={`${SITE.builder.name} validator on ${SITE.name}`}>
+          <a href={SITE.builder.validatorPath} data-cv-nav class="builder-home" data-cv-tip={`${SITE.builder.name} validator on ${SITE.name}`} aria-label={`${SITE.builder.name} validator on ${SITE.name}`}>
             <img src="/brand/decor/building-day.webp" alt="" width="30" height="30" class="only-light" loading="lazy" />
             <img src="/brand/decor/building-night.webp" alt="" width="30" height="30" class="only-dark" loading="lazy" />
           </a>
           <a href={SITE.builder.stakeUrl} target="_blank" rel="noopener" class="foot-link">Stake with the builder</a>
           <span class="builder-icons">
-            <a href={SITE.builder.url} target="_blank" rel="noopener" aria-label={`${SITE.builder.name} website`} title={`${SITE.builder.name} website`} class="social social-sm">
+            <a href={SITE.builder.url} target="_blank" rel="noopener" aria-label={`${SITE.builder.name} website`} data-cv-tip={`${SITE.builder.name} website`} class="social social-sm">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" aria-hidden="true">
                 <circle cx="12" cy="12" r="10"></circle>
                 <line x1="2" y1="12" x2="22" y2="12"></line>
                 <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
               </svg>
             </a>
-            <a href={SITE.builder.x.url} target="_blank" rel="noopener" aria-label={`${SITE.builder.name} on X`} title={`${SITE.builder.name} on X`} class="social social-sm">
+            <a href={SITE.builder.x.url} target="_blank" rel="noopener" aria-label={`${SITE.builder.name} on X`} data-cv-tip={`${SITE.builder.name} on X`} class="social social-sm">
               <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden="true"><path d={X_PATH}></path></svg>
             </a>
-            <a href={SITE.builder.githubUrl} target="_blank" rel="noopener" aria-label={`${SITE.builder.name} on GitHub`} title={`${SITE.builder.name} on GitHub`} class="social social-sm">
+            <a href={SITE.builder.githubUrl} target="_blank" rel="noopener" aria-label={`${SITE.builder.name} on GitHub`} data-cv-tip={`${SITE.builder.name} on GitHub`} class="social social-sm">
               <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15" aria-hidden="true"><path d={GITHUB_PATH}></path></svg>
             </a>
           </span>
@@ -96,8 +96,8 @@ const GITHUB_PATH =
         <div class="meta-row">
           <span class="foot-static foot-ua"><img src="/brand/decor/flag-ua.webp" alt="" width="21" height="24" class="foot-flag" loading="lazy" /> Stand with Ukraine</span>
           <span class="meta-tail">
-            {appVersion && <span class="foot-static foot-version">{SITE.name} v{appVersion}</span>}
-            <span class="copy">&copy; {year} {SITE.builder.name}</span>
+            {appVersion && <span class="foot-static foot-version"><img src="/brand/stakemap-mark.webp" alt="" width="20" height="18" class="foot-mark" loading="lazy" />{SITE.name} v{appVersion}</span>}
+            <span class="foot-static copy"><img src="/brand/icons/copyright.webp" alt="&copy;" width="17" height="17" class="foot-copy" loading="lazy" />{year} {SITE.builder.name}</span>
           </span>
         </div>
       </div>
@@ -285,6 +285,21 @@ const GITHUB_PATH =
     width: 21px;
     height: 24px;
   }
+  /* The small mark of the site before its version, and the sign of the
+     copyright in the style of the map. */
+  .foot-mark {
+    display: block;
+    width: 20px;
+    height: 18px;
+  }
+  .foot-copy {
+    display: block;
+    width: 17px;
+    height: 17px;
+  }
+  .copy.foot-static {
+    gap: 5px;
+  }
   /* The version and the copyright stay together; on narrow screens they
      take the line under "Stand with Ukraine". */
   .meta-tail {
@@ -313,6 +328,18 @@ const GITHUB_PATH =
     color: var(--builder-ink);
   }
 
+  /* Wide screens: the right column ends level with "Stake with the builder". */
+  @media (min-width: 821px) {
+    .footer-bottom {
+      align-items: stretch;
+    }
+    .footer-links {
+      justify-content: space-between;
+    }
+    .meta-row {
+      min-height: 30px;
+    }
+  }
   /* Narrow screens: three blocks one under another, each with its line. */
   @media (max-width: 480px) {
     /* Four links in two even columns instead of one of them dropping alone

@@ -30,9 +30,9 @@ Base: https://data.stakemap.info/v1/ (additive versioning: /v1/ keeps working). 
 - Index of validators: https://data.stakemap.info/v1/mainnet-beta/validators/index.json
 - History of one validator: https://data.stakemap.info/v1/mainnet-beta/validators/VOTE_ACCOUNT.json
 - Registry of pools, programs and stakeholders (CSV): https://data.stakemap.info/v1/registry/stakepools_list.csv
-- API reference with field descriptions and examples: https://github.com/SOFZP/Solana-Stake-Pools-Research/blob/main/DATA_API.md
-- How the pipeline works: https://github.com/SOFZP/Solana-Stake-Pools-Research/blob/main/ARCHITECTURE.md
-- Dataset repository with every archived snapshot: https://github.com/SOFZP/Solana-Stake-Pools-Research
+- API reference with field descriptions and examples: https://github.com/stakemap-sol/Solana-Stake-Pools-Research/blob/main/DATA_API.md
+- How the pipeline works: https://github.com/stakemap-sol/Solana-Stake-Pools-Research/blob/main/ARCHITECTURE.md
+- Dataset repository with every archived snapshot: https://github.com/stakemap-sol/Solana-Stake-Pools-Research
 
 ## License and citation
 

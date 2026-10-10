@@ -29,9 +29,9 @@ step of its own.
 The app reads open data that the StakeMap pipeline publishes:
 
 - JSON API: https://data.stakemap.info/v1/ - reference in
-  [DATA_API.md](https://github.com/SOFZP/Solana-Stake-Pools-Research/blob/main/DATA_API.md)
+  [DATA_API.md](https://github.com/stakemap-sol/Solana-Stake-Pools-Research/blob/main/DATA_API.md)
 - Dataset, registry and every archived snapshot:
-  [Solana-Stake-Pools-Research](https://github.com/SOFZP/Solana-Stake-Pools-Research)
+  [Solana-Stake-Pools-Research](https://github.com/stakemap-sol/Solana-Stake-Pools-Research)
 
 History starts at epoch 820 (July 2025) and grows every epoch.
 

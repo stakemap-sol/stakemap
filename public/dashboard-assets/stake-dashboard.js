@@ -5,9 +5,9 @@ document.addEventListener('DOMContentLoaded', function () {
     // Dashboard release version, shown in the info line. The wrapper page
     // (src/pages/index.astro) parses this exact
     // line at build time for the JSON-LD softwareVersion: keep the format.
-    const DASHBOARD_VERSION = '3.1.0';
-    const FALLBACK_JSON_URL = 'https://raw.githubusercontent.com/SOFZP/Solana-Stake-Pools-Research/main/stakepool-data/mainnet-beta/820/mainnet-beta-4.json';
-    const MANIFEST_URL = 'https://raw.githubusercontent.com/SOFZP/Solana-Stake-Pools-Research/main/stakepool-data/mainnet-beta/manifest.json';
+    const DASHBOARD_VERSION = '3.2.0';
+    const FALLBACK_JSON_URL = 'https://raw.githubusercontent.com/stakemap-sol/Solana-Stake-Pools-Research/main/stakepool-data/mainnet-beta/820/mainnet-beta-4.json';
+    const MANIFEST_URL = 'https://raw.githubusercontent.com/stakemap-sol/Solana-Stake-Pools-Research/main/stakepool-data/mainnet-beta/manifest.json';
     // Phase 3: R2 live data endpoints. The manifest may carry live_data_url and
     // status_url fields; these constants are the fallback when it does not
     // (older manifest, or R2 publishing disabled on the backend).
@@ -30,6 +30,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const VALIDATORS_PER_PAGE = 100;
     const KEY_VISIBILITY_THRESHOLD = 5;
     const DESC_LINES = 4;
+    // A pool card has this many places for key signs: all the keys when they
+    // fit, otherwise one place goes to the number of the rest (they are on
+    // the pool page).
+    const CARD_KEYS_SHOWN = 5;
     const FETCH_TIMEOUT_MS = 30000;
     
     // Wrap fetch with explicit timeout via AbortController. Some user environments
@@ -93,12 +97,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // sessionStorage cache for the small, hot URLs of the data pipeline:
-    // the manifest, the aggregated history, and the latest snapshot.
-    // Cache TTL is 90 seconds, which is well below the typical interval at
-    // which Block E pre-aggregation runs, so a cached read should always
-    // reflect a recent cluster scan. On cache miss or stale, behaves like
-    // a normal fetch + json() and writes the result into the cache on success.
+    // sessionStorage cache for the small answers of the data pipeline (the
+    // manifest); larger ones (the aggregated history, a snapshot) are only
+    // parsed. Cache TTL is 90 seconds, which is well below the typical
+    // interval at which Block E pre-aggregation runs, so a cached read should
+    // always reflect a recent cluster scan.
     //
     // Why sessionStorage and not localStorage: per-tab is appropriate here,
     // we do not want a multi-day-old payload from a tab opened last week to
@@ -106,6 +109,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // exactly the lifetime we want.
     const CACHE_TTL_MS = 90 * 1000;
     const CACHE_PREFIX = 'cv:cache:';
+    const CACHE_MAX_CHARS = 500000;
 
     async function fetchJsonWithCache(url, label, timeoutMs) {
         const cacheKey = CACHE_PREFIX + url;
@@ -130,17 +134,14 @@ document.addEventListener('DOMContentLoaded', function () {
             err.status = resp.status;
             throw err;
         }
-        const data = await resp.json();
-        // Best-effort cache write. Failures (quota exceeded, storage blocked)
-        // are swallowed by safeStorage, so this never breaks the data flow.
-        try {
-            safeStorage.setItem(
-                cacheKey,
-                JSON.stringify({ ts: Date.now(), data: data }),
-                'session'
-            );
-        } catch (_) {
-            /* payload too big for sessionStorage quota - skip caching */
+        // The text of the answer is parsed once. Only a small answer (the
+        // manifest) goes into the cache: the history and a snapshot are
+        // megabytes each, never fit the quota of the storage, and making a
+        // second copy of their text on every load cost time and memory.
+        const text = await resp.text();
+        const data = JSON.parse(text);
+        if (text.length <= CACHE_MAX_CHARS) {
+            safeStorage.setItem(cacheKey, '{"ts":' + Date.now() + ',"data":' + text + '}', 'session');
         }
         return data;
     }
@@ -185,7 +186,11 @@ document.addEventListener('DOMContentLoaded', function () {
     let nameRemap = new Map();
     let chartsToRedraw = [];
     // Pools open sorted by category (Viktor); ?sort= in the URL overrides.
+    // Total active stake of the epoch on screen (the share of a pool is taken from it).
+    let cvNetworkActive = 0;
     let currentSortMode = 'category';
+    // (a second click on a measure flips it to smallest first)
+    let currentSortAsc = false;
     let categoryOrder = [];
     let allEpochData = [];
     let epochMap = new Map();
@@ -208,8 +213,18 @@ document.addEventListener('DOMContentLoaded', function () {
     // Змінні для детального виду пулу  
     let currentPoolGroup = null;
     let poolValidators = [];
+    // (the rows of the list on screen, and the list they were counted for)
+    let poolRowsVisible = VALIDATORS_PER_PAGE;
+    let poolRowsFor = '';
+    let poolIndexAsked = false;   // the validators index is on its way for the ages of the list
     let poolDetailSortMode = 'pool-stake';
     let poolDetailSortOrder = 'desc'; // 'desc' = від більшого до меншого, 'asc' = навпаки
+    // The validators of a pool: a list of rows or a map of bubbles (the
+    // choice is kept), the map on screen, and the active stake of the pool
+    // the shares in the tooltips of the bubbles are counted from.
+    let poolValidatorsView = safeStorage.getItem('poolValidatorsView') === 'bubbles' ? 'bubbles' : 'list';
+    let poolBubblesMap = null;
+    let poolBubblesTotal = 0;
     let poolSearchQuery = '';
     let poolHistoryData = null;
     // script_info of the snapshot shown on the pool page (same use as above).
@@ -256,6 +271,151 @@ document.addEventListener('DOMContentLoaded', function () {
         '" src="/brand/icons/' + name + '.webp" alt="" aria-hidden="true" width="48" height="48" decoding="async">';
     const shortTipAttr = (label, sol) => ' data-cv-tip="' + label + ': ' + formatNumber(sol, 2) +
         ' SOL" data-cv-tip-when="short"';
+    // Small cells under the chart of a card: the sign of a measure, its
+    // value and a small name. An odd last cell takes the whole row.
+    // cells: [{ icon, label, value, tip, zero, cls }]
+    function microCellsHtml(cells) {
+        return '<div class="cv-cells">' + cells.map(c => '<div class="cv-cell' + (c.zero ? ' is-zero' : '') + '"' +
+            (c.tip ? ' data-cv-tip="' + escapeHtml(c.tip) + '"' : '') + '>' + cardIco(c.icon) + '<span class="cv-cell-text"><b' +
+            (c.cls ? ' class="' + c.cls + '"' : '') + '>' + c.value + '</b><small>' + c.label + '</small></span></div>').join('') + '</div>';
+    }
+    // A SOL amount as a card shows it: short from ten thousand SOL (26.67M,
+    // 385.4K), whole SOL from a thousand (9,056), two decimals below.
+    // exact: the text is the whole amount, so no tooltip has to repeat it.
+    function cardSol(sol) {
+        if (sol >= 1e4) return { text: shortSol(sol), exact: false };
+        if (sol >= 1e3) return { text: formatNumber(sol, 0), exact: false };
+        return { text: formatNumber(sol, 2), exact: true };
+    }
+    // The cell of stake on the move: a short number (the exact amount is in
+    // its tooltip), muted when there is none. On a past epoch the tooltip
+    // names the epoch.
+    function flowCell(icon, label, lamports, epoch) {
+        const sol = lamportsToSol(lamports || 0);
+        const zero = !(sol >= 0.005);
+        const past = epoch !== null && epoch !== undefined;
+        const shown = cardSol(sol);
+        return { icon, label, zero, value: zero ? '0' : shown.text,
+            // (in a card the amount on the move has the colour of its direction;
+            // the tiles of a pool-page row draw their own markup and stay plain)
+            cls: zero ? '' : (icon === 'activating' ? 'cv-vd-pos' : (icon === 'deactivating' ? 'cv-vd-neg' : '')),
+            tip: (past || !shown.exact) ? label + (past ? ' in epoch ' + epoch : '') + ': ' + formatNumber(sol, 2) + ' SOL' : '' };
+    }
+    // The two head cells of a card: a larger sign, the main number, its name.
+    // heads: [{ icon, label, value, tip }]
+    function headCellsHtml(heads) {
+        return '<div class="cv-heads">' + heads.map(c => '<div class="cv-head"' + (c.tip ? ' data-cv-tip="' + escapeHtml(c.tip) + '"' : '') + '>' +
+            cardIco(c.icon) + '<span class="cv-cell-text"><b>' + c.value + '</b><small>' + c.label + '</small></span></div>').join('') + '</div>';
+    }
+    // A share as text: one decimal from 10%, two below, "<0.01%" for a trace.
+    function shareText(pct) {
+        if (!(pct > 0)) return '0%';
+        if (pct < 0.01) return '&lt;0.01%';
+        if (pct >= 99.95) return '100%';
+        return (pct >= 10 ? pct.toFixed(1) : pct.toFixed(2)) + '%';
+    }
+    // One sort bar for every list of the site: a small sign instead of the
+    // word "Sort", then the options. The active option of a measure carries
+    // a caret, and a second click on it flips the direction.
+    // items: [{ attr, icon | lead, label, active, dir (it has a direction) }]
+    function sortBarHtml(items, dir, tail) {
+        return '<div class="cv-sort-row" data-cv-scroll="x"><span class="cv-sort-sign" data-cv-tip="Sort"><i class="fas fa-arrow-down-wide-short" aria-hidden="true"></i></span>' +
+            items.map(it => '<button type="button" class="sort-btn' + (it.active ? ' active' : '') + '"' + (it.attr || '') + '>' +
+                (it.lead || '<i class="fas ' + it.icon + '" aria-hidden="true"></i>') + '<span>' + it.label + '</span>' +
+                (it.active && it.dir ? '<i class="fas ' + (dir === 'asc' ? 'fa-caret-up' : 'fa-caret-down') + ' sort-arrow" aria-hidden="true"></i>' : '') +
+                '</button>').join('') + '</div>' + scrollArrowsHtml('x') + (tail || '');
+    }
+    // ---------- scroll hints ----------
+    // A box that scrolls without a visible scrollbar (data-cv-scroll="x" or
+    // "y") says so with small arrows over its faded edges: one at the far
+    // edge while content waits there, one at the near edge once the box has
+    // moved. A tap on an arrow moves the box by most of its size, or to the
+    // very end when little is left after that. The two arrows are the
+    // elements that follow the box.
+    function scrollArrowsHtml(axis) {
+        const icons = axis === 'y' ? ['fa-chevron-down', 'fa-chevron-up'] : ['fa-chevron-right', 'fa-chevron-left'];
+        return '<button type="button" class="cv-scroll-arrow cv-scroll-next" tabindex="-1" aria-hidden="true"><i class="fas ' + icons[0] + '"></i></button>' +
+            '<button type="button" class="cv-scroll-arrow cv-scroll-prev" tabindex="-1" aria-hidden="true"><i class="fas ' + icons[1] + '"></i></button>';
+    }
+    function scrollHintSync(box) {
+        if (!box) return;
+        const y = box.getAttribute('data-cv-scroll') === 'y';
+        const size = y ? box.clientHeight : box.clientWidth;
+        if (!size) return;
+        const pos = y ? box.scrollTop : box.scrollLeft;
+        const rest = (y ? box.scrollHeight : box.scrollWidth) - size - pos;
+        box.classList.toggle('has-more', rest > 2);
+        box.classList.toggle('has-less', pos > 2);
+    }
+    const scrollHintWatch = ('ResizeObserver' in window) ? new ResizeObserver(entries => entries.forEach(en => scrollHintSync(en.target))) : null;
+    const scrollHintSeen = new WeakSet();
+    // Call after the box got its content (and again whenever the content changes).
+    function scrollHint(box) {
+        if (!box) return;
+        if (scrollHintWatch && !scrollHintSeen.has(box)) {
+            scrollHintSeen.add(box);
+            scrollHintWatch.observe(box);
+        }
+        scrollHintSync(box);
+    }
+    // (a scroll event does not bubble, but the document sees it on the way down)
+    document.addEventListener('scroll', (e) => {
+        const box = e.target;
+        if (box && box.nodeType === 1 && box.hasAttribute('data-cv-scroll')) scrollHintSync(box);
+    }, { capture: true, passive: true });
+    document.addEventListener('click', (e) => {
+        const arrow = e.target && e.target.closest ? e.target.closest('.cv-scroll-arrow') : null;
+        if (!arrow) return;
+        let box = arrow.previousElementSibling;
+        while (box && !box.hasAttribute('data-cv-scroll')) box = box.previousElementSibling;
+        if (!box) return;
+        const y = box.getAttribute('data-cv-scroll') === 'y';
+        const size = y ? box.clientHeight : box.clientWidth;
+        const pos = y ? box.scrollTop : box.scrollLeft;
+        const back = arrow.classList.contains('cv-scroll-prev');
+        const rest = back ? pos : (y ? box.scrollHeight : box.scrollWidth) - size - pos;
+        const step = Math.round(size * 0.6);
+        const by = (rest - step < 48 ? rest : step) * (back ? -1 : 1);
+        box.scrollBy(y ? { top: by, behavior: 'smooth' } : { left: by, behavior: 'smooth' });
+    });
+    // On phones the options of a sort bar are one row that scrolls sideways,
+    // and the active option stays in sight.
+    function sortBarSync(row, showActive) {
+        if (!row || !row.clientWidth) return;
+        const active = showActive ? row.querySelector('.sort-btn.active') : null;
+        if (active && row.scrollWidth > row.clientWidth + 2) {
+            const box = row.getBoundingClientRect();
+            const a = active.getBoundingClientRect();
+            if (a.left < box.left + 4) row.scrollLeft += a.left - box.left - 28;
+            else if (a.right > box.right - 4) row.scrollLeft += a.right - box.right + 28;
+        }
+        scrollHintSync(row);
+    }
+    const sortBarSeen = new WeakSet();
+    const sortBarWatch = ('ResizeObserver' in window)
+        ? new ResizeObserver(entries => entries.forEach(en => sortBarSync(en.target.firstElementChild, true))) : null;
+    function sortBarRender(bar, items, dir, tail) {
+        const was = bar.firstElementChild ? bar.firstElementChild.scrollLeft : 0;
+        bar.innerHTML = sortBarHtml(items, dir, tail);
+        const row = bar.firstElementChild;
+        row.scrollLeft = was;
+        if (sortBarWatch && !sortBarSeen.has(bar)) {
+            sortBarSeen.add(bar);
+            sortBarWatch.observe(bar);
+        }
+        sortBarSync(row, true);
+    }
+    // The order of two amounts in a sorted list: largest first or (asc)
+    // smallest first. Empty amounts (zero, unknown, or under min) always go
+    // to the end, so an ascending list opens with the smallest amounts that
+    // exist. Stake on the move passes min = 0.1 SOL, as everywhere on the site.
+    function sortCmp(x, y, asc, min) {
+        const empty = v => (min ? !(v >= min) : !(v > 0));
+        const ex = empty(x);
+        const ey = empty(y);
+        if (ex !== ey) return ex ? 1 : -1;
+        return asc ? x - y : y - x;
+    }
 
     const shortenPubkey = (pubkey) => {
         if (!pubkey) return '';
@@ -338,20 +498,23 @@ document.addEventListener('DOMContentLoaded', function () {
         const jito = meta ? meta.jito : null;
         let bps = null;
         let note = '';
+        // (brief: the same reason in the two or three words of a value)
+        let brief = '';
         if (!jito) {
-            if (status === 'unavailable') note = 'Jito data unavailable right now';
-            else if (status === 'ok' || status === 'cached') note = 'not running Jito';
-            else note = 'not running Jito or no Jito data';
+            if (status === 'unavailable') { note = 'Jito data unavailable right now'; brief = 'no Jito data'; }
+            else if (status === 'ok' || status === 'cached') { note = 'not running Jito'; brief = 'not running Jito'; }
+            else { note = 'not running Jito or no Jito data'; brief = 'no Jito data'; }
         } else if (typeof jito.mev_commission_bps === 'number') {
             bps = jito.mev_commission_bps;
         } else {
             note = 'not reported yet, no blocks produced this epoch';
+            brief = 'not reported yet';
         }
         let cachedNote = '';
         if (status === 'cached' && jm && typeof jm.cache_age_seconds === 'number') {
             cachedNote = 'Jito data as of ' + Math.max(1, Math.round(jm.cache_age_seconds / 60)) + ' min ago';
         }
-        return { bps, note, cachedNote };
+        return { bps, note, brief, cachedNote };
     }
 
     // Client version string from the CLI; "unknown" = not reported at scan time.
@@ -496,13 +659,13 @@ document.addEventListener('DOMContentLoaded', function () {
         const cText = formatBpsPercent(metaCommissionBps(meta));
         const mev = metaMevInfo(meta, scriptInfo);
         const mText = formatBpsPercent(mev.bps);
-        const tip = [L.inflation + ' - Commission: ' + (cText || 'not reported'),
-                     L.mev + ' - MEV commission: ' + (mText || mev.note)];
-        if (mev.cachedNote) tip.push(mev.cachedNote);
-        const seg = (label, text) => '<span class="cv-seg' + (text ? '' : ' is-missing') + '">' +
+        // Each value answers for itself: its own tooltip names it in full.
+        const mevTip = ['MEV commission: ' + (mText || mev.note)];
+        if (mev.cachedNote) mevTip.push(mev.cachedNote);
+        const seg = (label, text, tip) => '<span class="cv-seg' + (text ? '' : ' is-missing') + '" data-cv-tip="' + escapeHtml(tip.join('\n')) + '">' +
             '<span class="cv-seg-label">' + label + '</span>' + escapeHtml(text || '-') + '</span>';
-        chips.push('<span class="cv-chip cv-chip-fees" data-cv-tip="' + escapeHtml(tip.join('\n')) + '">' +
-            seg(L.inflation, cText) + seg(L.mev, mText) + '</span>');
+        chips.push('<span class="cv-chip cv-chip-fees">' +
+            seg(L.inflation, cText, ['Commission: ' + (cText || 'not reported')]) + seg(L.mev, mText, mevTip) + '</span>');
 
         const ver = metaVersion(meta);
         const client = resolveClient(meta.client);
@@ -537,6 +700,40 @@ document.addEventListener('DOMContentLoaded', function () {
         return '<button type="button" class="cv-key" data-cv-copy="' + k + '"' + cvHoverTip(k) + ' aria-label="Copy ' +
             escapeHtml(label) + ' key"><span class="cv-key-label">' + escapeHtml(label) + '</span>' +
             '<span class="cv-key-val">' + escapeHtml(shortenPubkey(key)) + '</span>' + COPY_ICONS + '</button>';
+    }
+    // A key as a round sign: the kind and the whole key are in its tooltip,
+    // a click copies the key and says so for a moment.
+    // kind: 'Staker', 'Withdrawer', 'Identity', 'Vote account'.
+    function keySignHtml(kind, key, glyph) {
+        const k = escapeHtml(key);
+        return '<button type="button" class="cv-key cv-key-ico" data-cv-copy="' + k + '"' +
+            cvHoverTip(escapeHtml(kind + ' key') + '\n' + k + '\nClick to copy') + ' data-cv-copied="' + escapeHtml(kind + ' key copied') + '\n' + k +
+            '" aria-label="' + escapeHtml('Copy the ' + kind.toLowerCase() + ' key ') + k + '"><i class="fas ' + glyph + ' cv-key-glyph" aria-hidden="true"></i>' +
+            '<i class="fas fa-check cv-copied-icon" aria-hidden="true"></i></button>';
+    }
+    // The two keys of a validator in a list row: identity, then vote account.
+    function validatorKeySignsHtml(identity, vote) {
+        if (!identity && !vote) return '';
+        return '<span class="cv-key-signs">' + (identity ? keySignHtml('Identity', identity, 'fa-key') : '') +
+            (vote ? keySignHtml('Vote account', vote, 'fa-check-to-slot') : '') + '</span>';
+    }
+    // The keys of a validator on its own page: the sign of a key (a key for
+    // the identity, a ballot box for the vote account) and the key itself in
+    // one chip. A wide header shows the whole key, a narrow one its short
+    // form (compact: always the short form, as in the list of changes); the
+    // tooltip names the kind and a click copies, as in the lists.
+    function keyChipHtml(kind, label, key, icon, compact) {
+        const k = escapeHtml(key);
+        return '<button type="button" class="cv-key cv-keychip' + (compact ? ' is-compact' : '') + '" data-cv-copy="' + k + '"' +
+            cvHoverTip(escapeHtml(kind + ' key') + '\n' + k + '\nClick to copy') + ' data-cv-copied="' + escapeHtml(kind + ' key copied') + '\n' + k +
+            '" aria-label="' + escapeHtml('Copy the ' + kind.toLowerCase() + ' key ') + k + '">' + cardIco(icon, 'cv-keychip-ico') +
+            (label ? '<span class="cv-key-label">' + escapeHtml(label) + '</span>' : '') +
+            (compact ? '' : '<span class="cv-key-val cv-key-full">' + k + '</span>') +
+            '<span class="cv-key-val cv-key-short">' + escapeHtml(shortenPubkey(key)) + '</span>' + COPY_ICONS + '</button>';
+    }
+    function validatorKeyChipsHtml(identity, vote) {
+        return (identity ? keyChipHtml('Identity', 'ID', identity, 'key-identity') : '') +
+            (vote ? keyChipHtml('Vote account', 'Vote', vote, 'key-vote') : '');
     }
 
     // ============================================
@@ -743,6 +940,86 @@ document.addEventListener('DOMContentLoaded', function () {
         return url ? '<img src="' + url + '" data-logo-stem="other" data-logo-iso="' + Number(size) + '" alt="">' : '';
     }
 
+    // POOL PLOTS BEGIN
+    // A pool's sprite stands on a tile of the map: on its card of the Pools
+    // tab, on its card of a validator page and in the header of its own page.
+    // Sizes and places are in units of the plot's width; the plot's height
+    // is PLOT_BOX_H of its width.
+    const PLOT_BOX_H = 0.9;
+    // A usual logo takes up to 0.56 of the plot's width and 0.50 of its
+    // height. A logo much wider than tall (Jito, Bybit) gets more of the
+    // width, up to 0.82, and stands a little higher, so its ends stay on the
+    // tile. Returns the width, the height and the bottom line of the drawing.
+    function plotSpriteRule(aspect) {
+        let w = Math.min(0.82, Math.max(0.56, 0.56 + (aspect - 1.45) * 0.27));
+        let h = w / aspect;
+        if (h > 0.50) { h = 0.50; w = h * aspect; }
+        const bottom = Math.min(0.68, Math.max(0.60, 0.53 + 0.285 * (1 - 0.85 * w)));
+        return { w, h, bottom };
+    }
+    // Sprite files differ in how much empty space surrounds the drawing, so
+    // the drawn part is measured once per file and the sprite is placed by it.
+    const plotBoxCache = new Map();
+    function plotSpriteBox(img) {
+        const key = (img.currentSrc || img.src || '').split('?')[0];
+        if (plotBoxCache.has(key)) return plotBoxCache.get(key);
+        let box = null;
+        try {
+            const w = img.naturalWidth, h = img.naturalHeight;
+            if (w && h) {
+                const c = document.createElement('canvas');
+                c.width = w; c.height = h;
+                const ctx = c.getContext('2d', { willReadFrequently: true });
+                ctx.drawImage(img, 0, 0);
+                const data = ctx.getImageData(0, 0, w, h).data;
+                let x0 = w, y0 = h, x1 = -1, y1 = -1;
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        if (data[(y * w + x) * 4 + 3] > 12) {
+                            if (x < x0) x0 = x;
+                            if (x > x1) x1 = x;
+                            if (y < y0) y0 = y;
+                            if (y > y1) y1 = y;
+                        }
+                    }
+                }
+                if (x1 >= x0 && y1 >= y0) box = { w, h, x0, y0, x1: x1 + 1, y1: y1 + 1 };
+            }
+        } catch (_) {
+            box = null;
+        }
+        plotBoxCache.set(key, box);
+        return box;
+    }
+    const PLOT_SPRITE_PROPS = ['width', 'height', 'left', 'top', 'bottom', 'max-height'];
+    function plotPlaceSprite(img) {
+        if (!img || !img.complete || !img.naturalWidth) return;
+        const plot = img.parentElement;
+        if (!plot || !plot.classList.contains('cv-plot')) return;
+        // The flat logo standing in for a sprite keeps the plain look.
+        const b = (img.getAttribute('src') || '').indexOf('/pool-logos/') === 0 ? plotSpriteBox(img) : null;
+        if (!b) {
+            PLOT_SPRITE_PROPS.forEach(p => img.style.removeProperty(p));
+            return;
+        }
+        const cw = b.x1 - b.x0, ch = b.y1 - b.y0;
+        const rule = plotSpriteRule(cw / ch);
+        const s = rule.w / cw;
+        // (set as important: the image of a pool page has fixed sizes in its base styles)
+        const set = (prop, value) => img.style.setProperty(prop, value, 'important');
+        set('width', (b.w * s * 100).toFixed(2) + '%');
+        set('height', 'auto');
+        set('left', ((0.5 - (b.x0 + cw / 2) * s) * 100).toFixed(2) + '%');
+        set('top', ((rule.bottom - b.y1 * s) / PLOT_BOX_H * 100).toFixed(2) + '%');
+        set('bottom', 'auto');
+        set('max-height', 'none');
+    }
+    document.addEventListener('load', (e) => {
+        const img = e.target;
+        if (img && img.tagName === 'IMG' && img.dataset && img.dataset.logoIso && img.parentElement &&
+            img.parentElement.classList.contains('cv-plot')) plotPlaceSprite(img);
+    }, true);
+
     // A sprite that fails to load gives its place back to the flat logo.
     document.addEventListener('error', (e) => {
         const img = e.target;
@@ -764,11 +1041,16 @@ document.addEventListener('DOMContentLoaded', function () {
     // ============================================
     function getInitials(name, fallbackKey = '') {
         if (name && !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(name)) {
-            const words = name.split(' ').filter(Boolean);
-            if (words.length > 1) {
-                return (words[0][0] + words[1][0]).toUpperCase();
-            }
-            return name.substring(0, 2).toUpperCase();
+            // Letters and digits only, by whole characters: a sign or an
+            // emoji in a name is not an initial (and half of an emoji is a
+            // broken glyph).
+            const words = String(name).split(/\s+/)
+                .map(w => Array.from(w).filter(ch => /[\p{L}\p{N}]/u.test(ch))).filter(w => w.length > 0);
+            if (words.length > 1) return (words[0][0] + words[1][0]).toUpperCase();
+            if (words.length === 1) return words[0].slice(0, 2).join('').toUpperCase();
+            // (a name of signs alone: the key speaks for it, when there is one)
+            if (!fallbackKey) return Array.from(String(name).trim()).slice(0, 2).join('') || '??';
+            name = '';
         }
         const key = name || fallbackKey;
         return key ? key.substring(0, 2).toUpperCase() : '??';
@@ -828,6 +1110,14 @@ document.addEventListener('DOMContentLoaded', function () {
         if (img.dataset.fbKey === undefined) return;
         window.handleValidatorImage(img, img.dataset.fbName || '', img.dataset.fbKey || '');
     }, true);
+    // (the avatar inside a bubble of a pool map: the initials take its place)
+    document.addEventListener('error', (e) => {
+        const img = e.target;
+        if (!img || img.tagName !== 'IMG' || !img.classList.contains('cv-pbub-img')) return;
+        brokenImages.add(img.src);
+        const face = img.parentNode;
+        if (face) face.innerHTML = '<span class="cv-bub-initials">' + escapeHtml(img.dataset.fb || '') + '</span>';
+    }, true);
 
     // ============================================
     // VALIDATOR HELPERS
@@ -870,29 +1160,25 @@ document.addEventListener('DOMContentLoaded', function () {
 			return pool ? (pool.active_lamports + pool.activating_lamports) : 0;
 		};
 	
+		const active = v => v.totals?.total_active_lamports || 0;
+		const byActive = (a, b) => active(b) - active(a);
+		const asc = validatorsSortAsc;
 		switch (validatorsSortMode) {
 			case 'active-stake':
-				filteredValidators.sort((a, b) => 
-					(b.totals?.total_active_lamports || 0) - (a.totals?.total_active_lamports || 0));
+				filteredValidators.sort((a, b) => sortCmp(active(a), active(b), asc));
 				break;
 			case 'activating':
-				filteredValidators.sort((a, b) => 
-					(b.totals?.total_activating_lamports || 0) - (a.totals?.total_activating_lamports || 0) ||
-					(b.totals?.total_active_lamports || 0) - (a.totals?.total_active_lamports || 0));
+				filteredValidators.sort((a, b) => sortCmp(a.totals?.total_activating_lamports || 0, b.totals?.total_activating_lamports || 0, asc, MIN_ACTIVE_STAKE) || byActive(a, b));
 				break;
 			case 'deactivating':
-				filteredValidators.sort((a, b) => 
-					(b.totals?.total_deactivating_lamports || 0) - (a.totals?.total_deactivating_lamports || 0) ||
-					(b.totals?.total_active_lamports || 0) - (a.totals?.total_active_lamports || 0));
+				filteredValidators.sort((a, b) => sortCmp(a.totals?.total_deactivating_lamports || 0, b.totals?.total_deactivating_lamports || 0, asc, MIN_ACTIVE_STAKE) || byActive(a, b));
 				break;
-			// ⭐ НОВИЙ РЕЖИМ СОРТУВАННЯ
 			case 'age':
-				// Oldest vote accounts first; a second click on the button flips the order.
+				// Oldest vote accounts first; a second click flips the order. Unknown ages stay at the end.
 				filteredValidators.sort((a, b) => {
 					const x = cvListAge(a);
 					const y = cvListAge(b);
-					const d = (y ? y.value : -1) - (x ? x.value : -1);
-					return (validatorsAgeAsc ? -d : d) || ((b.totals?.total_active_lamports || 0) - (a.totals?.total_active_lamports || 0));
+					return sortCmp(x ? x.value + 1 : 0, y ? y.value + 1 : 0, asc) || byActive(a, b);
 				});
 				break;
 			case 'pool-specific':
@@ -963,6 +1249,29 @@ document.addEventListener('DOMContentLoaded', function () {
     // ============================================
     // POOL TOOLTIP HELPERS
     // ============================================
+    // The width a tooltip may use: the width of the page as it is laid out.
+    // (A phone browser reports a wider window when anything on the page
+    // reaches past its right edge; a tooltip placed by that number leaves
+    // the screen.)
+    function cvWindowWidth() {
+        const page = document.documentElement.clientWidth;
+        return page > 0 ? Math.min(page, window.innerWidth) : window.innerWidth;
+    }
+    // A chart tooltip is centred on its point and stays inside its chart:
+    // at an end of the line half of it would hang out of the block - on a
+    // phone out of the page, which makes the page wider than the window.
+    // x: the point, width: the width of the chart, both in the pixels of the chart.
+    function cvChartTipLeft(tooltip, x, width) {
+        const half = (tooltip.offsetWidth || 120) / 2 + 2;
+        return width > 2 * half ? Math.max(half, Math.min(width - half, x)) : width / 2;
+    }
+    // A tooltip that follows the pointer inside a block starts at the
+    // pointer and ends inside the window: near the right edge it moves left.
+    // x: the pointer, counted from the left edge of the block.
+    function cvPointerTipLeft(tooltip, box, x) {
+        const left = box.getBoundingClientRect().left;
+        return Math.max(8 - left, Math.min(x, cvWindowWidth() - 8 - left - tooltip.offsetWidth));
+    }
 	window.showPoolTooltip = function(element) {
 		// Видаляємо старий тултіп, якщо він є
 		const existingTooltip = document.getElementById('dynamic-pool-tooltip');
@@ -974,7 +1283,7 @@ document.addEventListener('DOMContentLoaded', function () {
 		const tooltip = document.createElement('div');
 		tooltip.id = 'dynamic-pool-tooltip';
 		tooltip.className = 'pool-tooltip';
-		tooltip.innerHTML = element.querySelector('.pool-tooltip-content').innerHTML;
+		tooltip.innerHTML = element.querySelector('.pool-tooltip-content').innerHTML.replace(/ data-cv-src="/g, ' src="');
 		document.body.appendChild(tooltip);
 	
 		// Позиціонування
@@ -986,8 +1295,8 @@ document.addEventListener('DOMContentLoaded', function () {
 		let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
 	
 		if (left < PADDING) left = PADDING;
-		if (left + tooltipRect.width > window.innerWidth - PADDING) {
-			left = window.innerWidth - tooltipRect.width - PADDING;
+		if (left + tooltipRect.width > cvWindowWidth() - PADDING) {
+			left = cvWindowWidth() - tooltipRect.width - PADDING;
 		}
 		if (top < PADDING) top = rect.bottom + 12;
 	
@@ -1011,13 +1320,26 @@ document.addEventListener('DOMContentLoaded', function () {
     // Same glass look and element id as the pool badge tooltips, so the
     // existing scroll handler hides both kinds.
     let cvTipTarget = null;
+    // (the longest value kept in one piece; a number followed by its unit)
+    const CV_TIP_VALUE_MAX = 32;
+    const CV_TIP_UNIT = /(\d) (?=(?:SOL|epochs?|ep|validators?|accounts?)\b)/g;
+    const CV_TIP_KEY = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
     function showCvTip(el) {
-        const text = el.getAttribute('data-cv-tip');
+        let text = el.getAttribute('data-cv-tip');
         if (!text) return;
-        if (el.getAttribute('data-cv-tip-when') === 'short') {
+        // A key chip that shows the whole key does not repeat it in its tooltip.
+        if (el.classList.contains('cv-keychip')) {
+            const full = el.querySelector('.cv-key-full');
+            const key = el.getAttribute('data-cv-copy');
+            if (full && key && getComputedStyle(full).display !== 'none') text = text.split('\n').filter(line => line !== key).join('\n');
+        }
+        const when = el.getAttribute('data-cv-tip-when');
+        if (when === 'short') {
             const shortForm = el.querySelector('.cv-num-short');
             if (!shortForm || getComputedStyle(shortForm).display === 'none') return;
         }
+        // "clipped": the text of the element does not fit and ends with an ellipsis.
+        if (when === 'clipped' && el.scrollWidth <= el.clientWidth + 1) return;
         const old = document.getElementById('dynamic-pool-tooltip');
         if (old) old.remove();
         const tip = document.createElement('div');
@@ -1026,7 +1348,30 @@ document.addEventListener('DOMContentLoaded', function () {
         text.split('\n').forEach((line, i) => {
             const row = document.createElement('div');
             row.className = i === 0 ? 'cv-tip-line cv-tip-first' : 'cv-tip-line';
-            row.textContent = line;
+            // A line never breaks inside a value: "Label: value" breaks
+            // after the colon and a short value stays in one piece; in any
+            // other line a unit stays with its number.
+            const cut = line.indexOf(': ');
+            const value = cut > 0 ? line.slice(cut + 2) : '';
+            if (value && value.length <= CV_TIP_VALUE_MAX) {
+                row.appendChild(document.createTextNode(line.slice(0, cut + 2)));
+                const v = document.createElement('span');
+                v.className = 'cv-tip-val';
+                v.textContent = value;
+                row.appendChild(v);
+            } else if (CV_TIP_KEY.test(line)) {
+                // A key is one piece: one line where the tooltip has the room,
+                // two equal halves where it has not.
+                const half = Math.ceil(line.length / 2);
+                row.classList.add('cv-tip-key');
+                [line.slice(0, half), line.slice(half)].forEach((part) => {
+                    const s = document.createElement('span');
+                    s.textContent = part;
+                    row.appendChild(s);
+                });
+            } else {
+                row.textContent = line.replace(CV_TIP_UNIT, '$1\u00a0');
+            }
             tip.appendChild(row);
         });
         document.body.appendChild(tip);
@@ -1036,7 +1381,7 @@ document.addEventListener('DOMContentLoaded', function () {
         let top = rect.top - tr.height - 10;
         let left = rect.left + rect.width / 2 - tr.width / 2;
         if (left < PAD) left = PAD;
-        if (left + tr.width > window.innerWidth - PAD) left = window.innerWidth - tr.width - PAD;
+        if (left + tr.width > cvWindowWidth() - PAD) left = cvWindowWidth() - tr.width - PAD;
         // Tooltips of the bar under the header open below the bar, so they
         // never cover the header.
         const bar = el.closest ? el.closest('#cv-subheader') : null;
@@ -1192,7 +1537,7 @@ document.addEventListener('DOMContentLoaded', function () {
         subheaderEl.id = 'cv-subheader';
         subheaderEl.className = 'cv-subheader';
         subheaderEl.innerHTML = '<div class="cv-subheader-inner">' +
-            '<button type="button" class="cv-sub-crumb" hidden><span class="cv-sub-crumb-logo"></span><span class="cv-sub-crumb-title"></span></button>' +
+            '<a class="cv-sub-crumb" hidden><span class="cv-sub-crumb-logo"></span><span class="cv-sub-crumb-title"></span></a>' +
             '<span class="cv-sub-sep" hidden aria-hidden="true"><i class="fas fa-chevron-right"></i></span>' +
             '<span class="cv-subheader-logo"></span>' +
             '<span class="cv-subheader-text"><span class="cv-subheader-kind"></span><span class="cv-subheader-title"></span></span>' +
@@ -1240,10 +1585,13 @@ document.addEventListener('DOMContentLoaded', function () {
             sel.dispatchEvent(new Event('change'));
             subheaderSyncEpoch();
         });
-        // The way back from a pool or a validator page to its list. The
-        // hidden breadcrumb still owns that route: the main view, the tab,
-        // and a scroll to the tab bar.
+        // The way back from a pool or a validator page to its list: a link
+        // (a new tab, "copy link address") that a plain click turns into the
+        // in-page route. The hidden breadcrumb still owns that route: the
+        // main view, the tab, and a scroll to the tab bar.
         subheaderEl.querySelector('.cv-sub-crumb').addEventListener('click', (e) => {
+            if (!cvPlainClick(e)) return;
+            e.preventDefault();
             const crumb = document.getElementById('breadcrumb-section');
             if (!crumb) return;
             crumb.dataset.tab = e.currentTarget.getAttribute('data-tab') || 'pools';
@@ -1275,6 +1623,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (crumbTab) {
             const t = SUBHEADER_TABS[crumbTab];
             crumb.setAttribute('data-tab', crumbTab);
+            crumb.setAttribute('href', tabHref(crumbTab));
             subheaderTip(crumb, 'Back to ' + t.title);
             crumb.setAttribute('aria-label', 'Back to ' + t.title);
             crumb.querySelector('.cv-sub-crumb-logo').innerHTML = kitLogoHtml(t.kit);
@@ -1368,7 +1717,7 @@ document.addEventListener('DOMContentLoaded', function () {
         let top = rect.top - tr.height - 10;
         let left = rect.left + rect.width / 2 - tr.width / 2;
         if (left < PAD) left = PAD;
-        if (left + tr.width > window.innerWidth - PAD) left = window.innerWidth - tr.width - PAD;
+        if (left + tr.width > cvWindowWidth() - PAD) left = cvWindowWidth() - tr.width - PAD;
         if (top < PAD) top = rect.bottom + 10;
         tip.style.top = top + 'px';
         tip.style.left = left + 'px';
@@ -1408,18 +1757,73 @@ document.addEventListener('DOMContentLoaded', function () {
         tip.classList.add('visible');
     }
 
+    // A row of a pool page shows who else stakes with the validator: up to
+    // five places (five small logos, or four and "+N"), largest first.
+    const POOL_ROW_OTHERS = 5;
+    function poolRowOthers(v) {
+        return (v.groups || [])
+            .filter(g => g.name !== currentPoolGroup && meetsStakeThreshold(g.active_lamports, g.activating_lamports))
+            .sort((x, y) => (y.active_lamports - x.active_lamports) || (y.activating_lamports - x.activating_lamports));
+    }
+    // Tooltip of one of those logos (the staker and its amounts) or of "+N"
+    // (the stakers that did not get a place).
+    function showAlsoTip(el) {
+        const box = el.closest('[data-vote]');
+        const vote = box ? box.getAttribute('data-vote') : '';
+        const v = poolValidators.find(x => x.info && x.info.vote_pubkey === vote);
+        if (!v) return;
+        const others = poolRowOthers(v);
+        const total = (v.totals && v.totals.total_active_lamports) || 0;
+        const named = g => { const def = cvSourceDef(g.name); return { name: g.name, def, title: cvSourceTitle(g.name, def) }; };
+        const share = g => (total > 0 && g.active_lamports > 0) ? shareText(g.active_lamports / total * 100) : '';
+        const sel = document.getElementById('pool-epoch-select');
+        const epochLine = (sel && sel.value && Number(sel.value) !== Number(latestEpochNumber))
+            ? '<div class="pool-tooltip-epoch">Epoch ' + escapeHtml(String(sel.value)) + '</div>' : '';
+        const exact = lamports => formatNumber(lamportsToSol(lamports || 0), 2) + ' SOL';
+        const which = el.getAttribute('data-cv-also');
+        if (which === 'more') {
+            const rest = others.slice(POOL_ROW_OTHERS - 1);
+            if (!rest.length) return;
+            const LIMIT = 12;
+            cvShowTipHtml(el, '<div class="pool-tooltip-title">Also staked by</div>' + epochLine + rest.slice(0, LIMIT).map(g => {
+                const n = named(g);
+                return cvTipRow(cvSourceLogoMini(n), n.title, formatCompact(lamportsToSol(g.active_lamports)) + ' SOL' +
+                    (share(g) ? '<span class="cv-tip-dim">' + share(g) + '</span>' : ''));
+            }).join('') + (rest.length > LIMIT ? '<div class="cv-flow-more">and ' + (rest.length - LIMIT) + ' more</div>' : ''));
+            return;
+        }
+        const g = others[Number(which)];
+        if (!g) return;
+        const n = named(g);
+        cvShowTipHtml(el, '<div class="pool-tooltip-title cv-tip-pool">' + cvSourceLogoMini(n) + '<span>' + escapeHtml(n.title) + '</span></div>' + epochLine +
+            cvTipRow(cvTipIco('active-stake'), 'Active stake', exact(g.active_lamports)) +
+            (share(g) ? cvTipRow(cvTipIco('share'), 'Share of validator', share(g)) : '') +
+            ((g.activating_lamports || 0) >= MIN_ACTIVE_STAKE ? cvTipRow(cvTipIco('activating'), 'Activating', '+' + exact(g.activating_lamports), 'is-up') : '') +
+            ((g.deactivating_lamports || 0) >= MIN_ACTIVE_STAKE ? cvTipRow(cvTipIco('deactivating'), 'Deactivating', '-' + exact(g.deactivating_lamports), 'is-down') : ''));
+    }
+
     document.addEventListener('mouseover', (e) => {
-        const el = e.target && e.target.closest ? e.target.closest('[data-cv-tip],[data-cv-flow],[data-cv-vdtip],[data-cv-rich]') : null;
+        const el = e.target && e.target.closest ? e.target.closest('[data-cv-tip],[data-cv-flow],[data-cv-vdtip],[data-cv-rich],[data-cv-also],[data-cv-pbub],[data-cv-summit]') : null;
         if (!el || el === cvTipTarget) return;
+        // On a touch screen a tap on a link or a button is its action: its
+        // plain tooltip stays closed (it would be left on screen after the tap).
+        if (!CV_CAN_HOVER && el.hasAttribute('data-cv-tip') && el.matches('a, button')) return;
+        // (in the narrow table of stakers the name opens the details of its
+        // row, not the page of the staker: its "Opens the page" tooltip stays closed)
+        if (el.matches('a.cv-vd-src-name') && CV_NARROW_TABLE && CV_NARROW_TABLE.matches) return;
         cvTipTarget = el;
+        if (cvPinnedTip && cvPinnedTip.__card === el) return;
         if (el.hasAttribute('data-cv-rich')) showCvRichTip(el);
+        else if (el.hasAttribute('data-cv-pbub')) showPoolBubTip(el);
+        else if (el.hasAttribute('data-cv-summit')) showSummitTip(el);
+        else if (el.hasAttribute('data-cv-also')) showAlsoTip(el);
         else if (el.hasAttribute('data-cv-vdtip')) showCvVdTip(el);
         else if (el.hasAttribute('data-cv-flow')) showFlowTip(el);
         else showCvTip(el);
     });
     document.addEventListener('mouseout', (e) => {
         if (!cvTipTarget) return;
-        const from = e.target && e.target.closest ? e.target.closest('[data-cv-tip],[data-cv-flow],[data-cv-vdtip],[data-cv-rich]') : null;
+        const from = e.target && e.target.closest ? e.target.closest('[data-cv-tip],[data-cv-flow],[data-cv-vdtip],[data-cv-rich],[data-cv-also],[data-cv-pbub],[data-cv-summit]') : null;
         if (from !== cvTipTarget) return;
         if (e.relatedTarget && cvTipTarget.contains(e.relatedTarget)) return;
         cvTipTarget = null;
@@ -1461,13 +1865,44 @@ document.addEventListener('DOMContentLoaded', function () {
             void el.offsetWidth;
             el.classList.add(ok ? 'is-copied' : 'is-copy-failed');
             clearTimeout(el._cvCopyTimer);
-            el._cvCopyTimer = setTimeout(() => el.classList.remove('is-copied', 'is-copy-failed'), 1400);
+            // A control with data-cv-copied says what was copied in the tooltip for a moment.
+            const said = ok ? el.getAttribute('data-cv-copied') : '';
+            let note = null;
+            if (said) {
+                const was = el.getAttribute('data-cv-tip');
+                el.setAttribute('data-cv-tip', said);
+                showCvTip(el);
+                note = document.getElementById('dynamic-pool-tooltip');
+                if (was === null) el.removeAttribute('data-cv-tip'); else el.setAttribute('data-cv-tip', was);
+            }
+            el._cvCopyTimer = setTimeout(() => {
+                el.classList.remove('is-copied', 'is-copy-failed');
+                // (the note closes itself only: a tooltip opened since - the
+                // pointer went on to another element - is not its to close)
+                if (note && note.isConnected && note.id === 'dynamic-pool-tooltip' && window.hidePoolTooltip) { cvTipTarget = null; window.hidePoolTooltip(); }
+            }, 1400);
         });
     }, true);
 
     // ============================================
     // POOL BADGE HTML BUILDERS
     // ============================================
+    // The ring of a pool bubble: green = activating, red = deactivating,
+    // split = both at once (share = the activating part, %), dashed = the
+    // whole stake is arriving (activating only) or leaving (all the active
+    // stake is deactivating). Amounts under 0.1 SOL do not count.
+    function poolBadgeRing(pActive, pAct, pDeact) {
+        const activatingOnly = pActive < MIN_ACTIVE_STAKE && pAct >= MIN_ACTIVE_STAKE;
+        const hasAct = pAct >= MIN_ACTIVE_STAKE;
+        const hasDeact = pDeact >= MIN_ACTIVE_STAKE;
+        let cls = '';
+        if (activatingOnly) cls = ' is-activating-only';
+        else if (hasAct && hasDeact) cls = ' is-activating is-deactivating';
+        else if (hasAct) cls = ' is-activating';
+        else if (hasDeact && pDeact >= pActive) cls = ' is-exiting';
+        else if (hasDeact) cls = ' is-deactivating';
+        return { cls, activatingOnly, share: (hasAct && hasDeact) ? Math.round(Math.min(92, Math.max(8, pAct / (pAct + pDeact) * 100))) : null };
+    }
     function createPoolBadgeHtml(pool, validatorId, poolDef, isStale, epochNum) {
         const poolImage = poolDef?.image || '';
         let imageUrl = poolImage;
@@ -1507,20 +1942,10 @@ document.addEventListener('DOMContentLoaded', function () {
         // active stake deactivating, label in red). Same 0.1 SOL threshold.
         const pActive = pool.active_lamports || 0;
         const pAct = pool.activating_lamports || 0;
-        const pDeact = pool.deactivating_lamports || 0;
-        const activatingOnly = pActive < MIN_ACTIVE_STAKE && pAct >= MIN_ACTIVE_STAKE;
-        const hasAct = pAct >= MIN_ACTIVE_STAKE;
-        const hasDeact = pDeact >= MIN_ACTIVE_STAKE;
-        let movementClass = '';
-        if (activatingOnly) movementClass = ' is-activating-only';
-        else if (hasAct && hasDeact) movementClass = ' is-activating is-deactivating';
-        else if (hasAct) movementClass = ' is-activating';
-        else if (hasDeact && pDeact >= pActive) movementClass = ' is-exiting';
-        else if (hasDeact) movementClass = ' is-deactivating';
-        const movementStyle = (hasAct && hasDeact)
-            ? ' style="--act-share:' + Math.round(Math.min(92, Math.max(8, pAct / (pAct + pDeact) * 100))) + '%"'
-            : '';
-        const activeStakeFormatted = activatingOnly
+        const ring = poolBadgeRing(pActive, pAct, pool.deactivating_lamports || 0);
+        const movementClass = ring.cls;
+        const movementStyle = ring.share === null ? '' : ' style="--act-share:' + ring.share + '%"';
+        const activeStakeFormatted = ring.activatingOnly
             ? '+' + formatCompact(lamportsToSol(pAct))
             : formatCompact(lamportsToSol(pActive));
         
@@ -1538,22 +1963,22 @@ document.addEventListener('DOMContentLoaded', function () {
 					${isStale ? `<div class="pool-tooltip-epoch">Epoch ${epochNum}</div>` : ''}
 					<div class="pool-tooltip-stats-container">
 						<div class="pool-tooltip-stat active">
-							<span class="label"><i class="fas fa-coins"></i>Active</span>
+							<span class="label">${cvTipIco('active-stake', true)}Active</span>
 							<span class="value">${formatNumber(lamportsToSol(pool.active_lamports), 2)} SOL</span>
 						</div>
 						${pool.activating_lamports > 0 ? `
 						<div class="pool-tooltip-stat activating">
-							<span class="label"><i class="fas fa-arrow-trend-up"></i>Activating</span>
+							<span class="label">${cvTipIco('activating', true)}Activating</span>
 							<span class="value">${formatNumber(lamportsToSol(pool.activating_lamports), 2)} SOL</span>
 						</div>` : ''}
 						${pool.deactivating_lamports > 0 ? `
 						<div class="pool-tooltip-stat deactivating">
-							<span class="label"><i class="fas fa-arrow-trend-down"></i>Deactivating</span>
+							<span class="label">${cvTipIco('deactivating', true)}Deactivating</span>
 							<span class="value">${formatNumber(lamportsToSol(pool.deactivating_lamports), 2)} SOL</span>
 						</div>` : ''}
 						${pool.count > 0 ? `
 						<div class="pool-tooltip-stat accounts">
-							<span class="label"><i class="fas fa-wallet"></i>Stake accounts</span>
+							<span class="label">${cvTipIco('stake-accounts', true)}Stake accounts</span>
 							<span class="value">${formatNumber(pool.count)}</span>
 						</div>` : ''}
 					</div>
@@ -1613,6 +2038,13 @@ document.addEventListener('DOMContentLoaded', function () {
 			}).join('');
 	
 			const isDelinquent = !!(validator.meta && validator.meta.delinquent === true);
+			// The stake on the move stands under the total stake, in a line of its own.
+			const flowChip = (kind, lamports) => lamports > 0
+				? '<div class="stake-stat ' + kind + '" data-cv-flow="' + kind + '" data-vote="' + escapeHtml(votePubkey) + '">' + cardIco(kind) +
+				  '<span class="value">' + formatCompact(lamportsToSol(lamports)) + '</span></div>'
+				: '';
+			const flowsHtml = flowChip('activating', validator.totals?.total_activating_lamports || 0) +
+				flowChip('deactivating', validator.totals?.total_deactivating_lamports || 0);
 			const avatarHtml = imageUrl
 				? `<img class="validator-image" src="${escapeHtml(imageUrl)}" alt="${nameHtml}" loading="lazy"
 						data-fb-name="${nameHtml}" data-fb-key="${escapeHtml(identityPubkey)}">`
@@ -1624,33 +2056,20 @@ document.addEventListener('DOMContentLoaded', function () {
 						<div class="validator-rank">#${rank}</div>
 						<a class="cv-vlink cv-vlink-avatar" data-cv-nav href="${vHref}" tabindex="-1" aria-hidden="true"><div class="validator-image-wrapper">${avatarHtml}</div></a>
 						<div class="validator-info">
-							<div class="validator-name cv-name-line" title="${nameHtml}">
-								<a class="cv-name-text cv-vlink" data-cv-nav href="${vHref}">${nameHtml}${CV_GO_SVG}</a>
+							<div class="validator-name cv-name-line">
+								<a class="cv-name-text cv-vlink" data-cv-nav href="${vHref}" data-cv-tip="${nameHtml}" data-cv-tip-when="clipped"><span class="cv-name-run">${nameHtml}${CV_GO_SVG}</span></a>
 								${realName ? copyButtonHtml(rawName, 'Copy name') : ''}
 							</div>
 							${isStaleView ? cvGoneBadgeHtml(votePubkey) : ''}${nameHit ? `<div class="cv-formerly">${nameHit.label} <b>${escapeHtml(nameHit.name)}</b></div>` : ''}
-							<div class="validator-pubkeys cv-keys">
-								${identityPubkey ? keyTokenHtml('ID', identityPubkey) : ''}
-								${votePubkey ? keyTokenHtml('Vote', votePubkey) : ''}
-							</div>
-							${cvListMetaHtml(validator)}
 						</div>
+						<div class="cv-chipline">${validatorKeySignsHtml(identityPubkey, votePubkey)}${cvListMetaHtml(validator)}</div>
 					</div>
 					<div class="validator-stake-stats">
 						<div class="stake-stat active" data-cv-flow="active" data-vote="${escapeHtml(votePubkey)}">
-							<i class="fas fa-coins"></i>
+							${cardIco('active-stake')}
 							<span class="value">${formatCompact(lamportsToSol(validator.totals?.total_active_lamports || 0))}</span>
 						</div>
-						${(validator.totals?.total_activating_lamports || 0) > 0 ? `
-						<div class="stake-stat activating" data-cv-flow="activating" data-vote="${escapeHtml(votePubkey)}">
-							<i class="fas fa-arrow-trend-up"></i>
-							<span class="value">${formatCompact(lamportsToSol(validator.totals.total_activating_lamports))}</span>
-						</div>` : ''}
-						${(validator.totals?.total_deactivating_lamports || 0) > 0 ? `
-						<div class="stake-stat deactivating" data-cv-flow="deactivating" data-vote="${escapeHtml(votePubkey)}">
-							<i class="fas fa-arrow-trend-down"></i>
-							<span class="value">${formatCompact(lamportsToSol(validator.totals.total_deactivating_lamports))}</span>
-						</div>` : ''}
+						${flowsHtml ? '<div class="stake-flows">' + flowsHtml + '</div>' : ''}
 					</div>
 					<div class="validator-pools">${poolsHtml}</div>
 				</div>
@@ -1699,7 +2118,7 @@ document.addEventListener('DOMContentLoaded', function () {
 				</button>
 			</div>
 			<div id="validators-stats-summary"></div>
-			<div class="validators-sort-bar"></div> 
+			<div class="cv-sortbar" id="validators-sort-bar"></div>
 			<div id="validators-list-items-container"></div>
 		`;
 		
@@ -1710,7 +2129,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	}
 // ⭐ НОВА ФУНКЦІЯ ДЛЯ ОНОВЛЕННЯ КНОПОК СОРТУВАННЯ
     function updateSortButtons(isStale = false, epochNum = null) {
-        const sortBar = document.querySelector('.validators-sort-bar');
+        const sortBar = document.getElementById('validators-sort-bar');
         if (!sortBar) return;
 
         const pastEpochBadge = isStale ? `
@@ -1718,55 +2137,28 @@ document.addEventListener('DOMContentLoaded', function () {
             <i class="fas fa-hourglass-half"></i> Past Epoch: ${epochNum}
         </span>` : '';
 
-        let byPoolsButtonHtml;
+        // Ages come from the snapshot (epoch 1043 and later) or, for older epochs, from the validators index.
+        validatorsListEpoch = Number((document.getElementById('epoch-select') || {}).value);
+        validatorsHasAge = validatorsData.some(v => v.meta && typeof v.meta.validator_age === 'number') || !!cvIndexByVote;
+        if (isStale) cvEnsureIndexForList();
+        const item = (mode, icon, label, dir) => ({ attr: ' onclick="window.changeValidatorSort(\'' + mode + '\')"', icon, label,
+            active: validatorsSortMode === mode, dir });
+        const items = [item('active-stake', 'fa-coins', 'Stake', true), item('activating', 'fa-arrow-trend-up', 'Activating', true),
+            item('deactivating', 'fa-arrow-trend-down', 'Deactivating', true), item('age', 'fa-hourglass-half', 'Age', true)];
+        // A search for pools brings its own order: the validators with the most stake from those pools go first.
         if (isPoolSearchMode && poolSortOrder.length > 0) {
             const isDarkSortBtn = document.body.classList.contains('dark-theme-body');
             const poolIconsHtml = poolSortOrder.map(poolName => {
                 const poolDef = latestPoolDefinitions.find(d => d.group === poolName);
                 if (poolDef && poolDef.image) {
                     const resolvedSortBtn = resolveLogoUrlSync(poolDef.image, isDarkSortBtn);
-                    return `<img src="${resolvedSortBtn}" data-logo-default="${poolDef.image}" class="sort-pool-icon" title="${poolName}">`;
+                    return `<img src="${resolvedSortBtn}" data-logo-default="${poolDef.image}" class="sort-pool-icon" alt="" data-cv-tip="${escapeHtml(poolName)}">`;
                 }
-                return `<span class="sort-pool-icon-initials" title="${poolName}">${getInitials(poolName)}</span>`;
+                return `<span class="sort-pool-icon-initials" data-cv-tip="${escapeHtml(poolName)}">${getInitials(poolName)}</span>`;
             }).join('');
-
-            byPoolsButtonHtml = `
-                <button class="validators-sort-btn ${validatorsSortMode === 'pool-specific' ? 'active' : ''}" 
-                        onclick="window.changeValidatorSort('pool-specific')">
-                    <i class="fas fa-layer-group"></i> By Pools (beta) ${poolIconsHtml}
-                </button>
-            `;
-        } else {
-            byPoolsButtonHtml = `
-                <button class="validators-sort-btn coming-soon" disabled>
-                    <i class="fas fa-layer-group"></i> By Pools (soon)
-                </button>
-            `;
+            items.push(item('pool-specific', 'fa-layer-group', 'Pools (beta)' + poolIconsHtml, false));
         }
-
-        // Ages come from the snapshot (epoch 1043 and later) or, for older epochs, from the validators index.
-        validatorsListEpoch = Number((document.getElementById('epoch-select') || {}).value);
-        validatorsHasAge = validatorsData.some(v => v.meta && typeof v.meta.validator_age === 'number') || !!cvIndexByVote;
-        if (isStale) cvEnsureIndexForList();
-        const ageButtonHtml = `<button class="validators-sort-btn ${validatorsSortMode === 'age' ? 'active' : ''}" onclick="window.changeValidatorSort('age')"><i class="fas fa-hourglass-half"></i> Age${validatorsSortMode === 'age' ? ` <i class="fas ${validatorsAgeAsc ? 'fa-caret-up' : 'fa-caret-down'}"></i>` : ''}</button>`;
-        sortBar.innerHTML = `
-            <span class="label">Sort by:</span>
-            <button class="validators-sort-btn ${validatorsSortMode === 'active-stake' ? 'active' : ''}" 
-                    onclick="window.changeValidatorSort('active-stake')">
-                <i class="fas fa-coins"></i> Active Stake
-            </button>
-            <button class="validators-sort-btn ${validatorsSortMode === 'activating' ? 'active' : ''}" 
-                    onclick="window.changeValidatorSort('activating')">
-                <i class="fas fa-arrow-trend-up"></i> Activating
-            </button>
-             <button class="validators-sort-btn ${validatorsSortMode === 'deactivating' ? 'active' : ''}" 
-                     onclick="window.changeValidatorSort('deactivating')">
-                 <i class="fas fa-arrow-trend-down"></i> Deactivating
-             </button>
-             ${ageButtonHtml}
-             ${byPoolsButtonHtml}
-             ${pastEpochBadge}
-        `;
+        sortBarRender(sortBar, items, validatorsSortAsc ? 'asc' : 'desc', pastEpochBadge);
     }
     
     // Ініціалізація даних валідаторів
@@ -1826,6 +2218,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 poolSortOrder = matchedPools;
                 if (validatorsSortMode !== 'pool-specific') {
                     validatorsSortMode = 'pool-specific';
+                    validatorsSortAsc = false;
                 }
             }
         }
@@ -1888,19 +2281,12 @@ document.addEventListener('DOMContentLoaded', function () {
     };
     
     window.changeValidatorSort = function(mode) {
-        // A second click on Age flips oldest-first and youngest-first.
-        validatorsAgeAsc = (mode === 'age' && validatorsSortMode === 'age') ? !validatorsAgeAsc : false;
+        // A second click on a measure flips its direction.
+        validatorsSortAsc = (mode === validatorsSortMode && mode !== 'pool-specific') ? !validatorsSortAsc : false;
         if (mode === 'age' && !cvIndexData) cvEnsureIndexForList();
         validatorsSortMode = mode;
         sortValidators();
-        
-		document.querySelectorAll('.validators-sort-btn').forEach(btn => {
-			const onclickAttr = btn.getAttribute('onclick');
-			if (onclickAttr) { // Додаємо перевірку, чи існує атрибут
-				btn.classList.toggle('active', onclickAttr.includes(`'${mode}'`));
-			}
-		});
-        
+
         updateValidatorStats(
             document.getElementById('epoch-stale-pill')?.style.display !== 'none', 
             document.getElementById('epoch-select')?.value
@@ -1915,46 +2301,80 @@ document.addEventListener('DOMContentLoaded', function () {
     // ============================================
     // CHART FUNCTIONS
     // ============================================
-    function renderInteractiveChart(container, data, title = 'Active Stake', highlightEpoch = null) {
+    // opts (all optional) fit the chart to another measure without changing
+    // how it looks or behaves:
+    //   variant   - data-chart-variant on the container (its colours are in the CSS)
+    //   gradId    - id of this chart's own fill gradient (a variant needs its own)
+    //   fmt       - formatter of the values in the two labels under the chart
+    //   tip       - (point) => text of the hover tooltip after "Epoch N:"
+    //   labels    - (data) => [leftHtml, rightHtml] instead of the first and last epoch
+    //   butterfly - two series on one scale: value rises from the middle line, down falls from it
+    function renderInteractiveChart(container, data, title = 'Active Stake', highlightEpoch = null, opts = null) {
         if (!container || !data || data.length === 0) {
             if (container) container.style.display = 'none';
             return;
         }
-        
+
         container.style.display = 'block';
-        const formatValue = (val) => {
+        const o = opts || {};
+        const formatValue = o.fmt || ((val) => {
             if (val >= 1_000_000) return `${(val/1_000_000).toFixed(2)}M`;
             if (val >= 1_000) return `${(val/1_000).toFixed(1)}K`;
             return val.toFixed(0);
-        };
+        });
+        const tipText = o.tip || ((p) => `${new Intl.NumberFormat('en-US').format(p.value)} SOL`);
+        const gradId = o.gradId || 'sparkline-gradient';
+        if (o.variant) container.setAttribute('data-chart-variant', o.variant);
+        else container.removeAttribute('data-chart-variant');
 
+        // What this container shows. While it is out of sight (no width) a
+        // single observer waits and draws the latest plan once it appears.
+        container.__cvPlan = { data, title, highlightEpoch, opts };
         const width = container.clientWidth;
         if (width === 0) {
-            // Якщо контейнер ще не має ширини, чекаємо
-            if ('ResizeObserver' in window) {
+            if (!container.__cvWait && 'ResizeObserver' in window) {
                 const ro = new ResizeObserver((entries) => {
-                    if (entries[0]?.contentRect.width > 0) {
-                        ro.disconnect();
-                        renderInteractiveChart(container, data, title, highlightEpoch);
-                    }
+                    if (!(entries[0] && entries[0].contentRect.width > 0)) return;
+                    ro.disconnect();
+                    container.__cvWait = null;
+                    const plan = container.__cvPlan;
+                    if (plan) renderInteractiveChart(container, plan.data, plan.title, plan.highlightEpoch, plan.opts);
                 });
+                container.__cvWait = ro;
                 ro.observe(container);
-            } else {
-                let tries = 0;
-                const t = setInterval(() => {
-                    if (container.clientWidth > 0 || tries++ > 10) {
-                        clearInterval(t);
-                        renderInteractiveChart(container, data, title, highlightEpoch);
-                    }
-                }, 120);
             }
             return;
         }
-        
+        container.__cvDrawnWidth = width;
+
         const height = 60, PADDING = 5;
+        const butterfly = !!o.butterfly && data.length > 1;
+        const FLOW_UP = '#14F195', FLOW_DOWN = '#FF6B6B';
+        // Positions of the points on the chart.
+        const toPoints = () => {
+            if (butterfly) {
+                const mid = height / 2;
+                const top = Math.max(1e-9, ...data.map(d => Math.max(d.value || 0, d.down || 0)));
+                return data.map((d, i) => ({
+                    x: (i / (data.length - 1 || 1)) * width,
+                    y: mid - ((d.value || 0) / top) * (mid - PADDING),
+                    y2: mid + ((d.down || 0) / top) * (mid - PADDING),
+                    epoch: d.epoch, value: d.value, down: d.down
+                }));
+            }
+            const values = data.map(d => d.value);
+            const minVal = Math.min(...values);
+            const maxVal = Math.max(...values);
+            const range = maxVal - minVal === 0 ? 1 : maxVal - minVal;
+            return data.map((d, i) => ({
+                x: (i / (data.length - 1 || 1)) * width,
+                y: height - PADDING - ((d.value - minVal) / range) * (height - 2 * PADDING),
+                epoch: d.epoch, value: d.value
+            }));
+        };
 
         if (data.length === 1) {
-            // Особливий випадок для однієї точки даних
+            // A single point: a dot on a baseline.
             const pointX = width / 2;
             const pointY = height / 2;
             container.innerHTML = `
@@ -1971,79 +2391,95 @@ document.addEventListener('DOMContentLoaded', function () {
                     <span>${data[0].epoch}: <span class="value">${formatValue(data[0].value)}</span></span>
                     <span>First epoch for this pool</span>
                 </div>`;
-            
+
             const tooltip = container.querySelector('.chart-tooltip');
-            container.addEventListener('mouseenter', () => { 
-                tooltip.style.opacity = '1'; 
+            container.addEventListener('mouseenter', () => {
+                tooltip.style.opacity = '1';
             });
-            container.addEventListener('mouseleave', () => { 
-                tooltip.style.opacity = '0'; 
+            container.addEventListener('mouseleave', () => {
+                tooltip.style.opacity = '0';
             });
             tooltip.style.left = `${pointX}px`;
             tooltip.style.top = `${pointY}px`;
-            tooltip.innerHTML = `<span class="epoch">Epoch ${data[0].epoch}:</span> ${new Intl.NumberFormat('en-US').format(data[0].value)} SOL`;
+            tooltip.innerHTML = `<span class="epoch">Epoch ${data[0].epoch}:</span> ${tipText({ epoch: data[0].epoch, value: data[0].value })}`;
         } else {
-            // Звичайний графік для багатьох точок
-            const values = data.map(d => d.value);
-            const minVal = Math.min(...values);
-            const maxVal = Math.max(...values);
-            const range = maxVal - minVal === 0 ? 1 : maxVal - minVal;
-        
-            const points = data.map((d, i) => {
-                const x = (i / (data.length - 1 || 1)) * width;
-                const y = height - PADDING - ((d.value - minVal) / range) * (height - 2 * PADDING);
-                return { x, y, epoch: d.epoch, value: d.value };
-            });
-        
+            const points = toPoints();
+
             let marker = null;
             if (highlightEpoch !== null) {
                 let idx = data.findIndex(d => Number(d.epoch) === Number(highlightEpoch));
                 if (idx === -1) {
                     let best = 0, bestDiff = Infinity;
-                    data.forEach((d, i) => { 
-                        const diff = Math.abs(Number(d.epoch) - Number(highlightEpoch)); 
-                        if (diff < bestDiff) { 
-                            bestDiff = diff; 
-                            best = i; 
+                    data.forEach((d, i) => {
+                        const diff = Math.abs(Number(d.epoch) - Number(highlightEpoch));
+                        if (diff < bestDiff) {
+                            bestDiff = diff;
+                            best = i;
                         }
                     });
                     idx = best;
                 }
                 marker = points[idx];
             }
-        
-            const pathLineData = points.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' L ');
-            const pathFillData = `M ${points[0].x.toFixed(2)},${height} L ${pathLineData} L ${points[points.length-1].x.toFixed(2)},${height} Z`;
-        
-            container.innerHTML = `
-                ${title ? `<div class="chart-title">${title}</div>` : ''}
-                <div class="chart-tooltip"></div>
-                <svg viewBox="0 0 ${width} ${height}" style="overflow: visible; cursor: pointer;">
-                    <defs>
-                        <linearGradient id="sparkline-gradient" x1="0" y1="0" x2="0" y2="1">
+
+            const lineOf = (key) => points.map(p => `${p.x.toFixed(2)},${p[key].toFixed(2)}`).join(' L ');
+            const x0 = points[0].x.toFixed(2), x1 = points[points.length - 1].x.toFixed(2);
+            const pathLineData = lineOf('y');
+            const baseY = butterfly ? height / 2 : height;
+            const pathFillData = `M ${x0},${baseY} L ${pathLineData} L ${x1},${baseY} Z`;
+            const labels = o.labels ? o.labels(data) : [
+                `${data[0].epoch}: <span class="value">${formatValue(data[0].value)}</span>`,
+                `${data[data.length - 1].epoch}: <span class="value">${formatValue(data[data.length - 1].value)}</span>`
+            ];
+            const defs = butterfly
+                ? `<linearGradient id="${gradId}-up" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="rgba(20, 241, 149, 0.35)" />
+                            <stop offset="100%" stop-color="rgba(20, 241, 149, 0)" />
+                        </linearGradient>
+                        <linearGradient id="${gradId}-down" x1="0" y1="1" x2="0" y2="0">
+                            <stop offset="0%" stop-color="rgba(255, 107, 107, 0.35)" />
+                            <stop offset="100%" stop-color="rgba(255, 107, 107, 0)" />
+                        </linearGradient>`
+                : `<linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stop-color="var(--sparkline-gradient-start)" />
                             <stop offset="100%" stop-color="var(--sparkline-gradient-end)" />
-                        </linearGradient>
+                        </linearGradient>`;
+            const fillStyle = gradId === 'sparkline-gradient' ? '' : ` style="fill: url(#${gradId});"`;
+            const paths = butterfly
+                ? `<path d="${pathFillData}" class="chart-path-fill" style="fill: url(#${gradId}-up);" />
+                    <path d="M ${x0},${baseY} L ${lineOf('y2')} L ${x1},${baseY} Z" class="chart-path-fill" style="fill: url(#${gradId}-down);" />
+                    <path d="M ${pathLineData}" class="chart-path-line" style="stroke: ${FLOW_UP};" />
+                    <path d="M ${lineOf('y2')}" class="chart-path-line" style="stroke: ${FLOW_DOWN};" />`
+                : `<path d="${pathFillData}" class="chart-path-fill"${fillStyle} />
+                    <path d="M ${pathLineData}" class="chart-path-line" />`;
+
+            container.innerHTML = `
+                ${title ? `<div class="chart-title">${title}</div>` : ''}
+                <div class="chart-tooltip" style="display: none;"></div>
+                <svg viewBox="0 0 ${width} ${height}" style="overflow: visible; cursor: pointer;">
+                    <defs>
+                        ${defs}
                     </defs>
-                    <path d="${pathFillData}" class="chart-path-fill" />
-                    <path d="M ${pathLineData}" class="chart-path-line" />
+                    ${paths}
                     ${marker ? `<line class="selected-epoch-line" x1="${marker.x}" x2="${marker.x}" y1="0" y2="${height}"></line>` : ''}
                     ${marker ? `<circle class="selected-epoch-dot" cx="${marker.x}" cy="${marker.y}" r="4.5"></circle>`: ''}
-                    <line class="tracker-line-svg" y1="0" y2="${height}"></line>
-                    <circle class="tracker-dot-svg" r="4.5"></circle>
+                    ${marker && butterfly ? `<circle class="selected-epoch-dot" cx="${marker.x}" cy="${marker.y2}" r="4.5"></circle>`: ''}
+                    <line class="tracker-line-svg" x1="-999" x2="-999" y1="0" y2="${height}"></line>
+                    <circle class="tracker-dot-svg" cx="-999" cy="-999" r="4.5"${butterfly ? ` style="fill: ${FLOW_UP};"` : ''}></circle>
+                    ${butterfly ? `<circle class="tracker-dot-svg" cx="-999" cy="-999" r="4.5" style="fill: ${FLOW_DOWN};"></circle>` : ''}
                 </svg>
                 <div class="chart-range-labels">
-                    <span>${data[0].epoch}: <span class="value">${formatValue(data[0].value)}</span></span>
-                    <span>${data[data.length - 1].epoch}: <span class="value">${formatValue(data[data.length - 1].value)}</span></span>
+                    <span>${labels[0]}</span>
+                    <span>${labels[1]}</span>
                 </div>`;
-        
+
             if (marker) {
                 const badge = document.createElement('div');
                 badge.className = 'selected-epoch-badge';
                 badge.innerHTML = `<span class="ep">Epoch ${marker.epoch}</span><span class="sub">selected</span>`;
                 badge.style.visibility = 'hidden';
                 container.appendChild(badge);
-                
+
                 const badgeHeight = badge.offsetHeight;
                 const titleEl = container.querySelector('.chart-title');
                 const titleHeight = titleEl ? titleEl.offsetHeight + 4 : 4;
@@ -2051,87 +2487,90 @@ document.addEventListener('DOMContentLoaded', function () {
                 let topPosition;
                 const offsetAbove = 7;
                 const offsetBelow = 38;
-                
+
                 if (marker.y < height / 2) {
                     topPosition = titleHeight + marker.y + offsetBelow;
                 } else {
                     topPosition = titleHeight + marker.y - badgeHeight - offsetAbove;
                 }
-                
+
                 badge.style.top = `${topPosition}px`;
-                badge.style.left = `${marker.x}px`;
-                
+
                 const chartCenter = width / 2;
                 const maxOffset = 12;
                 const distanceFromCenter = marker.x - chartCenter;
                 const offsetRatio = distanceFromCenter / chartCenter;
                 const finalOffset = -offsetRatio * maxOffset;
-                badge.style.transform = `translateX(calc(-50% + ${finalOffset.toFixed(2)}px))`;
-                
+                // The badge stands over its epoch, a little toward the middle,
+                // and never reaches out of the chart at either edge.
+                const half = badge.offsetWidth / 2;
+                const centre = Math.min(Math.max(marker.x + finalOffset, half), Math.max(half, width - half));
+                badge.style.left = `${centre.toFixed(2)}px`;
+
                 badge.style.visibility = 'visible';
             }
-        
-            const line = container.querySelector('.chart-path-line');
-            if (line) { 
-                const length = line.getTotalLength(); 
-                line.style.strokeDasharray = length; 
-                line.style.strokeDashoffset = length; 
-            }
+
+            container.querySelectorAll('.chart-path-line').forEach((line) => {
+                const length = line.getTotalLength();
+                line.style.strokeDasharray = length;
+                line.style.strokeDashoffset = length;
+            });
         }
 
-        // Додаємо інтерактивність
+        // Hover and click.
         const svg = container.querySelector('svg');
         if (!svg) return;
-        
-        const points = data.map((d, i) => {
-            const values = data.map(d => d.value);
-            const minVal = Math.min(...values);
-            const maxVal = Math.max(...values);
-            const range = maxVal - minVal === 0 ? 1 : maxVal - minVal;
-            const x = (i / (data.length - 1 || 1)) * width;
-            const y = height - PADDING - ((d.value - minVal) / range) * (height - 2 * PADDING);
-            return { x, y, epoch: d.epoch, value: d.value };
-        });
 
+        const points = toPoints();
         const tooltip = container.querySelector('.chart-tooltip');
         const trackerLine = container.querySelector('.tracker-line-svg');
-        const trackerDot = container.querySelector('.tracker-dot-svg');
-
-        svg.addEventListener('mousemove', (e) => {
+        const trackerDots = container.querySelectorAll('.tracker-dot-svg');
+        const nearest = (clientX) => {
             const rect = svg.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            let closestIndex = 0, minDistance = Infinity;
-            points.forEach((p, i) => { 
-                const d = Math.abs(p.x - mouseX); 
-                if (d < minDistance) { 
-                    minDistance = d; 
-                    closestIndex = i; 
-                } 
-            });
-            const point = points[closestIndex];
-            if (point) {
-                tooltip.style.left = `${point.x}px`;
-                tooltip.style.top = `${point.y}px`;
-                tooltip.innerHTML = `<span class="epoch">Epoch ${point.epoch}:</span> ${new Intl.NumberFormat('en-US').format(point.value)} SOL`;
-                trackerLine.setAttribute('x1', point.x);
-                trackerLine.setAttribute('x2', point.x);
-                trackerDot.setAttribute('cx', point.x);
-                trackerDot.setAttribute('cy', point.y);
-            }
-        });
-
-        svg.addEventListener('click', (e) => {
-            const rect = svg.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
+            const mouseX = clientX - rect.left;
             let closestIndex = 0, minDistance = Infinity;
             points.forEach((p, i) => {
                 const d = Math.abs(p.x - mouseX);
-                if (d < minDistance) { 
-                    minDistance = d; 
-                    closestIndex = i; 
+                if (d < minDistance) {
+                    minDistance = d;
+                    closestIndex = i;
                 }
             });
-            const point = points[closestIndex];
+            return points[closestIndex];
+        };
+
+        svg.addEventListener('mousemove', (e) => {
+            const point = nearest(e.clientX);
+            if (point) {
+                tooltip.style.display = '';
+                tooltip.innerHTML = `<span class="epoch">Epoch ${point.epoch}:</span> ${tipText(point)}`;
+                // (inside the chart: see cvChartTipLeft)
+                tooltip.style.left = `${cvChartTipLeft(tooltip, point.x, width)}px`;
+                tooltip.style.top = `${point.y}px`;
+                trackerLine.setAttribute('x1', point.x);
+                trackerLine.setAttribute('x2', point.x);
+                trackerDots[0].setAttribute('cx', point.x);
+                trackerDots[0].setAttribute('cy', point.y);
+                if (trackerDots[1]) {
+                    trackerDots[1].setAttribute('cx', point.x);
+                    trackerDots[1].setAttribute('cy', point.y2);
+                }
+            }
+        });
+
+        // The tracker and the tooltip belong to the chart itself: over the
+        // title or the labels of the block they stay out of sight.
+        if (data.length > 1) {
+            svg.addEventListener('mouseleave', () => {
+                tooltip.style.display = 'none';
+                trackerLine.setAttribute('x1', -999);
+                trackerLine.setAttribute('x2', -999);
+                trackerDots.forEach((dot) => { dot.setAttribute('cx', -999); dot.setAttribute('cy', -999); });
+            });
+        }
+
+        svg.addEventListener('click', (e) => {
+            const point = nearest(e.clientX);
             if (point) {
                 const epochSelect = document.getElementById('epoch-select');
                 if (epochSelect && epochSelect.value !== String(point.epoch)) {
@@ -2370,6 +2809,56 @@ document.addEventListener('DOMContentLoaded', function () {
     // ============================================
     // SUMMARY BLOCK
     // ============================================
+    // What the tooltip of the mountain tells ("View from the top"): the
+    // epoch on screen, how many validators - counted from the largest one
+    // down - hold more than a third and more than a half of its active
+    // stake, the highest total on record and the first one of the history.
+    // (A third is the share that can stop the network: the fewer validators
+    // hold it, the less the stake is spread.)
+    let cvSummit = null;
+    function cvSummitFacts(data, totalLamports, series, isPast) {
+        const real = !data.__aggregated && Array.isArray(data.validators);
+        const stakes = real ? data.validators.map(v => (v && v.totals && v.totals.total_active_lamports) || 0)
+            .filter(x => x > 0).sort((a, b) => b - a) : [];
+        const holders = (part) => {
+            let sum = 0;
+            for (let i = 0; i < stakes.length; i++) {
+                sum += stakes[i];
+                if (sum > totalLamports * part) return i + 1;
+            }
+            return 0;
+        };
+        const has = Array.isArray(series) && series.length > 1;
+        return {
+            epoch: data.metadata ? data.metadata.epoch : null,
+            isPast: !!isPast,
+            total: lamportsToSol(totalLamports),
+            third: totalLamports > 0 ? holders(1 / 3) : 0,
+            half: totalLamports > 0 ? holders(1 / 2) : 0,
+            high: has ? series.reduce((a, p) => (p.value > a.value ? p : a), series[0]) : null,
+            first: has ? series.reduce((a, p) => (Number(p.epoch) < Number(a.epoch) ? p : a), series[0]) : null
+        };
+    }
+    function showSummitTip(el) {
+        const s = cvSummit;
+        if (!s) return;
+        const count = n => formatNumber(n) + (n === 1 ? ' validator' : ' validators');
+        let html = '<div class="pool-tooltip-title cv-tip-pool"><img class="cv-tip-ico cv-tip-summit" src="/brand/decor/alpine-tile.webp" alt="" aria-hidden="true">' +
+            '<span>View from the top</span></div>' +
+            (s.isPast && s.epoch !== null ? '<div class="pool-tooltip-epoch">Epoch ' + escapeHtml(String(s.epoch)) + '</div>' : '');
+        if (s.third > 0) {
+            html += cvTipRow(cvTipIco('stake-rank'), 'A third of the stake', count(s.third)) +
+                cvTipRow(cvTipIco('validators'), 'Half of the stake', count(s.half));
+        }
+        if (s.high) html += cvTipRow(cvTipIco('peak-stake'), 'Peak in epoch ' + escapeHtml(String(s.high.epoch)), shortSol(s.high.value) + ' SOL');
+        if (s.first && Number(s.first.epoch) !== Number(s.epoch)) {
+            const climb = s.total - s.first.value;
+            html += cvTipRow(cvTipIco('change'), 'Since epoch ' + escapeHtml(String(s.first.epoch)),
+                (climb >= 0 ? '+' : '-') + shortSol(Math.abs(climb)) + ' SOL');
+        }
+        if (s.third > 0) html += '<div class="cv-flow-more">Validators are counted from the largest one down.</div>';
+        cvShowTipHtml(el, html);
+    }
     function populateSummaryBlock(data, historicStakeData, highlightEpoch, isStale = false) {
         const { metadata, validators } = data;
         let totalStake = 0, activatingStake = 0, deactivatingStake = 0, activeValidatorsCount = 0;
@@ -2385,17 +2874,27 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
         
+        cvNetworkActive = totalStake;
+        cvSummit = cvSummitFacts(data, totalStake, historicStakeData, isStale);
         const epochNote = isStale ? `<span class="epoch-inline-note">in epoch ${metadata.epoch}</span>` : '';
-        const summaryChartHtml = historicStakeData ? 
-            `<div class="summary-chart-wrapper">
-                <div class="interactive-chart-container" id="summary-chart-container"></div>
+        // Two charts side by side: the total active stake, and the number of
+        // validators or the stake in motion (the switch is that chart's title).
+        const net2 = historicStakeData ? cvNetSeries() : [];
+        const summaryChartHtml = historicStakeData ?
+            `<div class="cv-net-charts${net2.length > 1 ? '' : ' is-single'}">
+                <div class="summary-chart-wrapper">
+                    <div class="interactive-chart-container" id="summary-chart-container"></div>
+                </div>
+                ${net2.length > 1 ? `<div class="summary-chart-wrapper">
+                    <div class="interactive-chart-container" id="${NET2_ID}"></div>
+                </div>` : ''}
             </div>` : '';
         
         const cardValue = (lamports) => numPairHtml(lamportsToSol(lamports), 2);
         const cardTip = (label, lamports) => shortTipAttr(label, lamportsToSol(lamports));
         document.getElementById('summary-container').innerHTML = `
             <div class="sp-summary-card total-stake-card">
-                <span class="title"><i class="fas fa-coins icon"></i>Solana Mainnet Stake</span>
+                <span class="title"><span class="cv-hero-mark" data-cv-summit="1"><img class="cv-hero-tile" src="/brand/decor/alpine-tile.webp" alt="" width="320" height="263" decoding="async" draggable="false"></span>Solana Mainnet Stake</span>
                 ${summaryChartHtml}
                 <div class="total-stake-grid">
                     <div class="total-stake-item"${cardTip('Total active stake', totalStake)}>
@@ -2423,21 +2922,124 @@ document.addEventListener('DOMContentLoaded', function () {
                         ${cardIco('validators')}
                         <div class="stake-info">
                             <span class="value">${validators.length}</span>
-                            <span class="label">Total Included Validators${epochNote}</span>
+                            <span class="label">Validators${epochNote}</span>
                         </div>
                     </div>
                 </div>
             </div>`;
             
         if (historicStakeData) {
-            chartsToRedraw.push({ 
-                id: 'summary-chart-container', 
-                data: historicStakeData, 
-                title: 'Total Active Stake Dynamics', 
-                highlightEpoch 
+            // The first chart looks like the one next to it: its title is a
+            // chip (one option, always on) and its labels name the two extremes.
+            const low = historicStakeData.reduce((a, p) => (p.value < a.value ? p : a), historicStakeData[0]);
+            const high = historicStakeData.reduce((a, p) => (p.value > a.value ? p : a), historicStakeData[0]);
+            chartsToRedraw.push({
+                id: 'summary-chart-container',
+                data: historicStakeData,
+                title: '<span class="cv-vd-toggle cv-vd-toggle-sm"><span class="cv-vd-chip">Total active stake</span></span>',
+                highlightEpoch,
+                opts: { labels: () => cvChartInOrder([low.epoch, cvChartSide('Min', shortSol(low.value), low.epoch)], [high.epoch, cvChartSide('Max', shortSol(high.value), high.epoch)]) }
             });
+            if (net2.length > 1) {
+                cvNet2Last = { points: net2, highlightEpoch };
+                chartsToRedraw.push(cvNet2Entry());
+            }
         }
     }
+
+    // ---------- main page: the second chart ----------
+    // Per epoch: the number of validators, and the stake activating and
+    // deactivating across the network. A light epoch entry carries the
+    // figures in __net; a full snapshot is summed here. The chart is drawn by
+    // renderInteractiveChart, like the chart next to it, so the two behave
+    // as one (drawing, the selected epoch, resizing).
+    const NET2_ID = 'cv-net2-chart';
+    let cvNet2Mode = 'validators';
+    let cvNet2Last = null;
+    // One label under a main chart: its name (a shorter one for phones), the
+    // value, and a pill that opens that epoch.
+    function cvChartSide(label, value, epoch, shortLabel) {
+        return '<span class="cv-side-name">' + label + ':</span>' + (shortLabel ? '<span class="cv-side-short">' + shortLabel + ':</span>' : '') +
+            '<span class="value">' + value + '</span><button type="button" class="cv-chart-ep" data-cv-main-epoch="' +
+            epoch + '" data-cv-tip="Open epoch ' + epoch + '">' + epoch + '</button>';
+    }
+    // Two labels in the order of their epochs: the earlier one on the left, like the line above them.
+    function cvChartInOrder(a, b) {
+        return a[0] <= b[0] ? [a[1], b[1]] : [b[1], a[1]];
+    }
+    function cvNetSeries() {
+        const out = [];
+        (allEpochData || []).forEach((d) => {
+            if (!d || !d.metadata) return;
+            let act = 0, deact = 0, count = 0;
+            if (d.__net) {
+                act = d.__net.activating; deact = d.__net.deactivating; count = d.__net.validators;
+            } else {
+                (d.validators || []).forEach((v) => {
+                    if (!v || !v.totals) return;
+                    act += v.totals.total_activating_lamports || 0;
+                    deact += v.totals.total_deactivating_lamports || 0;
+                    count++;
+                });
+            }
+            out.push({ epoch: Number(d.metadata.epoch), ts: d.metadata.timestamp_utc, value: lamportsToSol(act), down: lamportsToSol(deact), validators: count });
+        });
+        return out.sort((a, b) => a.epoch - b.epoch);
+    }
+    // The chart as an entry of chartsToRedraw. Its title is the switch between
+    // the two measures; the labels under it name the two extremes.
+    function cvNet2Entry() {
+        const st = cvNet2Last;
+        if (!st) return null;
+        const seg = (mode, label) => '<button type="button" data-net2="' + mode + '"' + (cvNet2Mode === mode ? ' class="active"' : '') + '>' + label + '</button>';
+        const title = '<span class="cv-vd-toggle cv-vd-toggle-sm" id="cv-net2-toggle" role="group" aria-label="What this chart shows">' +
+            seg('validators', 'Validators') + seg('flow', 'Stake in motion') + '</span>';
+        const pts = st.points;
+        if (cvNet2Mode === 'flow') {
+            const peakIn = pts.reduce((a, p) => (p.value > a.value ? p : a), pts[0]);
+            const peakOut = pts.reduce((a, p) => (p.down > a.down ? p : a), pts[0]);
+            return { id: NET2_ID, data: pts, title, highlightEpoch: st.highlightEpoch, opts: {
+                variant: 'flow', gradId: 'cv-net2-gradient', butterfly: true,
+                tip: p => '+' + shortSol(p.value) + ' activating, -' + shortSol(p.down) + ' deactivating',
+                labels: () => cvChartInOrder([peakIn.epoch, cvChartSide('Peak in', '+' + shortSol(peakIn.value), peakIn.epoch, 'In')],
+                    [peakOut.epoch, cvChartSide('Peak out', '-' + shortSol(peakOut.down), peakOut.epoch, 'Out')])
+            } };
+        }
+        const whole = v => formatNumber(Math.round(v));
+        const data = pts.map(p => ({ epoch: p.epoch, value: p.validators }));
+        const min = data.reduce((a, p) => (p.value < a.value ? p : a), data[0]);
+        const max = data.reduce((a, p) => (p.value > a.value ? p : a), data[0]);
+        return { id: NET2_ID, data, title, highlightEpoch: st.highlightEpoch, opts: {
+            variant: 'validators', gradId: 'cv-net2-gradient',
+            tip: p => whole(p.value) + ' validators',
+            labels: () => cvChartInOrder([min.epoch, cvChartSide('Min', whole(min.value), min.epoch)], [max.epoch, cvChartSide('Max', whole(max.value), max.epoch)])
+        } };
+    }
+    document.addEventListener('click', (e) => {
+        const t = e.target && e.target.closest ? e.target : null;
+        if (!t) return;
+        const seg = t.closest('#cv-net2-toggle button');
+        if (seg) {
+            cvNet2Mode = seg.getAttribute('data-net2') === 'flow' ? 'flow' : 'validators';
+            const entry = cvNet2Entry();
+            const box = document.getElementById(NET2_ID);
+            if (!entry || !box) return;
+            chartsToRedraw = chartsToRedraw.filter(c => c.id !== NET2_ID);
+            chartsToRedraw.push(entry);
+            renderInteractiveChart(box, entry.data, entry.title, entry.highlightEpoch ?? null, entry.opts);
+            return;
+        }
+        // An epoch pill under a main chart selects that epoch, like the picker in the bar.
+        const pill = t.closest('[data-cv-main-epoch]');
+        if (pill) {
+            const sel = document.getElementById('epoch-select');
+            const epoch = pill.getAttribute('data-cv-main-epoch');
+            if (sel && String(sel.value) !== epoch && Array.from(sel.options).some(o => o.value === epoch)) {
+                sel.value = epoch;
+                sel.dispatchEvent(new Event('change'));
+            }
+        }
+    });
 
     // ============================================
     // POOL DATA AGGREGATION
@@ -2510,138 +3112,96 @@ document.addEventListener('DOMContentLoaded', function () {
         return aggregatedGroups;
     }
 
+    // The card of a pool on the Pools tab, top to bottom: the plot and the
+    // name (a real link to the pool page), two head cells, the chart of the
+    // active stake, four small cells, one line of the description (it opens
+    // in place) and a row with the site of the pool and its keys.
     function poolCardHtml(g, sparklineData, highlightEpoch, isStale = false, selEpoch = null) {
-        const epochNote = isStale ? `<span class="epoch-inline-note">in epoch ${selEpoch}</span>` : '';
-        const excludedGroups = ['OTHER', 'SELF_STAKE', 'ID_STAKE'];
-
-        let keysHtml = '';
-        const totalKeys = g.staker_keys.length + g.withdrawer_keys.length;
-        if (!excludedGroups.includes(g.name) && totalKeys > 0) {
-            let keysContentHtml = '';
-            if (g.staker_keys.length > 0) {
-                keysContentHtml += `<div class="key-group">
-                    <strong>Staker Keys:</strong>
-                    ${g.staker_keys.map(k => `<code>${k}</code>`).join('')}
-                </div>`;
-            }
-            if (g.withdrawer_keys.length > 0) {
-                keysContentHtml += `<div class="key-group">
-                    <strong>Withdrawer Keys:</strong>
-                    ${g.withdrawer_keys.map(k => `<code>${k}</code>`).join('')}
-                </div>`;
-            }
-            
-            if (totalKeys <= KEY_VISIBILITY_THRESHOLD) {
-                keysHtml = `<div class="pool-keys-container">${keysContentHtml}</div>`;
-            } else {
-                keysHtml = `<div class="pool-keys-container">
-                    <button class="pool-keys-toggle" data-key-count="${totalKeys}">
-                        <span class="toggle-text">Show ${totalKeys} Keys</span>
-                        <i class="fas fa-chevron-down toggle-icon"></i>
-                    </button>
-                    <div class="pool-keys-list">${keysContentHtml}</div>
-                </div>`;
-            }
-        }
-
-        const chartContainerId = `chart-container-${g.name.replace(/\s+/g, '-')}-${Math.random().toString(36).slice(2,7)}`;
-        const chartHtml = sparklineData && sparklineData.length >= 1 ? 
-            `<div class="interactive-chart-container" id="${chartContainerId}"></div>` : '';
-
         const title = cleanText(g.definition.long_name) || g.name;
+        const displayTitle = g.name === 'OTHER' ? 'Other Stakes' : title;
+        const epoch = isStale ? Number(selEpoch) : Number(latestEpochNumber);
+        const inEpoch = isStale ? ' in epoch ' + selEpoch : '';
+        const pastEpoch = isStale ? selEpoch : null;
+        const sol = lamportsToSol(g.total_active_lamports);
+        const solShown = cardSol(sol);
+
+        const hasChart = !!sparklineData && sparklineData.length >= 1;
+        const chartContainerId = `chart-container-${g.name.replace(/\s+/g, '-')}-${Math.random().toString(36).slice(2,7)}`;
+        if (hasChart) chartsToRedraw.push({ id: chartContainerId, data: sparklineData, title: '', highlightEpoch });
+
+        // The sprite stands on a plot (see POOL PLOTS); at that size the
+        // larger sprite file is needed. data-logo-default lets a theme switch
+        // swap the flat logo that stands in when there is no sprite.
+        const isDarkTheme = document.body.classList.contains('dark-theme-body');
+        const logoHtml = (g.name === 'OTHER' || !g.definition.image)
+            ? `<div class="card-header-logo card-header-logo-svg cv-plot">${g.name === 'OTHER' ? otherIsoImg(256) : ''}${OTHER_GROUP_SVG}</div>`
+            : `<div class="card-header-logo cv-plot"><img src="${resolveLogoUrlSync(g.definition.image, isDarkTheme, 256)}" data-logo-default="${g.definition.image}" data-logo-iso="256" alt="" loading="lazy" decoding="async"></div>`;
+
+        // Change of the active stake since the epoch before (the history of the pool has it).
+        const before = hasChart ? sparklineData.find(d => Number(d.epoch) === epoch - 1) : null;
+        const delta = before ? g.total_active_lamports - Math.round(before.value * 1e9) : null;
+        const change = delta === null ? null : cvSignedSol(delta);
+        const share = cvNetworkActive > 0 ? g.total_active_lamports / cvNetworkActive * 100 : null;
+        const cells = [
+            flowCell('activating', 'Activating', g.total_activating_lamports, pastEpoch),
+            flowCell('deactivating', 'Deactivating', g.total_deactivating_lamports, pastEpoch),
+            { icon: 'change', label: 'Change vs ' + (epoch - 1), value: change ? change.text : '-', cls: change ? change.cls : '',
+                zero: !change || change.text === '0',
+                tip: change ? 'Active stake against epoch ' + (epoch - 1) + ': ' + (delta > 0 ? '+' : '') + formatNumber(lamportsToSol(delta), 2) + ' SOL'
+                    : 'No stake from this pool in epoch ' + (epoch - 1) },
+            { icon: 'share', label: 'Share of stake', value: share === null ? '-' : shareText(share), zero: !(share > 0),
+                tip: 'Share of all the active stake on Solana' + inEpoch }
+        ];
+
         let descText = cleanText(g.definition.description);
-        const url = cleanText(g.definition.url);
-        
         if (g.name === 'OTHER' && !descText) {
             descText = 'Aggregate of all stakes that do not match any defined pool or stakeholder category. ' +
                       'This includes validators that are not captured by other groups rules or keys.';
         }
-        
-        let detailsHtml = '';
-        if (descText || url) {
-            detailsHtml = `<div class="pool-details">
-                ${descText ? `
-                    <div class="desc-wrap" style="--desc-lines:${DESC_LINES}">
-                        <p class="desc-text">${descText}</p>
-                    </div>
-                ` : ''}
-                ${url ? `<a href="${url}" target="_blank" rel="noopener noreferrer">
-                    Learn more <i class="fas fa-external-link-alt fa-xs"></i>
-                </a>` : ''}
-            </div>`;
+        const url = cleanText(g.definition.url);
+        let host = '';
+        if (isValidHttpUrl(url)) {
+            try { host = new URL(url).hostname.replace(/^www\./, ''); } catch (_) { host = ''; }
         }
-        
-        // Block B: render pool logo with data-logo-default so theme switches can
-        // swap in {name}_light.{ext} or {name}_dark.{ext} variants without re-rendering.
-        // The .card-header-logo wrapper carries the circle styling (size, bg,
-        // border); the img inside fills with 12% padding for breathing room.
-        // Same img-inside-wrapper pattern as .pool-badge / .stat-icon / donut center.
-        const isDarkTheme = document.body.classList.contains('dark-theme-body');
-        const resolvedDefault = resolveLogoUrlSync(g.definition.image, isDarkTheme, 96);
-        let logoHtml;
-        if (g.name === 'OTHER' || !g.definition.image) {
-            logoHtml = `<div class="card-header-logo card-header-logo-svg">${g.name === 'OTHER' ? otherIsoImg(96) : ''}${OTHER_GROUP_SVG}</div>`;
-        } else {
-            logoHtml = `<div class="card-header-logo"><img src="${resolvedDefault}" data-logo-default="${g.definition.image}" data-logo-iso="96" alt="${title} logo"></div>`;
-        }
-        
-        const displayTitle = g.name === 'OTHER' ? 'Other Stakes' : title;
-        const includedLabel = g.name === 'OTHER' ? 'Included' : 'Included in Pool';
-
-        if (sparklineData && sparklineData.length >= 1) {
-            chartsToRedraw.push({ 
-                id: chartContainerId, 
-                data: sparklineData, 
-                title: 'Active Stake', 
-                highlightEpoch 
-            });
-        }
+        // Keys: one round sign each (the kind and the key are in its tooltip, a
+        // click copies the key); a long list ends with the number of the rest.
+        const keys = ['OTHER', 'SELF_STAKE', 'ID_STAKE'].includes(g.name) ? []
+            : g.staker_keys.map(k => [k, 'Staker']).concat(g.withdrawer_keys.map(k => [k, 'Withdrawer']));
+        const keySign = ([k, kind]) => keySignHtml(kind, k, 'fa-key');
+        const poolLink = escapeHtml(poolHref(g.name, epoch));
+        const keysShown = keys.length > CARD_KEYS_SHOWN ? CARD_KEYS_SHOWN - 1 : keys.length;
+        const keysHtml = keys.length
+            ? '<span class="cv-pc-keys">' + keys.slice(0, keysShown).map(keySign).join('') +
+              (keys.length > keysShown ? '<a class="cv-pc-more" data-cv-nav href="' + poolLink + '" data-cv-tip="' +
+                  escapeHtml((keys.length - keysShown) + ' more keys on the page of the pool') + '">+' + (keys.length - keysShown) + '</a>' : '') + '</span>'
+            : '';
+        const aboutHtml = (descText || host || keysHtml)
+            ? '<div class="cv-pc-about">' +
+              (descText ? '<div class="cv-pc-desc" role="button" tabindex="0" aria-expanded="false"><p>' + descText +
+                  '</p><i class="fas fa-chevron-down" aria-hidden="true"></i></div>' : '') +
+              ((host || keysHtml) ? '<div class="cv-pc-foot">' +
+                  (host ? '<a class="cv-pc-site" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(host) +
+                      '<i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>' : '') + keysHtml + '</div>' : '') +
+              '</div>'
+            : '';
 
         return `
             <div class="sp-block sp-group-card sp-pool-card" data-pool-group="${g.name}">
                 <div class="card-header" style="cursor: pointer;">
-                    ${logoHtml}
-                    <span class="pool-name" title="${displayTitle}">${displayTitle}${CV_GO_SVG}</span>
+                    <a class="cv-card-link" data-cv-nav href="${poolLink}">${logoHtml}<span class="pool-name">${cvLinkLabelHtml(displayTitle)}</span></a>
                 </div>
                 <div class="card-body">
                     <div class="card-main-content">
-                        <div class="card-stats">
-                            <div class="stat-item">
-                                <span class="label">Active Stake${epochNote}</span>
-                                <span class="value">${formatNumber(lamportsToSol(g.total_active_lamports), 2)}</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="label">Active Validators${epochNote}</span>
-                                <span class="value">${g.active_validator_count}</span>
-                            </div>
-                        </div>
-                        ${chartHtml}
-                        <div class="stake-breakdown">
-                            <div class="breakdown-item">
-                                <span class="label">
-                                    <i class="fas fa-arrow-trend-up icon-activating"></i> 
-                                    Activating${epochNote}
-                                </span>
-                                <span class="value">${formatNumber(lamportsToSol(g.total_activating_lamports), 2)} SOL</span>
-                            </div>
-                            <div class="breakdown-item">
-                                <span class="label">
-                                    <i class="fas fa-arrow-trend-down icon-deactivating"></i> 
-                                    Deactivating${epochNote}
-                                </span>
-                                <span class="value">${formatNumber(lamportsToSol(g.total_deactivating_lamports), 2)} SOL</span>
-                            </div>
-                            <div class="breakdown-item">
-                                <span class="label">
-                                    <i class="fas fa-sitemap icon-total-validators"></i> 
-                                    ${includedLabel}${epochNote}
-                                </span>
-                                <span class="value">${g.total_validator_count} validators</span>
-                            </div>
-                        </div>
+                        ${headCellsHtml([
+                            { icon: 'active-stake', label: 'Active stake', value: sol > 0 ? solShown.text : '0',
+                                tip: (isStale || !solShown.exact) ? 'Active stake' + inEpoch + ': ' + formatNumber(sol, 2) + ' SOL' : '' },
+                            { icon: 'people', label: 'Active validators', value: formatNumber(g.active_validator_count),
+                                tip: 'Validators with ' + lamportsToSol(MIN_ACTIVE_STAKE) + ' SOL or more of active or activating stake from this pool' + inEpoch }
+                        ])}
+                        ${hasChart ? `<div class="interactive-chart-container" id="${chartContainerId}"></div>` : ''}
+                        ${microCellsHtml(cells)}
                     </div>
-                    ${detailsHtml}
-                    ${keysHtml}
+                    ${aboutHtml}
                 </div>
             </div>`;
     }
@@ -2680,7 +3240,7 @@ document.addEventListener('DOMContentLoaded', function () {
         selEpoch = null
     ) {
         const container = document.getElementById('groups-grid-container');
-        chartsToRedraw = chartsToRedraw.filter(c => c.id === 'summary-chart-container');
+        chartsToRedraw = chartsToRedraw.filter(c => c.id === 'summary-chart-container' || c.id === NET2_ID);
 
         if (!aggregatedData || Object.keys(aggregatedData).length === 0) {
             container.className = 'sp-groups-grid';
@@ -2691,54 +3251,22 @@ document.addEventListener('DOMContentLoaded', function () {
         const groupsArr = Object.values(aggregatedData).filter(g => g.total_validator_count > 0);
         const getSparkData = (gname) => historicDataByPool ? historicDataByPool[gname] : null;
 
-        if (sortMode === 'stake') {
+        // A measure: one grid, the largest first or (a second click) the smallest first.
+        const measure = {
+            stake: g => g.total_active_lamports,
+            validators: g => g.active_validator_count,
+            activating: g => g.total_activating_lamports,
+            deactivating: g => g.total_deactivating_lamports
+        }[sortMode];
+        if (measure) {
             container.className = 'sp-groups-grid';
-            const sorted = groupsArr.sort((a, b) => b.total_active_lamports - a.total_active_lamports);
+            const min = (sortMode === 'activating' || sortMode === 'deactivating') ? MIN_ACTIVE_STAKE : 0;
+            const sorted = groupsArr.sort((a, b) => sortCmp(measure(a), measure(b), currentSortAsc, min) ||
+                (b.total_active_lamports - a.total_active_lamports));
             container.innerHTML = sorted.map(g => 
                 poolCardHtml(g, getSparkData(g.name), highlightEpoch, isStale, selEpoch)
             ).join('');
-            initDescriptionCollapsers(container);
-            return;
-        }
-
-        if (sortMode === 'validators') {
-            container.className = 'sp-groups-grid';
-            const sorted = groupsArr.sort((a, b) => {
-                if (b.active_validator_count !== a.active_validator_count) {
-                    return b.active_validator_count - a.active_validator_count;
-                }
-                return b.total_active_lamports - a.total_active_lamports;
-            });
-            container.innerHTML = sorted.map(g => 
-                poolCardHtml(g, getSparkData(g.name), highlightEpoch, isStale, selEpoch)
-            ).join('');
-            initDescriptionCollapsers(container);
-            return;
-        }
-
-        if (sortMode === 'activating') {
-            container.className = 'sp-groups-grid';
-            const sorted = groupsArr.sort((a, b) => 
-                b.total_activating_lamports - a.total_activating_lamports || 
-                b.total_active_lamports - a.total_active_lamports
-            );
-            container.innerHTML = sorted.map(g => 
-                poolCardHtml(g, getSparkData(g.name), highlightEpoch, isStale, selEpoch)
-            ).join('');
-            initDescriptionCollapsers(container);
-            return;
-        }
-
-        if (sortMode === 'deactivating') {
-            container.className = 'sp-groups-grid';
-            const sorted = groupsArr.sort((a, b) => 
-                b.total_deactivating_lamports - a.total_deactivating_lamports || 
-                b.total_active_lamports - a.total_active_lamports
-            );
-            container.innerHTML = sorted.map(g => 
-                poolCardHtml(g, getSparkData(g.name), highlightEpoch, isStale, selEpoch)
-            ).join('');
-            initDescriptionCollapsers(container);
+            markShortDescriptions(container);
             return;
         }
 
@@ -2770,7 +3298,15 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         
         container.innerHTML = html;
-        initDescriptionCollapsers(container);
+        markShortDescriptions(container);
+    }
+
+    // A description that fits its one line needs no way to open: one pass
+    // reads every card, a second one marks them (no layout in between).
+    function markShortDescriptions(root) {
+        const items = Array.from((root || document).querySelectorAll('.cv-pc-desc'));
+        const fits = items.map(d => { const p = d.firstElementChild; return !!p && p.clientWidth > 0 && p.scrollHeight <= p.clientHeight + 1; });
+        items.forEach((d, i) => { if (!d.classList.contains('is-open')) d.classList.toggle('is-short', fits[i]); });
     }
 
     // ============================================
@@ -2986,6 +3522,7 @@ document.addEventListener('DOMContentLoaded', function () {
     //   3. Number of validators[] entries with aggregations.by_group[name] == pool_stats[name].validator_count
     // Achieved by emitting one "totals carrier" validator with the epoch totals
     // and N pseudo-validators per pool group (each carrying 1/N of the pool's stake).
+    const NO_TOTALS = { total_active_lamports: 0, total_activating_lamports: 0, total_deactivating_lamports: 0 };
     function synthesizeSnapshot(epochEntry) {
         const totals = epochEntry.totals || { active_lamports: 0, validator_count: 0 };
         const poolStats = epochEntry.pool_stats || {};
@@ -3013,29 +3550,33 @@ document.addEventListener('DOMContentLoaded', function () {
             const activatingShare = Math.floor((stats.activating_lamports || 0) / n);
             const deactivatingShare = Math.floor((stats.deactivating_lamports || 0) / n);
             
-            for (let i = 0; i < n; i++) {
-                validators.push({
-                    __pseudo: 'pool_carrier',
-                    __pool_group: groupName,
-                    totals: {
-                        total_active_lamports: 0,
-                        total_activating_lamports: 0,
-                        total_deactivating_lamports: 0
-                    },
-                    aggregations: {
-                        by_group: [{
-                            name: groupName,
-                            active_lamports: activeShare,
-                            activating_lamports: activatingShare,
-                            deactivating_lamports: deactivatingShare
-                        }]
-                    }
-                });
-            }
+            // One object fills all the n places of the pool: the entries are
+            // equal and only read, and a full history would hold about a
+            // million of them otherwise.
+            const carrier = {
+                __pseudo: 'pool_carrier',
+                __pool_group: groupName,
+                totals: NO_TOTALS,
+                aggregations: {
+                    by_group: [{
+                        name: groupName,
+                        active_lamports: activeShare,
+                        activating_lamports: activatingShare,
+                        deactivating_lamports: deactivatingShare
+                    }]
+                }
+            };
+            for (let i = 0; i < n; i++) validators.push(carrier);
         }
         
         return {
             __aggregated: true,
+            // Network figures of the epoch for the second chart of the main page.
+            __net: {
+                activating: Object.keys(poolStats).reduce((s, k) => s + (poolStats[k].activating_lamports || 0), 0),
+                deactivating: Object.keys(poolStats).reduce((s, k) => s + (poolStats[k].deactivating_lamports || 0), 0),
+                validators: totals.validator_count || 0
+            },
             __snapshot_source_url: epochEntry.snapshot_source_url || '',
             metadata: {
                 epoch: epochEntry.epoch,
@@ -3104,7 +3645,11 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // Show/hide a small loader overlay for lazy snapshot loads.
     // Targets the pool detail content area to avoid covering the whole page.
+    // (several loads can run at once - a newer choice while an older one is
+    // still loading - so the loader counts them and leaves with the last)
+    let epochLoaderDepth = 0;
     function showEpochLoader(message = 'Loading epoch data...') {
+        epochLoaderDepth++;
         let loader = document.getElementById('pool-epoch-loader');
         if (!loader) {
             loader = document.createElement('div');
@@ -3123,6 +3668,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     
     function hideEpochLoader() {
+        epochLoaderDepth = Math.max(0, epochLoaderDepth - 1);
+        if (epochLoaderDepth > 0) return;
         const loader = document.getElementById('pool-epoch-loader');
         if (loader) loader.style.display = 'none';
     }
@@ -3423,12 +3970,14 @@ document.addEventListener('DOMContentLoaded', function () {
         return ord.filter(c => c !== 'OTHER');
     }
     
+    // The sort bar of the Pools tab (its default state is also in the page markup).
     function setActiveSortButton(mode) {
-        document.querySelectorAll('#sorting-bar .sort-btn').forEach(b => 
-            b.classList.remove('active')
-        );
-        const btn = document.querySelector(`#sorting-bar .sort-btn[data-sort="${mode}"]`);
-        if (btn) btn.classList.add('active');
+        const bar = document.getElementById('sorting-bar');
+        if (!bar) return;
+        const item = (key, icon, label) => ({ attr: ' data-sort="' + key + '"', icon, label, active: mode === key, dir: key !== 'category' });
+        sortBarRender(bar, [item('category', 'fa-folder-tree', 'Category'), item('stake', 'fa-coins', 'Stake'),
+            item('validators', 'fa-user-check', 'Validators'), item('activating', 'fa-arrow-trend-up', 'Activating'),
+            item('deactivating', 'fa-arrow-trend-down', 'Deactivating')], currentSortAsc ? 'asc' : 'desc');
     }
     
     // Maps tab id to its label as shown in breadcrumbs.
@@ -3440,9 +3989,10 @@ document.addEventListener('DOMContentLoaded', function () {
     
 	function activateTab(targetTab, opts) {
 		requestAnimationFrame(() => subheaderShowTab(targetTab));
-		document.querySelectorAll('.sp-tab-link').forEach(item => 
-			item.classList.remove('active')
-		);
+		document.querySelectorAll('.sp-tab-link').forEach(item => {
+			item.classList.remove('active');
+			item.removeAttribute('aria-current');
+		});
 		document.querySelectorAll('.sp-tab-content').forEach(item => 
 			item.classList.remove('active')
 		);
@@ -3452,19 +4002,17 @@ document.addEventListener('DOMContentLoaded', function () {
 		
 		if (link && content) { 
 			link.classList.add('active'); 
+			link.setAttribute('aria-current', 'page');
 			content.classList.add('active'); 
 		}
 		
-		// Bug 10 fix: re-initialize description collapsers when switching to Pools tab.
-		// Root cause: initDescriptionCollapsers uses getBoundingClientRect to measure
-		// text height; when the tab is display:none at first render, height = 0, and
-		// the collapser cannot detect overflow - descriptions stay uncollapsed forever.
-		// Re-running after the tab becomes visible measures real heights correctly.
+		// A card rendered while its tab is hidden has no size, so the check of
+		// one-line descriptions runs again when the Pools tab comes on screen.
 		if (targetTab === 'pools') {
 			// Use rAF so the browser has applied the display change before measuring
 			requestAnimationFrame(() => {
 				const poolsContainer = document.getElementById('groups-grid-container');
-				if (poolsContainer) initDescriptionCollapsers(poolsContainer);
+				if (poolsContainer) markShortDescriptions(poolsContainer);
 			});
 		}
 		
@@ -3507,12 +4055,17 @@ document.addEventListener('DOMContentLoaded', function () {
     // ============================================
     // CHART FUNCTIONS (ВИКЛИК)
     // ============================================
+    // Draws the charts of the main view that need it: a new chart, or one
+    // whose width has changed. A resize that keeps the width (a phone hiding
+    // its address bar), a second call in a row and a chart that is out of
+    // sight and already waiting draw nothing.
     function drawAllChartsNow() {
         chartsToRedraw.forEach(chart => {
             const container = document.getElementById(chart.id);
-            if (container) {
-                renderInteractiveChart(container, chart.data, chart.title, chart.highlightEpoch ?? null);
-            }
+            if (!container) return;
+            const width = container.clientWidth;
+            if (width > 0 ? width === container.__cvDrawnWidth : !!container.__cvWait) return;
+            renderInteractiveChart(container, chart.data, chart.title, chart.highlightEpoch ?? null, chart.opts || null);
         });
     }
     
@@ -3528,8 +4081,13 @@ document.addEventListener('DOMContentLoaded', function () {
     // historic series (sparklines, charts) but lack the per-validator detail
     // that the main view (pool cards, validators list, top stats) requires.
     // For latest epoch this is a no-op since latest is always full.
+    // A choice of epoch can overtake the loading of an earlier one: only the
+    // latest choice is drawn when its data is there (an answer that arrives
+    // for an older choice is kept in the cache and not drawn).
+    let mainEpochSeq = 0;
     async function switchToEpochWithLazyLoad(epochNum, historicData) {
         const numKey = Number(epochNum);
+        const seq = ++mainEpochSeq;
         const entry = epochMap.get(numKey);
         if (entry && entry.__aggregated) {
             showEpochLoader(`Loading epoch ${numKey}...`);
@@ -3539,6 +4097,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 hideEpochLoader();
             }
         }
+        if (seq !== mainEpochSeq) return;
         switchToEpoch(epochNum, historicData);
     }
 
@@ -3602,8 +4161,9 @@ document.addEventListener('DOMContentLoaded', function () {
     let cvMainScrollY = null;
     let cvVd = null;        // model of the open validator page
     let cvVdSeq = 0;        // drops answers that arrive for a page already left
-    // The pools block opens as a table; cards are one click away and the choice is kept.
-    let cvSourcesView = safeStorage.getItem('validatorSourcesView') === 'cards' ? 'cards' : 'table';
+    // The stakers block opens as a table; cards and bubbles are one click away and the choice is kept.
+    const CV_VIEWS = ['table', 'cards', 'bubbles'];
+    let cvSourcesView = CV_VIEWS.indexOf(safeStorage.getItem('validatorSourcesView')) >= 0 ? safeStorage.getItem('validatorSourcesView') : 'table';
     let cvSort = { key: 'active', dir: 'desc' };   // one order for the table and the cards
     let cvShowPastPools = safeStorage.getItem('validatorShowPastPools') === '1';
     let cvPoolFilter = null;    // pool picked in the donut (or CV_THIN_KEY for the pools under 1%)
@@ -3615,7 +4175,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let cvAuxChart = safeStorage.getItem('validatorAuxChart') === 'rank' ? 'rank' : 'accounts';
     let cvIndexData = null;     // the validators index once it has loaded
     let cvAliasMap = null;      // vote -> former names
-    let validatorsAgeAsc = false;
+    let validatorsSortAsc = false;
     let validatorsHasAge = false;
     let cvChangesExpanded = false;
     let cvChartSeq = 0;
@@ -3631,16 +4191,24 @@ document.addEventListener('DOMContentLoaded', function () {
             return res.json().then(data => ({ state: 'ok', data }));
         });
     }
-    // One history file per validator, kept for the session. A failed download
-    // is not cached, so the next visit tries again.
+    // One history file per validator. The files opened last stay in memory
+    // (a session can visit hundreds of validators); an older one is loaded
+    // again on the next visit. A failed download is not kept.
+    const SHARDS_KEPT = 16;
     function loadValidatorShard(vote) {
-        if (cvShardCache.has(vote)) return cvShardCache.get(vote);
+        if (cvShardCache.has(vote)) {
+            const hit = cvShardCache.get(vote);
+            cvShardCache.delete(vote);
+            cvShardCache.set(vote, hit);
+            return hit;
+        }
         const p = cvFetchJsonState(validatorsBaseUrl + encodeURIComponent(vote) + '.json').catch(err => {
             console.warn('[stake-dashboard] validator history unavailable:', err && err.message);
             cvShardCache.delete(vote);
             return { state: 'error', data: null };
         });
         cvShardCache.set(vote, p);
+        while (cvShardCache.size > SHARDS_KEPT) cvShardCache.delete(cvShardCache.keys().next().value);
         return p;
     }
     // Every validator seen since epoch 820 (active or gone). Loaded on demand.
@@ -3722,8 +4290,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (!e || typeof e.epoch !== 'number') return;
                 const groups = Object.keys(e.groups || {}).map(name => {
                     const g = e.groups[name] || [];
+                    // (a fourth number, when the history files carry it, is the
+                    // number of stake accounts of the staker in that epoch)
                     return { name: nameRemap.get(name) || name, active: g[0] || 0, activating: g[1] || 0,
-                        deactivating: g[2] || 0, count: null };
+                        deactivating: g[2] || 0, count: typeof g[3] === 'number' ? g[3] : null };
                 });
                 epochs.push({
                     epoch: e.epoch, ts: e.ts || null, active: e.active || 0, activating: e.activating || 0,
@@ -3848,6 +4418,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (main && main.style.display !== 'none') cvMainScrollY = window.scrollY;
     }
     function cvRenderRoute(fresh) {
+        // (a tooltip kept open by a click - a card, a bubble, a row - belongs
+        // to the view that is being left)
+        cvVdUnpinTip();
         const p = new URLSearchParams(window.location.search);
         const v = p.get('validator');
         if (v) { showValidatorDetail(v, fresh); return; }
@@ -3871,6 +4444,33 @@ document.addEventListener('DOMContentLoaded', function () {
         e.preventDefault();
         if (window.hidePoolTooltip) window.hidePoolTooltip();
         cvNavigate(href);
+    });
+    // A click the page handles itself: the main button without a modifier
+    // key. Any other click on a link is left to the browser (a new tab, a
+    // new window, a download).
+    function cvPlainClick(e) {
+        return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+    }
+    // The address of a tab of the main view with the epoch on screen: what
+    // the browser opens for a tab link or for the way back in the bar.
+    function tabHref(tab) {
+        const p = new URLSearchParams();
+        if (tab && tab !== URL_DEFAULTS.tab) p.set('tab', tab);
+        if (tab === 'pools' && currentSortMode && currentSortMode !== URL_DEFAULTS.sort) p.set('sort', currentSortMode);
+        const epoch = new URLSearchParams(window.location.search).get('epoch');
+        if (epoch && epoch !== URL_DEFAULTS.epoch) p.set('epoch', epoch);
+        const q = p.toString();
+        return window.location.pathname + (q ? '?' + q : '');
+    }
+    // That address follows the epoch and the sort order, so a link gets it
+    // at the moment the pointer or the focus comes to it.
+    ['pointerover', 'pointerdown', 'focusin'].forEach((type) => {
+        document.addEventListener(type, (e) => {
+            const a = e.target && e.target.closest ? e.target.closest('a.sp-tab-link[data-tab], a.cv-sub-crumb[data-tab]') : null;
+            if (!a) return;
+            const href = tabHref(a.getAttribute('data-tab'));
+            if (a.getAttribute('href') !== href) a.setAttribute('href', href);
+        }, true);
     });
 
     // ---------- charts ----------
@@ -4109,6 +4709,8 @@ document.addEventListener('DOMContentLoaded', function () {
         cvVd = null;
         const view = document.getElementById('validator-detail-view');
         if (view) view.style.display = 'none';
+        const root = document.getElementById('stake-pool-dashboard');
+        if (root) root.classList.remove('cv-is-notfound');
     }
     function cvVdShowView() {
         const main = document.getElementById('main-dashboard-view');
@@ -4130,6 +4732,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const view = document.getElementById('validator-detail-view');
         const box = document.getElementById('cv-vd-message');
         if (!view || !box) return;
+        // ("not found" is a state of the whole page: its backdrop belongs to the root)
+        const root = document.getElementById('stake-pool-dashboard');
+        if (root) root.classList.toggle('cv-is-notfound', kind === 'notfound');
         if (!kind) { view.removeAttribute('data-state'); box.innerHTML = ''; return; }
         view.setAttribute('data-state', 'message');
         const back = '<a class="cv-vd-back" href="' + escapeHtml(window.location.pathname + '?tab=validators') +
@@ -4139,9 +4744,9 @@ document.addEventListener('DOMContentLoaded', function () {
             box.innerHTML = '<div class="cv-vd-msg"><div class="cv-vd-spinner"></div><p>Loading validator...</p></div>';
         } else if (kind === 'notfound') {
             title = 'Not found';
-            box.innerHTML = '<div class="cv-vd-msg"><h2>Validator not found</h2>' +
+            box.innerHTML = '<div class="cv-vd-msg is-plots"><div class="cv-vd-msg-card"><h2>Validator not found</h2>' +
                 '<p>No validator with this vote account or identity key appears in the data since epoch ' + DATASET_FIRST_EPOCH + '.</p>' +
-                '<p class="cv-vd-msg-key">' + escapeHtml(key || '') + '</p>' + back + '</div>';
+                '<p class="cv-vd-msg-key">' + escapeHtml(key || '') + '</p>' + back + '</div></div>';
         } else {
             title = 'Unavailable';
             box.innerHTML = '<div class="cv-vd-msg"><h2>Validator data is unavailable right now</h2>' +
@@ -4271,7 +4876,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 '<i class="fas fa-seedling" aria-hidden="true"></i>New validator</span>';
         }
         $('cv-vd-status').innerHTML = status;
-        $('cv-vd-keys').innerHTML = (m.identity ? keyTokenHtml('ID', m.identity) : '') + keyTokenHtml('Vote', m.vote);
+        $('cv-vd-keys').innerHTML = validatorKeyChipsHtml(m.identity, m.vote);
         cvVdSetProfile(m.website, m.details);
         const cur = $('breadcrumb-current');
         if (cur) cur.textContent = m.displayName;
@@ -4289,7 +4894,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const small = ' <small class="cv-vd-of">' + escapeHtml(m.displayName) + '</small>';
         $('cv-vd-stake-title').innerHTML = 'Stake History' + small;
         $('cv-vd-dyn-title').innerHTML = 'Epoch Dynamics' + small;
-        $('cv-vd-sources-title').textContent = 'Stakers';
+        $('cv-vd-sources-title').innerHTML = 'Stakers' + small;
         $('cv-vd-donut-title').innerHTML = 'Stake Distribution' + small;
         $('cv-vd-changes-title').innerHTML = 'Changes' + small;
         $('validator-detail-view').classList.toggle('is-inactive', !m.isActive);
@@ -4372,7 +4977,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 ? '<span class="cv-vd-asof" data-cv-tip="The name of this validator in epoch ' + E + '"><i class="fas fa-hourglass-half" aria-hidden="true"></i>name in epoch ' + E + '</span>'
                 : '';
         }
-        $('cv-vd-keys').innerHTML = (shownIdentity ? keyTokenHtml('ID', shownIdentity) : '') + keyTokenHtml('Vote', m.vote);
+        $('cv-vd-keys').innerHTML = validatorKeyChipsHtml(shownIdentity, m.vote);
         $('cv-vd-avatar').innerHTML = avatarHtml;
         const crumb = $('breadcrumb-current');
         if (crumb) crumb.textContent = shownName;
@@ -4397,9 +5002,18 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         $('cv-vd-then').innerHTML = notes.join('');
         let chips = '';
+        // The age of the vote account is a chip too, as in the lists (the
+        // card below keeps its details).
+        const ageThen = cvAgeAt(m, entry);
+        const ageChip = ageThen
+            ? '<span class="cv-chip cv-chip-age" data-cv-tip="' + escapeHtml('Vote account age' + (isPast ? ' in epoch ' + E : '') + ': ' +
+              cvAgeText(ageThen) + ' epochs with votes') + '"><span class="cv-seg"><i class="fas fa-hourglass-half" aria-hidden="true"></i>' +
+              escapeHtml(cvAgeText(ageThen)) + ' ep</span></span>'
+            : '';
         if (entry && entry.meta) {
+            const metaHtml = buildMetaChipsHtml(entry.meta, entry.scriptInfo);
             chips = (isPast ? '<span class="cv-vd-asof"><i class="fas fa-hourglass-half" aria-hidden="true"></i>In epoch ' + E + '</span>' : '') +
-                buildMetaChipsHtml(entry.meta, entry.scriptInfo);
+                (ageChip ? metaHtml.replace(/<\/div>$/, ageChip + '</div>') : metaHtml);
         } else if (entry && E < META_FIRST_EPOCH) {
             chips = '<span class="cv-vd-nodata">Commission and client data start at epoch ' + META_FIRST_EPOCH + '</span>';
         }
@@ -4409,10 +5023,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const card = (icon, cls, valueHtml, label, tipKind, extraAttr) =>
             '<div class="pool-metric-card"' + (tipKind ? ' data-cv-vdtip="' + tipKind + '"' : '') + (extraAttr || '') + '>' +
             cardIco(icon, 'cv-ico-metric') + '<div class="pool-metric-info">' +
-            '<span class="pool-metric-value' + (cls === 'activating' ? ' positive' : (cls === 'deactivating' ? ' negative' : '')) + '">' +
+            '<span class="pool-metric-value' + (cls === 'activating' ? ' positive' : (cls === 'deactivating' ? ' negative' : (cls === 'none' ? ' is-zero' : ''))) + '">' +
             valueHtml + '</span><span class="pool-metric-label">' + escapeHtml(label) + '</span></div></div>';
         let ageHtml = '-';
-        const ageThen = cvAgeAt(m, entry);
         const ageNow = cvAgeNow(m);
         if (ageThen) {
             ageHtml = escapeHtml(cvAgeText(ageThen));
@@ -4436,8 +5049,8 @@ document.addEventListener('DOMContentLoaded', function () {
             card('stake-rank', '', entry.rank ? '#' + formatNumber(entry.rank) : '-', 'Stake Rank', 'rank') +
             card('stake-accounts', '', entry.accounts !== null ? formatNumber(entry.accounts) : '-', 'Stake Accounts', 'accounts') +
             card('vote-account-age', '', ageHtml, 'Vote Account Age', 'age') +
-            card('activating', 'activating', (entry.activating > 0 ? '+' + cardSol(entry.activating) : '0') + sol, 'Activating', 'activating') +
-            card('deactivating', 'deactivating', (entry.deactivating > 0 ? '-' + cardSol(entry.deactivating) : '0') + sol, 'Deactivating', 'deactivating'));
+            card('activating', entry.activating > 0 ? 'activating' : 'none', (entry.activating > 0 ? '+' + cardSol(entry.activating) : '0') + sol, 'Activating', 'activating') +
+            card('deactivating', entry.deactivating > 0 ? 'deactivating' : 'none', (entry.deactivating > 0 ? '-' + cardSol(entry.deactivating) : '0') + sol, 'Deactivating', 'deactivating'));
         // History charts.
         const small = ' <small class="cv-vd-of">' + escapeHtml(shownName) + '</small>';
         const stakeBox = $('cv-vd-stake-chart');
@@ -4455,18 +5068,18 @@ document.addEventListener('DOMContentLoaded', function () {
         if (m.historyState === 'ok') {
             const whole = v => formatNumber(Math.round(v));
             cvRenderEpochChart(stakeBox, m.epochs.map(e => ({ epoch: e.epoch, ts: e.ts, value: lamportsToSol(e.active) })),
-                { height: 110, grid: true, stats: true, highlightEpoch: E, onPick: cvVdSelectEpoch });
+                { height: 110, grid: CV_GRID_LINES, stats: true, highlightEpoch: E, onPick: cvVdSelectEpoch });
             cvRenderEpochChart(auxBox, rankMode
                 ? m.epochs.filter(e => e.rank).map(e => ({ epoch: e.epoch, ts: e.ts, value: e.rank }))
                 : m.epochs.filter(e => e.accounts !== null).map(e => ({ epoch: e.epoch, ts: e.ts, value: e.accounts })),
                 rankMode
-                    ? { height: 110, grid: true, stats: true, invert: true, statLabels: ['Best', 'Lowest'], fmt: v => '#' + whole(v),
+                    ? { height: 110, grid: CV_GRID_LINES, stats: true, invert: true, statLabels: ['Best', 'Lowest'], fmt: v => '#' + whole(v),
                         tip: p => '#' + whole(p.value) + ' by active stake', highlightEpoch: E, onPick: cvVdSelectEpoch }
-                    : { height: 110, grid: true, stats: true, fmt: whole, tip: p => whole(p.value) + ' stake accounts',
+                    : { height: 110, grid: CV_GRID_LINES, stats: true, fmt: whole, tip: p => whole(p.value) + ' stake accounts',
                         highlightEpoch: E, onPick: cvVdSelectEpoch });
             cvRenderEpochChart(dynBox, m.epochs.map(e => ({ epoch: e.epoch, ts: e.ts, value: lamportsToSol(e.activating),
                 down: lamportsToSol(e.deactivating) })),
-                { height: 110, butterfly: true, grid: true, stats: true, scaleMode: cvDynScaleMode, highlightEpoch: E, onPick: cvVdSelectEpoch });
+                { height: 110, butterfly: true, grid: CV_GRID_LINES, stats: true, scaleMode: cvDynScaleMode, highlightEpoch: E, onPick: cvVdSelectEpoch });
         } else {
             const text = cvHistoryStateText(m);
             [stakeBox, auxBox, dynBox].forEach(box => {
@@ -4485,6 +5098,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (m.historyState === 'new') return 'History appears after the current epoch is finalized';
         return 'History temporarily unavailable';
     }
+
+    // Dashed grid lines with their values on the charts of a validator page:
+    // one switch for the whole site, off by default. The settings panel is
+    // to flip it; until then the key can be set by hand.
+    const CV_GRID_LINES = safeStorage.getItem('cvGridLines') === '1';
 
     // ---------- pools of the validator ----------
     function cvSourceDef(name) {
@@ -4508,30 +5126,39 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         return poolLogoMiniHtml(g.name, null);
     }
+    // How many rows of the stakers block (pools, programs, known holders, the rest): "1 entry", "5 entries".
+    const cvEntries = n => n + (n === 1 ? ' entry' : ' entries');
     function cvSignedSol(lamports) {
         const sol = lamportsToSol(lamports);
         const text = formatCompact(Math.abs(sol));
         if (text === '0') return { text: '0', cls: '' };
-        return sol > 0 ? { text: '+' + text, cls: 'cv-vd-pos' } : { text: '-' + text, cls: 'cv-vd-neg' };
+        // (a change against the epoch before is history: its colours are the
+        // quiet ones wherever it stands - the bright green and red belong to
+        // the stake that moves now)
+        return sol > 0 ? { text: '+' + text, cls: 'cv-vd-pos is-soft' } : { text: '-' + text, cls: 'cv-vd-neg is-soft' };
     }
     function cvVdRenderSources(m, entry, idx) {
         const body = document.getElementById('cv-vd-sources-body');
-        const sub = document.getElementById('cv-vd-sources-sub');
         const bar = document.getElementById('cv-vd-sortbar');
         const scopeBox = document.getElementById('cv-vd-scope');
         document.querySelectorAll('#cv-vd-view-toggle button').forEach(b =>
             b.classList.toggle('active', b.getAttribute('data-view') === cvSourcesView));
         if (!body) return;
+        if (cvBubblesMap) {
+            if (cvBubblesWatch) cvBubblesWatch.unobserve(cvBubblesMap);
+            if (cvBubblesSeen) cvBubblesSeen.unobserve(cvBubblesMap);
+            cvBubblesMap = null;
+        }
+        // (a tooltip kept open by a click on something of this block goes with it)
+        if (cvPinnedTip && cvPinnedTip.__card && body.contains(cvPinnedTip.__card)) cvVdUnpinTip();
         if (!entry) {
             body.innerHTML = '';
-            if (sub) sub.textContent = '';
             if (bar) bar.innerHTML = '';
             if (scopeBox) scopeBox.innerHTML = '';
             return;
         }
         const E = entry.epoch;
         const isPast = E !== Number(latestEpochNumber);
-        if (sub) sub.textContent = 'Who stakes with ' + (m.shownName || m.displayName) + (isPast ? ' in epoch ' + E : '');
         const src = cvEntrySources(m, entry);
         const prev = idx > 0 && m.epochs[idx - 1].epoch === E - 1 ? m.epochs[idx - 1] : null;
         src.shown.forEach(g => {
@@ -4546,6 +5173,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         const thin = cvThinPools(entry, src.shown);
         if (cvPoolFilter === CV_THIN_KEY ? !thin.length : (cvPoolFilter && !src.shown.some(g => g.name === cvPoolFilter))) cvPoolFilter = null;
+        // (the donut was drawn before this check: its Reset follows the filter that is left)
+        const donutReset = document.getElementById('cv-vd-donut-reset');
+        if (donutReset) donutReset.hidden = !cvPoolFilter;
         // Which pools to show: those of this epoch, or every pool that ever
         // held stake with this validator.
         if (scopeBox) {
@@ -4569,16 +5199,14 @@ document.addEventListener('DOMContentLoaded', function () {
         const sortBar = (key, dir, note) => {
             cvBarKey = key;
             if (!bar) return;
-            const caret = '<i class="fas ' + (dir === 'asc' ? 'fa-caret-up' : 'fa-caret-down') + '" aria-hidden="true"></i>';
-            const btn = (k, icon, label) => '<button type="button" class="sort-btn' + (key === k ? ' active' : '') + '" data-src-sort="' + k +
-                '"><i class="fas ' + icon + '" aria-hidden="true"></i> ' + label + (key === k && k !== 'category' ? ' ' + caret : '') + '</button>';
-            bar.innerHTML = '<span class="label">Sort:</span>' + btn('category', 'fa-folder-tree', 'By Category') + btn('active', 'fa-coins', 'By Stake') +
-                btn('activating', 'fa-arrow-trend-up', 'By Activating') + btn('deactivating', 'fa-arrow-trend-down', 'By Deactivating') +
-                btn('change', 'fa-arrows-up-down', 'By Change vs ' + (E - 1)) + (note || '');
+            const item = (k, icon, label) => ({ attr: ' data-src-sort="' + k + '"', icon, label, active: key === k, dir: k !== 'category' });
+            sortBarRender(bar, [item('category', 'fa-folder-tree', 'Category'), item('active', 'fa-coins', 'Stake'),
+                item('activating', 'fa-arrow-trend-up', 'Activating'), item('deactivating', 'fa-arrow-trend-down', 'Deactivating'),
+                item('change', 'fa-arrows-up-down', 'Change vs ' + (E - 1))], dir, note);
         };
         if (src.shown.length === 0 && !(cvShowPastPools && past.length)) {
             sortBar(sortKey, sortDir);
-            body.innerHTML = '<div class="chart-no-data">No staker reaches ' + minSol + ' SOL in this epoch</div>' + smallHtml;
+            body.innerHTML = '<div class="chart-no-data">No stake of ' + minSol + ' SOL or more in this epoch</div>' + smallHtml;
             return;
         }
         const thinNames = new Set(thin.map(g => g.name));
@@ -4587,15 +5215,15 @@ document.addEventListener('DOMContentLoaded', function () {
         const pastList = (cvShowPastPools && !cvPoolFilter) ? past : [];
         const filterHtml = cvPoolFilter
             ? '<div class="cv-vd-filter">Showing only <b>' + (cvPoolFilter === CV_THIN_KEY
-                ? 'the ' + list.length + (list.length > 1 ? ' stakers' : ' staker') + ' under 1%' : escapeHtml(list[0].title)) +
-              '</b> <button type="button" class="cv-vd-linkbtn" data-cv-pool-clear="1">Show all stakers</button></div>'
+                ? 'the ' + cvEntries(list.length) + ' under 1%' : escapeHtml(list[0].title)) +
+              '</b> <button type="button" class="cv-vd-linkbtn" data-cv-pool-clear="1">Show all</button></div>'
             : '';
         const countsNote = (isPast && list.some(g => g.count === null))
             ? '<p class="cv-vd-note">Stake accounts per staker are not in the history files. <button type="button" class="cv-vd-linkbtn" id="cv-vd-load-counts">Load them for epoch ' +
               E + '</button> (the full data of the epoch, a few seconds).</p>'
             : '';
         const epochNote = isPast ? '<span class="epoch-inline-note">in epoch ' + E + '</span>' : '';
-        const pct = g => (g.share > 0 && g.share < 0.01 ? '&lt;0.01%' : (g.share >= 10 ? g.share.toFixed(1) : g.share.toFixed(2)) + '%');
+        const pct = g => shareText(g.share);
         const href = g => escapeHtml(poolHref(g.name, E, m.vote));
         const goTip = g => escapeHtml(isPast
             ? 'Opens the ' + g.title + ' page for epoch ' + E + ' with this validator selected. A past epoch takes a moment to load.'
@@ -4604,6 +5232,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const sortedBy = (arr, key, dir) => arr.slice().sort((a, b) => {
             const x = cvSourceValue(a, key);
             const y = cvSourceValue(b, key);
+            // (stake on the move: the stakers with none stay at the end in both directions)
+            if (key === 'activating' || key === 'deactivating') return sortCmp(x, y, dir === 'asc', MIN_ACTIVE_STAKE) || (b.active - a.active);
             const c = x < y ? -1 : (x > y ? 1 : 0);
             return (dir === 'asc' ? c : -c) || (b.active - a.active);
         });
@@ -4621,48 +5251,234 @@ document.addEventListener('DOMContentLoaded', function () {
         const seriesFull = name => (m.historyState === 'ok' ? cvSourceSeries(m, name, true) : []);
         const corner = g => '<a class="cv-corner" data-cv-nav href="' + href(g) + '" aria-label="' + escapeHtml('Open the ' + g.title + ' page') +
             '"><i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>';
+        // The details of a staker as a tooltip: a bubble opens it, and so does
+        // a row of the table on a phone (where the table keeps fewer columns).
+        const exact = lamports => formatNumber(lamportsToSol(lamports), 2) + ' SOL';
+        // "New" and "leaving": the whole stake of a staker arrives or
+        // leaves in the epoch. Every view marks it with the same dashed
+        // green or red sign (the ring of a badge in the lists, the outline
+        // of a bubble, the edge of a card and of a table row) and a word.
+        const stateOf = g => {
+            if (g.past) return '';
+            const ring = poolBadgeRing(g.active, g.activating, g.deactivating);
+            return ring.activatingOnly ? 'new' : (ring.cls === ' is-exiting' ? 'leaving' : '');
+        };
+        const STATE_NOTE = { 'new': 'All of its stake is activating', leaving: 'All of its stake is deactivating' };
+        const stateTag = g => {
+            const s = stateOf(g);
+            return s ? '<span class="cv-state is-' + s + '" data-cv-tip="' + STATE_NOTE[s] + '">' + s + '</span>' : '';
+        };
+        const tipState = g => {
+            const s = stateOf(g);
+            return s ? '<div class="cv-tip-state"><span class="cv-state is-' + s + '">' + s + '</span>' + STATE_NOTE[s] + '</div>' : '';
+        };
+        const tipHead = g => '<div class="pool-tooltip-title cv-tip-pool">' + cvSourceLogoMini(g) + '<span>' + escapeHtml(g.title) + '</span></div>' +
+            (isPast ? '<div class="pool-tooltip-epoch">Epoch ' + E + '</div>' : '') + tipState(g);
+        const tipLink = g => '<a class="cv-tip-go" data-cv-nav href="' + href(g) + '">Open its page' + CV_GO_SVG + '</a>';
+        // (the change against the epoch before is history: its colour is
+        // quieter than the colour of the stake that moves now)
+        const tipChange = delta => (delta ? cvTipRow(cvTipIco('change'), 'Change vs epoch ' + (E - 1), cvSignedSol(delta).text + ' SOL',
+            (delta > 0 ? 'is-up' : 'is-down') + ' is-soft') : '');
+        const tipDetails = g => cvTipRow(cvTipIco('active-stake'), 'Active stake', exact(g.active)) +
+            cvTipRow(cvTipIco('share'), 'Share of validator', pct(g)) +
+            (g.activating > 0 ? cvTipRow(cvTipIco('activating'), 'Activating', '+' + exact(g.activating), 'is-up') : '') +
+            (g.deactivating > 0 ? cvTipRow(cvTipIco('deactivating'), 'Deactivating', '-' + exact(g.deactivating), 'is-down') : '') +
+            (g.count ? cvTipRow(cvTipIco('stake-accounts'), 'Stake accounts', formatNumber(g.count)) : '') + tipChange(g.delta);
+        if (cvSourcesView === 'bubbles') {
+            // Bubbles: every staker of the epoch as a bubble sized by its
+            // stake, packed around the largest one. A bubble takes the colour
+            // of stake on the move, and a click keeps its details open.
+            // Stakers without stake in the epoch stand apart, small and grey.
+            // This view has no sort bar.
+            cvBarKey = null;
+            if (bar) bar.innerHTML = '';
+            const isDark = document.body.classList.contains('dark-theme-body');
+            const weight = g => g.active + g.activating;
+            const top = Math.max(1, ...list.map(weight));
+            // How strongly the stake of a bubble moves, 0..1: against the
+            // largest movement among the bubbles, or against a quarter of a
+            // percent of the stake of the validator when all of them move
+            // less than that (so a movement of a few SOL never looks strong).
+            // The root keeps a small movement visible next to a large one.
+            const moveOf = g => (g.activating || 0) + (g.deactivating || 0);
+            const topMove = Math.max(entry.active * 0.0025, ...list.map(moveOf));
+            const strength = g => (topMove > 0 ? Math.min(1, Math.sqrt(moveOf(g) / topMove)) : 0);
+            // The size of a bubble, 0..1 (relative to the largest staker of
+            // this validator): mostly the root of its part of the largest
+            // one, partly its order of magnitude - so 17M, 50K and 2 SOL are
+            // three different sizes, and the smallest is still easy to tap.
+            const span = top > MIN_ACTIVE_STAKE ? Math.log(top / MIN_ACTIVE_STAKE) : 0;
+            const sizeOf = g => {
+                const w = weight(g);
+                if (!(w > 0)) return 0;
+                const order = span > 0 ? Math.max(0, Math.min(1, Math.log(Math.max(w, MIN_ACTIVE_STAKE) / MIN_ACTIVE_STAKE) / span)) : 1;
+                return 0.65 * Math.sqrt(w / top) + 0.35 * order;
+            };
+            const face = (g, big) => {
+                const iso = big ? 256 : 96;
+                if (g.name === 'OTHER') return (otherIsoImg(iso) || '') + OTHER_GROUP_SVG;
+                if (isValidHttpUrl(g.def.image)) {
+                    return '<img src="' + escapeHtml(resolveLogoUrlSync(g.def.image, isDark, iso)) + '" data-logo-default="' +
+                        escapeHtml(g.def.image) + '" data-logo-iso="' + iso + '" alt="">';
+                }
+                return '<span class="cv-bub-initials">' + escapeHtml(getInitials(g.name)) + '</span>';
+            };
+            const STATE = { ' is-activating-only': ' is-new', ' is-activating is-deactivating': ' is-both', ' is-activating': ' is-up',
+                ' is-exiting': ' is-exit', ' is-deactivating': ' is-down' };
+            const bubble = (g, i) => {
+                const t = sizeOf(g);
+                const ring = poolBadgeRing(g.active, g.activating, g.deactivating);
+                const tip = cvRich(tipHead(g) + tipDetails(g) + tipLink(g));
+                const up = (g.activating || 0) >= MIN_ACTIVE_STAKE;
+                const down = (g.deactivating || 0) >= MIN_ACTIVE_STAKE;
+                return '<button type="button" class="cv-bub' + (STATE[ring.cls] || '') + '" data-cv-pin="1" data-t="' + t.toFixed(4) + '" style="--i:' + i +
+                    (STATE[ring.cls] ? ';--mv:' + strength(g).toFixed(3) : '') +
+                    (ring.share === null ? '' : ';--act:' + ring.share + '%') + '"' + tip + ' aria-label="' + escapeHtml(g.title) + '">' +
+                    '<span class="cv-bub-face">' + face(g, t > 0.4) + '</span>' +
+                    '<span class="cv-bub-val">' + (ring.activatingOnly ? '+' + formatCompact(lamportsToSol(g.activating)) : formatCompact(lamportsToSol(g.active))) + '</span>' +
+                    (up ? '<span class="cv-bub-flow is-up"><i class="fas fa-arrow-trend-up" aria-hidden="true"></i></span>' : '') +
+                    (down ? '<span class="cv-bub-flow is-down"><i class="fas fa-arrow-trend-down" aria-hidden="true"></i></span>' : '') +
+                    '</button>';
+            };
+            const pastBubble = g => '<button type="button" class="cv-bub-past" data-cv-pin="1"' + cvRich(tipHead(g) + '<div class="cv-flow-more">' +
+                (g.before !== null ? 'No stake since epoch ' + (g.before + 1) : 'Stake from epoch ' + g.after) + '</div>' + tipLink(g)) +
+                ' aria-label="' + escapeHtml(g.title) + '"><span class="cv-bub-face">' + face(g, false) + '</span></button>';
+            // The totals of the epoch; a click opens the split by staker, like the cards at the top of the page.
+            const amount = (lamports, sign) => (lamports > 0 ? sign + numPairHtml(lamportsToSol(lamports), 2) : '0') + '<small> SOL</small>';
+            const chip = (kind, icon, label, valueHtml, cls) => '<button type="button" class="cv-bubble-chip' + (cls ? ' ' + cls : '') + '" data-cv-vdtip="' + kind + '">' +
+                cardIco(icon) + '<span>' + label + '</span><b>' + valueHtml + '</b></button>';
+            const current = byActive(list);
+            // The panel holds everything but the bubbles with stake: the
+            // totals, the stakers without stake in the epoch and the note
+            // about the smallest ones (on a phone its parts stand around
+            // the map: the totals above it, the rest under it).
+            body.innerHTML = filterHtml + '<div class="cv-bwrap"><div class="cv-binfo"><div class="cv-bubble-chips">' +
+                chip('stake', 'active-stake', 'Total stake', amount(entry.active, '')) +
+                chip('activating', 'activating', 'Activating', amount(entry.activating, '+'), entry.activating > 0 ? 'is-up' : '') +
+                chip('deactivating', 'deactivating', 'Deactivating', amount(entry.deactivating, '-'), entry.deactivating > 0 ? 'is-down' : '') +
+                '</div>' +
+                (pastList.length ? '<div class="cv-bpast"><div class="cv-bpast-head"><span>No stake in epoch ' + E + '</span><small>' +
+                    cvEntries(pastList.length) + ' from other epochs</small></div><div class="cv-bpast-row">' + pastList.map(pastBubble).join('') + '</div></div>' : '') +
+                smallHtml + '</div>' +
+                (current.length ? '<div class="cv-bmap">' + current.map(bubble).join('') + '</div>'
+                    : '<p class="cv-vd-note cv-bmap-empty">No stake of ' + minSol + ' SOL or more in this epoch</p>') +
+                '</div>';
+            const map = body.querySelector('.cv-bmap');
+            if (map) {
+                cvBubblesLayout(map);
+                cvBubblesMap = map;
+                if (cvBubblesWatch) cvBubblesWatch.observe(map);
+                if (cvBubblesSeen) cvBubblesSeen.observe(map);
+            }
+            return;
+        }
         if (isTable) {
             sortBar(sortKey, sortDir);
             const hasCounts = list.some(g => g.count !== null);
-            const head = (key, label, cls, tip) => '<button type="button" class="cv-st-h' + (cls ? ' ' + cls : '') +
-                (sortKey === key ? ' is-sorted' : '') + '" data-src-sort="' + key + '"' + (tip ? ' data-cv-tip="' + tip + '"' : '') + '>' + label + ' <i class="fas ' +
+            // A column header sorts by its column. short: what a phone shows in
+            // its place (a shorter word or the sign of the measure); the
+            // columns marked cv-st-x are left out on a phone.
+            const head = (key, label, cls, tip, short) => '<button type="button" class="cv-st-h' + (cls ? ' ' + cls : '') + (short ? ' has-short' : '') +
+                (sortKey === key ? ' is-sorted' : '') + '" data-src-sort="' + key + '"' + (tip ? ' data-cv-tip="' + tip + '"' : '') +
+                (short ? ' aria-label="' + label + '"' : '') + '><span class="cv-st-hl">' + label + '</span>' +
+                (short ? '<span class="cv-st-hs">' + short + '</span>' : '') + ' <i class="fas ' +
                 (sortKey === key ? (sortDir === 'asc' ? 'fa-caret-up' : 'fa-caret-down') : 'fa-sort') + '" aria-hidden="true"></i></button>';
-            // (an amount too small to show as a number is a plain zero, without the arrow)
-            const flow = (lamports, up) => (formatCompact(lamportsToSol(lamports)) !== '0'
-                ? '<span class="' + (up ? 'cv-vd-pos' : 'cv-vd-neg') + '"><i class="fas ' + (up ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down') +
-                  '" aria-hidden="true"></i> ' + formatCompact(lamportsToSol(lamports)) + '</span>'
-                : '<span class="cv-vd-muted">0</span>');
-            const zero = label => '<span class="cv-st-c" data-label="' + label + '"><span class="cv-vd-muted">0</span></span>';
+            // The stake of a row: the whole number, and the short one a phone shows.
+            // (no active stake - the stake of a new staker is all activating -
+            // is a quiet "0": here zero is the fact)
+            const stakeCell = lamports => {
+                const sol = lamportsToSol(lamports);
+                return '<span class="cv-st-c" data-label="Active stake, SOL">' + (sol >= 0.005
+                    ? '<span class="cv-st-full">' + formatNumber(sol, 2) + '</span><span class="cv-st-short">' + cardSol(sol).text + '</span>'
+                    : '<span class="cv-vd-muted">0</span>') + '</span>';
+            };
+            // A tap on a row opens its details on a phone (see cvPinTarget).
+            const rowTip = html => ' data-cv-rowtip="' + cvRichId(html) + '"';
+            // What a cell of the table says: a number is a value; a small
+            // dot stands where there is nothing - no stake on the move (none,
+            // or less than the 0.1 SOL every count of the page starts from),
+            // no change, any number of a staker without stake in the epoch -
+            // so a column shows only what is there; a quiet "0" is a zero
+            // that is the fact; "-" means the data has no value.
+            const NO_FLOW = '<span class="cv-st-none" role="img" aria-label="none"></span>';
+            const NO_DATA = '<span class="cv-vd-muted">-</span>';
+            // The stake on the move of a row. A wide table shows the arrow of
+            // the direction; on a phone the arrow is the header of the column,
+            // and the number carries its sign and drops the decimal from a
+            // hundred thousand, so it fits (an amount that would round to
+            // zero reads "<1").
+            const flowShort = sol => {
+                const part = (v, unit) => (v >= 99.95 ? v.toFixed(0) : v.toFixed(1)) + unit;
+                if (sol >= 999500) return part(sol / 1e6, 'M');
+                if (sol >= 999.5) return part(sol / 1e3, 'K');
+                const whole = sol.toFixed(0);
+                return whole === '0' ? '&lt;1' : whole;
+            };
+            const flow = (lamports, up) => {
+                if (!((lamports || 0) >= MIN_ACTIVE_STAKE)) return NO_FLOW;
+                const sol = lamportsToSol(lamports);
+                const text = formatCompact(sol);
+                return '<span class="' + (up ? 'cv-vd-pos' : 'cv-vd-neg') + '"><i class="fas ' + (up ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down') +
+                    '" aria-hidden="true"></i> <span class="cv-st-full">' + (text === '0' ? '&lt;1' : text) + '</span><span class="cv-st-short">' +
+                    '<span class="cv-st-sign">' + (up ? '+' : '-') + '</span>' + flowShort(sol) + '</span></span>';
+            };
+            const flowCell = (label, lamports, up) => '<span class="cv-st-c cv-st-flow" data-label="' + label + '">' + flow(lamports, up) + '</span>';
+            const none = (label, cls) => '<span class="cv-st-c' + (cls ? ' ' + cls : '') + '" data-label="' + label + '">' + NO_FLOW + '</span>';
+            const changeCell = d => '<span class="cv-st-c cv-st-x" data-label="Change vs epoch ' + (E - 1) + '">' +
+                (!d ? NO_DATA : (d.text === '0' ? NO_FLOW : '<span class="' + d.cls + '">' + d.text + '</span>')) + '</span>';
+            const shareCell = (share, text) => '<span class="cv-st-c cv-st-share cv-st-x" data-label="Share of validator"><span class="cv-st-bar">' +
+                (share > 0 ? '<i style="width:' + Math.max(1, Math.min(100, share)).toFixed(1) + '%"></i>' : '') + '</span><span class="cv-st-pct">' +
+                (share > 0 ? text : NO_FLOW) + '</span></span>';
             // The pool name is the only link of a row; the arrow next to it says so.
             const rowHtml = g => {
                 const d = g.delta === null ? null : cvSignedSol(g.delta);
-                return '<div class="cv-st-row">' +
+                const state = stateOf(g);
+                const cat = '<span class="cv-vd-src-cat">' + escapeHtml(catTitle(g.category)) + '</span>';
+                return '<div class="cv-st-row' + (state ? ' is-' + state : '') + '"' + rowTip(tipHead(g) + tipDetails(g) + tipLink(g)) + '>' +
                     '<span class="cv-st-c cv-st-source"><a class="cv-st-logo" data-cv-nav href="' + href(g) + '" tabindex="-1" aria-hidden="true">' +
                     cvSourceLogoMini(g, 96) + '</a><span class="cv-vd-src-text"><a class="cv-vd-src-name" data-cv-nav href="' +
-                    href(g) + '" data-cv-tip="' + goTip(g) + '">' + cvLinkLabelHtml(g.title) + '</a><span class="cv-vd-src-cat">' +
-                    escapeHtml(catTitle(g.category)) + '</span></span></span>' +
-                    '<span class="cv-st-c" data-label="Active stake, SOL">' + formatNumber(lamportsToSol(g.active), 2) + '</span>' +
-                    '<span class="cv-st-c cv-st-share" data-label="Share of validator"><span class="cv-st-bar"><i style="width:' +
-                    Math.max(1, Math.min(100, g.share)).toFixed(1) + '%"></i></span><span class="cv-st-pct">' + pct(g) + '</span></span>' +
-                    (hasCounts ? '<span class="cv-st-c" data-label="Stake accounts">' + (g.count !== null ? formatNumber(g.count) : '') + '</span>' : '') +
-                    '<span class="cv-st-c" data-label="Activating">' + flow(g.activating, true) + '</span>' +
-                    '<span class="cv-st-c" data-label="Deactivating">' + flow(g.deactivating, false) + '</span>' +
-                    '<span class="cv-st-c" data-label="Change vs epoch ' + (E - 1) + '">' +
-                    (d ? '<span class="' + d.cls + '">' + d.text + '</span>' : '<span class="cv-vd-muted">-</span>') + '</span>' +
+                    href(g) + '" data-cv-tip="' + goTip(g) + '">' + cvLinkLabelHtml(g.title) + '</a>' +
+                    (state ? '<span class="cv-vd-src-sub">' + cat + stateTag(g) + '</span>' : cat) + '</span></span>' +
+                    stakeCell(g.active) + shareCell(g.share, pct(g)) +
+                    (hasCounts ? '<span class="cv-st-c cv-st-x" data-label="Stake accounts">' + (g.count !== null ? formatNumber(g.count) : NO_DATA) + '</span>' : '') +
+                    flowCell('Activating', g.activating, true) + flowCell('Deactivating', g.deactivating, false) + changeCell(d) +
                     '<span class="cv-st-c cv-st-trend" data-label="Stake over time">' + cvMiniSpark(seriesFull(g.name), E) + '</span>' + corner(g) + '</div>';
             };
             const pastRowHtml = p => {
                 const d = p.delta === null ? null : cvSignedSol(p.delta);
-                return '<div class="cv-st-row is-past">' +
+                return '<div class="cv-st-row is-past"' + rowTip(tipHead(p) + '<div class="cv-flow-more">' +
+                    (p.before !== null ? 'No stake since epoch ' + (p.before + 1) : 'Stake from epoch ' + p.after) + '</div>' + tipChange(p.delta) + tipLink(p)) + '>' +
                     '<span class="cv-st-c cv-st-source">' + cvSourceLogoMini(p, 96) + '<span class="cv-vd-src-text"><span class="cv-vd-src-name">' +
                     escapeHtml(p.title) + '</span><span class="cv-vd-src-cat">' + escapeHtml(catTitle(p.category)) + '</span><span class="cv-vd-past-line">' +
-                    pastStatus(p) + '</span></span></span>' + zero('Active stake, SOL') +
-                    '<span class="cv-st-c cv-st-share" data-label="Share of validator"><span class="cv-st-bar"></span><span class="cv-st-pct cv-vd-muted">0%</span></span>' +
-                    (hasCounts ? zero('Stake accounts') : '') + zero('Activating') + zero('Deactivating') +
-                    '<span class="cv-st-c" data-label="Change vs epoch ' + (E - 1) + '">' +
-                    (d ? '<span class="' + d.cls + '">' + d.text + '</span>' : '<span class="cv-vd-muted">-</span>') + '</span>' +
+                    pastStatus(p) + '</span></span></span>' + none('Active stake, SOL') + shareCell(0, '') +
+                    (hasCounts ? none('Stake accounts', 'cv-st-x') : '') + flowCell('Activating', 0, true) + flowCell('Deactivating', 0, false) + changeCell(d) +
                     '<span class="cv-st-c cv-st-trend" data-label="Stake over time">' + cvMiniSpark(seriesFull(p.name), E) + '</span></div>';
             };
+            // The validator's totals of the epoch: always the first row.
+            const prevTotal = m.historyState === 'ok' ? m.epochs.find(e => e.epoch === E - 1) : null;
+            const totalDelta = prevTotal ? cvSignedSol(entry.active - prevTotal.active) : null;
+            const totalSeries = m.historyState === 'ok'
+                ? m.epochs.map(e => ({ epoch: e.epoch, ts: e.ts, value: lamportsToSol(e.active) })) : [];
+            const totalRow = '<div class="cv-st-row cv-st-total"' + rowTip('<div class="pool-tooltip-title">Total stake</div>' +
+                (isPast ? '<div class="pool-tooltip-epoch">Epoch ' + E + '</div>' : '') + cvTipRow(cvTipIco('active-stake'), 'Active stake', exact(entry.active)) +
+                cvTipRow(cvTipIco('people'), 'Stakers', String(src.shown.length)) +
+                (entry.activating > 0 ? cvTipRow(cvTipIco('activating'), 'Activating', '+' + exact(entry.activating), 'is-up') : '') +
+                (entry.deactivating > 0 ? cvTipRow(cvTipIco('deactivating'), 'Deactivating', '-' + exact(entry.deactivating), 'is-down') : '') +
+                (entry.accounts !== null && entry.accounts !== undefined ? cvTipRow(cvTipIco('stake-accounts'), 'Stake accounts', formatNumber(entry.accounts)) : '') +
+                (prevTotal ? tipChange(entry.active - prevTotal.active) : '')) + '>' +
+                '<span class="cv-st-c cv-st-source"><span class="cv-st-total-ico"><img class="cv-total-tile" src="/brand/decor/alpine-tile.webp" alt="" ' +
+                'width="320" height="263" loading="lazy" decoding="async"></span><span class="cv-vd-src-text">' +
+                '<span class="cv-vd-src-name">Total stake</span><span class="cv-vd-src-cat">' + cvEntries(src.shown.length) + '</span></span></span>' +
+                stakeCell(entry.active) +
+                '<span class="cv-st-c cv-st-share cv-st-x" data-label="Share of validator"><span class="cv-st-bar"><i style="width:100%"></i></span>' +
+                '<span class="cv-st-pct">100%</span></span>' +
+                (hasCounts ? '<span class="cv-st-c cv-st-x" data-label="Stake accounts">' + (entry.accounts !== null ? formatNumber(entry.accounts) : NO_DATA) + '</span>' : '') +
+                flowCell('Activating', entry.activating, true) + flowCell('Deactivating', entry.deactivating, false) + changeCell(totalDelta) +
+                '<span class="cv-st-c cv-st-trend" data-label="Stake over time">' + cvMiniSpark(totalSeries, E) + '</span></div>';
+            const pastHead = pastList.length
+                ? '<div class="cv-st-group cv-st-group-past"><span>No stake in epoch ' + E + '</span><span class="cv-st-group-meta">' +
+                  cvEntries(pastList.length) + ' from other epochs</span></div>'
+                : '';
             let rows = '';
             if (sortKey === 'category') {
                 cats.forEach(cat => {
@@ -4671,18 +5487,27 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (!inCat.length && !pastCat.length) return;
                     const share = inCat.reduce((a, g) => a + g.share, 0);
                     rows += '<div class="cv-st-group"><span>' + escapeHtml(catTitle(cat)) + '</span><span class="cv-st-group-meta">' +
-                        (inCat.length ? inCat.length + (inCat.length > 1 ? ' stakers, ' : ' staker, ') +
-                            (share > 0 && share < 0.01 ? '&lt;0.01' : (share >= 10 ? share.toFixed(1) : share.toFixed(2))) + '% of stake' : 'no stake in this epoch') +
+                        (inCat.length ? cvEntries(inCat.length) + ', ' +
+                            shareText(share) + ' of stake' : 'no stake in this epoch') +
                         '</span></div>' + inCat.map(rowHtml).join('') + pastCat.map(pastRowHtml).join('');
                 });
             } else {
-                rows = sortedBy(list, sortKey, sortDir).map(rowHtml).join('') + pastList.map(pastRowHtml).join('');
+                rows = sortedBy(list, sortKey, sortDir).map(rowHtml).join('') + pastHead + pastList.map(pastRowHtml).join('');
             }
-            body.innerHTML = filterHtml + '<div class="cv-st' + (hasCounts ? '' : ' no-counts') + '"><div class="cv-st-row cv-st-head">' +
-                head('name', 'Staker', 'cv-st-source') + head('active', 'Active, SOL') + head('active', 'Share') +
-                (hasCounts ? head('accounts', 'Accounts') : '') + head('activating', 'Activating') + head('deactivating', 'Deactivating') +
-                head('change', 'vs ' + (E - 1), '', 'Change of the active stake against epoch ' + (E - 1)) +
-                '<div class="cv-st-h cv-st-trend">Stake over time</div></div>' + rows + '</div>' + smallHtml + countsNote;
+            // (on a narrow screen the table scrolls sideways: a new order keeps the place it was scrolled to)
+            const wasTable = body.querySelector('.cv-st');
+            const wasLeft = wasTable ? wasTable.scrollLeft : 0;
+            body.innerHTML = filterHtml + '<div class="cv-st-wrap"><div class="cv-st' + (hasCounts ? '' : ' no-counts') + '" data-cv-scroll="x"><div class="cv-st-row cv-st-head">' +
+                head('name', 'Staker', 'cv-st-source') + head('active', 'Active, SOL', '', '', 'Stake') + head('active', 'Share', 'cv-st-x') +
+                (hasCounts ? head('accounts', 'Accounts', 'cv-st-x') : '') + head('activating', 'Activating', '', '', cardIco('activating')) +
+                head('deactivating', 'Deactivating', '', '', cardIco('deactivating')) +
+                head('change', 'vs ' + (E - 1), 'cv-st-x', 'Change of the active stake against epoch ' + (E - 1)) +
+                '<div class="cv-st-h cv-st-trend has-short"><span class="cv-st-hl">Stake over time</span><span class="cv-st-hs"><i class="fas fa-chart-line" aria-hidden="true"></i></span></div></div>' +
+                totalRow + rows + '</div>' + scrollArrowsHtml('x') + '</div>' +
+                '<p class="cv-st-hint"><i class="fas fa-hand-pointer" aria-hidden="true"></i>Tap a row for details</p>' + smallHtml + countsNote;
+            const table = body.querySelector('.cv-st');
+            if (wasLeft) table.scrollLeft = wasLeft;
+            scrollHint(table);
             return;
         }
         // Cards keep their places when only the epoch changes, so a card
@@ -4710,37 +5535,55 @@ document.addEventListener('DOMContentLoaded', function () {
               cvCardOrder.epoch + '</span>' : '');
         const charts = [];
         const logoHtml = g => ((g.name === 'OTHER' || !isValidHttpUrl(g.def.image))
-            ? '<div class="card-header-logo card-header-logo-svg">' + (g.name === 'OTHER' ? otherIsoImg(96) + OTHER_GROUP_SVG
+            ? '<div class="card-header-logo card-header-logo-svg cv-plot">' + (g.name === 'OTHER' ? otherIsoImg(256) + OTHER_GROUP_SVG
                 : '<span class="cv-src-initials">' + escapeHtml(getInitials(g.title)) + '</span>') + '</div>'
-            : '<div class="card-header-logo"><img src="' + escapeHtml(resolveLogoUrlSync(g.def.image,
-                document.body.classList.contains('dark-theme-body'), 96)) + '" data-logo-default="' + escapeHtml(g.def.image) + '" data-logo-iso="96" alt=""></div>');
+            : '<div class="card-header-logo cv-plot"><img src="' + escapeHtml(resolveLogoUrlSync(g.def.image,
+                document.body.classList.contains('dark-theme-body'), 256)) + '" data-logo-default="' + escapeHtml(g.def.image) + '" data-logo-iso="256" alt=""></div>');
         const chartHtml = name => {
             if (m.historyState !== 'ok') return '';
             const id = 'cv-src-chart-' + (++cvChartSeq);
             charts.push({ id, points: series(name) });
             return '<div class="interactive-chart-container" id="' + id + '"></div>';
         };
-        const item = (icon, cls, label, value) => '<div class="breakdown-item"><span class="label"><i class="fas ' + icon + ' ' + cls +
-            '"></i> ' + label + epochNote + '</span><span class="value">' + value + '</span></div>';
-        const cardHtml = g => '<div class="sp-block sp-group-card cv-src-card"><div class="card-header"><a class="cv-src-link" data-cv-nav href="' + href(g) +
-            '" data-cv-tip="' + goTip(g) + '">' + logoHtml(g) + '<span class="pool-name">' + cvLinkLabelHtml(g.title) + '</span></a>' + corner(g) + '</div>' +
-            '<div class="card-body"><div class="card-main-content"><div class="card-stats">' +
-            '<div class="stat-item"><span class="label">Active Stake' + epochNote + '</span><span class="value">' +
-            formatNumber(lamportsToSol(g.active), 2) + '</span></div>' +
-            '<div class="stat-item"><span class="label">Share of validator' + epochNote + '</span><span class="value">' + pct(g) + '</span></div>' +
-            '</div>' + chartHtml(g.name) + '<div class="stake-breakdown">' +
-            item('fa-arrow-trend-up', 'icon-activating', 'Activating', formatNumber(lamportsToSol(g.activating), 2) + ' SOL') +
-            item('fa-arrow-trend-down', 'icon-deactivating', 'Deactivating', formatNumber(lamportsToSol(g.deactivating), 2) + ' SOL') +
-            (g.count !== null ? item('fa-wallet', 'icon-total-validators', 'Stake accounts', formatNumber(g.count)) : '') +
-            '</div></div></div></div>';
+        // Head cells: the stake of this staker here and its share of the validator.
+        const heads = g => {
+            const sol = lamportsToSol(g.active);
+            const shown = cardSol(sol);
+            return headCellsHtml([
+                { icon: 'active-stake', label: 'Active stake', value: sol > 0 ? shown.text : '0',
+                    tip: (isPast || !shown.exact) ? 'Active stake' + (isPast ? ' in epoch ' + E : '') + ': ' + formatNumber(sol, 2) + ' SOL' : '' },
+                { icon: 'share', label: 'Share of validator', value: g.past ? '0%' : pct(g), tip: isPast ? 'Share of the validator stake in epoch ' + E : '' }
+            ]);
+        };
+        // The largest stake of a staker here over the history, with its epoch
+        // (a shorter label where the cell shares its row with another one).
+        const peakCell = (value, epoch, alone) => ({ icon: 'peak-stake', label: epoch === null ? 'Peak stake' : (alone ? 'Peak, epoch ' : 'Peak in ') + epoch,
+            value: epoch === null ? '-' : formatCompact(value), zero: epoch === null,
+            tip: epoch === null ? '' : 'Largest stake from this staker here: ' + formatNumber(value, 2) + ' SOL in epoch ' + epoch });
+        // Under the chart: the stake on the move, the change since the epoch
+        // before, then the number of stake accounts - or, where the history
+        // has no count for the epoch, the peak of this staker here.
+        const cells = g => {
+            const d = g.delta === null ? null : cvSignedSol(g.delta);
+            const out = [flowCell('activating', 'Activating', g.activating, isPast ? E : null),
+                flowCell('deactivating', 'Deactivating', g.deactivating, isPast ? E : null),
+                { icon: 'change', label: 'Change vs ' + (E - 1), value: d ? d.text : '-', cls: d ? d.cls : '', zero: !d || d.text === '0',
+                    tip: d ? 'Active stake against epoch ' + (E - 1) + ': ' + (g.delta > 0 ? '+' : '') + formatNumber(lamportsToSol(g.delta), 2) + ' SOL' : '' }];
+            if (g.count !== null) {
+                out.push({ icon: 'stake-accounts', label: 'Stake accounts', value: formatNumber(g.count) });
+            } else {
+                const top = seriesFull(g.name).reduce((a, p) => (p.value > a.value ? p : a), { value: 0, epoch: null });
+                out.push(peakCell(top.value, top.epoch));
+            }
+            return out;
+        };
+        const cardHtml = g => '<div class="sp-block sp-group-card cv-src-card' + (stateOf(g) ? ' is-' + stateOf(g) : '') + '"><div class="card-header"><a class="cv-src-link" data-cv-nav href="' + href(g) +
+            '" data-cv-tip="' + goTip(g) + '">' + logoHtml(g) + '<span class="pool-name">' + cvLinkLabelHtml(g.title) + '</span></a>' + stateTag(g) + corner(g) + '</div>' +
+            '<div class="card-body"><div class="card-main-content">' + heads(g) + chartHtml(g.name) + microCellsHtml(cells(g)) + '</div></div></div>';
         const pastCardHtml = p => '<div class="sp-block sp-group-card cv-src-card is-past"><div class="card-header"><div class="cv-src-link">' +
             logoHtml(p) + '<span class="pool-name">' + escapeHtml(p.title) + '</span></div></div>' +
-            '<div class="card-body"><div class="card-main-content"><div class="cv-vd-past-line">' + pastStatus(p) + '</div><div class="card-stats">' +
-            '<div class="stat-item"><span class="label">Active Stake' + epochNote + '</span><span class="value">0</span></div>' +
-            '<div class="stat-item"><span class="label">Share of validator' + epochNote + '</span><span class="value">0%</span></div>' +
-            '</div>' + chartHtml(p.name) + '<div class="stake-breakdown">' +
-            '<div class="breakdown-item"><span class="label"><i class="fas fa-mountain icon-total-validators"></i> Peak stake</span><span class="value">' +
-            formatCompact(lamportsToSol(p.peak)) + ' SOL in epoch ' + p.peakEpoch + '</span></div></div></div></div></div>';
+            '<div class="card-body"><div class="card-main-content"><div class="cv-vd-past-line">' + pastStatus(p) + '</div>' + heads(p) +
+            chartHtml(p.name) + microCellsHtml([peakCell(lamportsToSol(p.peak), p.peakEpoch, true)]) + '</div></div></div>';
         const anyCard = g => (g.past ? pastCardHtml(g) : cardHtml(g));
         let html = '';
         if (sortKey === 'category') {
@@ -4750,7 +5593,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const n = inCat.length;
                 if (!n) return;
                 html += '<div class="category-section cv-cat-n' + Math.min(n, 3) + '"><div class="category-header"><div class="title">' + escapeHtml(catTitle(cat)) +
-                    '</div><div class="meta">' + n + (n > 1 ? ' stakers' : ' staker') + '</div></div><div class="sp-groups-grid">' +
+                    '</div><div class="meta">' + cvEntries(n) + '</div></div><div class="sp-groups-grid">' +
                     inCat.map(anyCard).join('') + '</div></div>';
             });
             html += '</div>';
@@ -4759,7 +5602,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         body.innerHTML = filterHtml + html + smallHtml + countsNote;
         charts.forEach(c => cvRenderEpochChart(document.getElementById(c.id), c.points,
-            { height: 76, grid: true, stats: true, zeroBreak: true, highlightEpoch: E, onPick: cvVdSelectEpoch }));
+            { height: 76, grid: CV_GRID_LINES, stats: true, zeroBreak: true, highlightEpoch: E, onPick: cvVdSelectEpoch }));
     }
 
     // ---------- shared pieces of the page ----------
@@ -4871,12 +5714,14 @@ document.addEventListener('DOMContentLoaded', function () {
     function cvRenderDonut(m, entry, avatarHtml) {
         const box = document.getElementById('cv-vd-donut');
         if (!box) return;
+        const reset = document.getElementById('cv-vd-donut-reset');
+        if (reset) reset.hidden = !cvPoolFilter;
         const shown = entry ? cvEntrySources(m, entry).shown.sort((a, b) => b.active - a.active) : [];
         if (!shown.length || !(entry.active > 0)) {
             box.innerHTML = '<div class="chart-no-data">No stake above ' + lamportsToSol(MIN_ACTIVE_STAKE) + ' SOL in this epoch</div>';
             return;
         }
-        const pctText = share => (share * 100 >= 10 ? (share * 100).toFixed(1) : (share * 100).toFixed(2)) + '%';
+        const pctText = share => shareText(share * 100);
         const poolRow = g => cvTipRow(cvSourceLogoMini(g), g.title, formatCompact(lamportsToSol(g.active)) + ' SOL<span class="cv-tip-dim">' +
             pctText(g.active / entry.active) + '</span>');
         // A pool under 1% of this validator's stake is too thin to see as a
@@ -4889,16 +5734,16 @@ document.addEventListener('DOMContentLoaded', function () {
             const share = g.active / entry.active;
             segs.push({ key: g.name, g, title: g.title, active: g.active, share, color: cvPoolColor(m, g.name),
                 tip: cvRich('<div class="pool-tooltip-title cv-tip-pool">' + cvSourceLogoMini(g) + '<span>' + escapeHtml(g.title) + '</span></div>' +
-                    cvTipRow('', 'Active stake', formatNumber(lamportsToSol(g.active), 2) + ' SOL') +
-                    cvTipRow('', 'Share of validator', pctText(share)) + '<div class="cv-flow-more">Click: show only this staker below</div>') });
+                    cvTipRow(cvTipIco('active-stake'), 'Active stake', formatNumber(lamportsToSol(g.active), 2) + ' SOL') +
+                    cvTipRow(cvTipIco('share'), 'Share of validator', pctText(share)) + '<div class="cv-flow-more">Click: show only this staker below</div>') });
         });
         if (thin.length) {
             const sum = thin.reduce((a, g) => a + g.active, 0);
-            const label = thin.length + (thin.length > 1 ? ' stakers' : ' staker') + ' under 1%';
+            const label = cvEntries(thin.length) + ' under 1%';
             segs.push({ key: CV_THIN_KEY, g: null, title: label, active: sum, share: sum / entry.active, color: '#B8C0CC',
                 tip: cvRich('<div class="pool-tooltip-title">' + label + ' of the validator stake</div>' + thin.slice(0, 12).map(poolRow).join('') +
                     (thin.length > 12 ? '<div class="cv-flow-more">and ' + (thin.length - 12) + ' more</div>' : '') +
-                    '<div class="cv-flow-more">Click: show only these stakers below</div>') });
+                    '<div class="cv-flow-more">Click: show only these below</div>') });
         }
         const R = 70;
         const C = 2 * Math.PI * R;
@@ -4934,6 +5779,14 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ---------- tooltips of the metric cards ----------
+    // The sign of a measure in a tooltip row: an icon of the set. later: the
+    // markup waits hidden in the page (the tooltip of a pool in the
+    // validators list is written with its row), so the image gets its address
+    // only when the tooltip opens - a hidden image would load all the same.
+    function cvTipIco(name, later) {
+        return '<img class="cv-tip-ico" ' + (later ? 'data-cv-src' : 'src') + '="/brand/icons/' + name +
+            '.webp" alt="" aria-hidden="true" width="48" height="48" decoding="async">';
+    }
     function cvTipRow(logoHtml, name, valueHtml, cls) {
         return '<div class="cv-flow-row">' + (logoHtml || '') + '<span class="cv-flow-name">' + escapeHtml(name) + '</span>' +
             '<span class="cv-flow-val' + (cls ? ' ' + cls : '') + '">' + valueHtml + '</span></div>';
@@ -4960,6 +5813,16 @@ document.addEventListener('DOMContentLoaded', function () {
             rows.slice(0, LIMIT).forEach(g => {
                 html += cvTipRow(cvSourceLogoMini(g), g.title, '<i class="fas ' + (up ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down') +
                     '" aria-hidden="true"></i>' + formatCompact(lamportsToSol(g[kind])), up ? 'is-up' : 'is-down');
+            });
+            if (rows.length > LIMIT) html += more('and ' + (rows.length - LIMIT) + ' more');
+        } else if (kind === 'stake') {
+            const rows = cvEntrySources(m, entry).shown.slice().sort((a, b) => b.active - a.active);
+            html = title('Active stake by staker' + inEpoch);
+            if (!rows.length) html += more('Nothing above ' + lamportsToSol(MIN_ACTIVE_STAKE) + ' SOL');
+            rows.slice(0, LIMIT).forEach(g => {
+                const share = entry.active > 0 ? g.active / entry.active * 100 : 0;
+                html += cvTipRow(cvSourceLogoMini(g), g.title, formatCompact(lamportsToSol(g.active)) + '<span class="cv-tip-dim">' +
+                    shareText(share) + '</span>');
             });
             if (rows.length > LIMIT) html += more('and ' + (rows.length - LIMIT) + ' more');
         } else if (kind === 'accounts') {
@@ -5048,8 +5911,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 '<div class="cv-inactive-main"><a class="cv-inactive-name cv-vlink" data-cv-nav href="' + href + '">' + escapeHtml(name) +
                 CV_GO_SVG + '</a>' +
                 (hit ? '<span class="cv-formerly">' + hit.label + ' <b>' + escapeHtml(hit.name) + '</b></span>' : '') +
-                '<div class="cv-keys cv-inactive-keys">' + (r.identity ? keyTokenHtml('ID', r.identity) : '') + keyTokenHtml('Vote', r.vote) + '</div>' +
-                '<div class="cv-inactive-chips"' + (r.last_epoch >= META_FIRST_EPOCH ? ' data-vote="' + escapeHtml(r.vote) + '"' : '') + '></div></div>' +
+                '<div class="cv-chipline">' + validatorKeySignsHtml(r.identity, r.vote) +
+                '<div class="cv-inactive-chips"' + (r.last_epoch >= META_FIRST_EPOCH ? ' data-vote="' + escapeHtml(r.vote) + '"' : '') + '></div></div></div>' +
                 '<span class="cv-inactive-meta">Inactive since epoch ' + (r.last_epoch + 1) + '</span>' +
                 '<span class="cv-inactive-stake">' + formatCompact(lamportsToSol(r.active_lamports || 0)) + ' SOL in epoch ' + r.last_epoch + '</span></div>';
         }).join('');
@@ -5059,7 +5922,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     // Vote account age of a list row: registry value + 1 once it has credits
     // in the epoch of the snapshot.
-    function cvListAge(v) {
+    function cvListAge(v, atEpoch) {
         const meta = v ? v.meta : null;
         if (meta && typeof meta.validator_age === 'number') {
             return { value: meta.validator_age + (meta.epoch_credits > 0 ? 1 : 0), isMin: meta.validator_age_is_min === true };
@@ -5067,22 +5930,30 @@ document.addEventListener('DOMContentLoaded', function () {
         // Snapshots before epoch 1043 carry no age: estimate it from the
         // registry value in the validators index, minus the epochs since.
         const row = (cvIndexByVote && v && v.info) ? cvIndexByVote.get(v.info.vote_pubkey) : null;
-        if (!row || typeof row.validator_age !== 'number' || !isFinite(validatorsListEpoch)) return null;
-        const since = Math.max(0, Number(row.validator_age_epoch) - validatorsListEpoch);
+        // (atEpoch: the epoch of a pool page; the validators list has its own)
+        const at = atEpoch === undefined ? validatorsListEpoch : Number(atEpoch);
+        if (!row || typeof row.validator_age !== 'number' || !isFinite(at)) return null;
+        const since = Math.max(0, Number(row.validator_age_epoch) - at);
         return { value: Math.max(0, row.validator_age - since), isMin: row.validator_age_is_min === true, approx: true };
     }
-    // Meta chips of a list row; the age chip joins only in the Age sort mode.
-    function cvListMetaHtml(v) {
-        const html = buildMetaChipsHtml(v.meta, validatorsScriptInfo);
-        if (validatorsSortMode !== 'age' || !validatorsHasAge) return html;
-        const a = cvListAge(v);
+    // The age chip joins the meta chips of a row in the Age sort mode of a
+    // list (the validators list and the list of a pool page). a: cvListAge().
+    function cvWithAgeChip(html, a) {
         const tip = !a ? 'No age data for this vote account'
             : (a.approx ? 'Estimated age in this epoch: the current age minus the epochs since. Exact for a validator that voted in every one of them.'
                 : 'Vote account age: ' + cvAgeText(a) + ' epochs with votes');
-        const chip = '<span class="cv-chip cv-chip-age' + (a ? '' : ' is-missing') + '" data-cv-tip="' + escapeHtml(tip) +
+        // (the wrapper is a line of its own under the chips and the keys:
+        // every row of the Age order has the same two lines)
+        const chip = '<span class="cv-age-line"><span class="cv-chip cv-chip-age' + (a ? '' : ' is-missing') + '" data-cv-tip="' + escapeHtml(tip) +
             '"><span class="cv-seg"><i class="fas fa-hourglass-half" aria-hidden="true"></i>' +
-            (a ? (a.approx ? '~' : '') + escapeHtml(cvAgeText(a)) + ' ep' : '-') + '</span></span>';
+            (a ? (a.approx ? '~' : '') + escapeHtml(cvAgeText(a)) + ' ep' : '-') + '</span></span></span>';
         return html ? html.replace(/<\/div>$/, chip + '</div>') : '<div class="cv-meta">' + chip + '</div>';
+    }
+    // Meta chips of a row of the validators list.
+    function cvListMetaHtml(v) {
+        const html = buildMetaChipsHtml(v.meta, validatorsScriptInfo);
+        if (validatorsSortMode !== 'age' || !validatorsHasAge) return html;
+        return cvWithAgeChip(html, cvListAge(v));
     }
 
     // ---------- round 3 helpers ----------
@@ -5142,25 +6013,316 @@ document.addEventListener('DOMContentLoaded', function () {
         }));
         return Array.from(acc.values()).sort((a, b) => b.peak - a.peak);
     }
-    // A click on a metric card pins its tooltip: it stays, becomes solid and
-    // selectable, until a click elsewhere, a scroll or Escape.
+    // A click on a metric card or on a bubble pins its tooltip: it stays,
+    // becomes solid and selectable, until a click elsewhere, a scroll or
+    // Escape. The element it belongs to is marked while it is open.
     let cvPinnedTip = null;
     function cvVdUnpinTip() {
-        if (cvPinnedTip) cvPinnedTip.remove();
+        if (cvPinnedTip) {
+            if (cvPinnedTip.__card) cvPinnedTip.__card.classList.remove('is-picked');
+            cvPinnedTip.remove();
+        }
         cvPinnedTip = null;
+    }
+    // What a click pins a tooltip to: a metric card, a bubble, or - on a
+    // phone, where the Stakers table keeps fewer columns - a row of that
+    // table (not its links and buttons).
+    const CV_NARROW_TABLE = window.matchMedia ? window.matchMedia('(max-width: 768px)') : null;
+    function cvPinTarget(t) {
+        if (!t || !t.closest) return null;
+        const card = t.closest('[data-cv-vdtip], [data-cv-pin], [data-cv-pbub]');
+        if (card) return card;
+        const row = t.closest('.cv-st-row[data-cv-rowtip]');
+        if (!row || !CV_NARROW_TABLE || !CV_NARROW_TABLE.matches) return null;
+        // (the name and the logo of a staker open the details too: a finger
+        // goes for the name first, and the details hold the link to the page
+        // of the staker; the other links and buttons of a row keep their own action)
+        const control = t.closest('a, button');
+        return (!control || control.matches('a.cv-vd-src-name, a.cv-st-logo')) ? row : null;
     }
     function cvVdPinTip(card) {
         const same = cvPinnedTip && cvPinnedTip.__card === card;
         cvVdUnpinTip();
         if (same) return;
-        showCvVdTip(card);
+        if (card.hasAttribute('data-cv-rich')) showCvRichTip(card);
+        else if (card.hasAttribute('data-cv-pbub')) showPoolBubTip(card);
+        else if (card.hasAttribute('data-cv-rowtip')) cvShowTipHtml(card, cvRichTips.get(card.getAttribute('data-cv-rowtip')) || '');
+        else showCvVdTip(card);
         const tip = document.getElementById('dynamic-pool-tooltip');
         if (!tip) return;
         tip.id = 'cv-pinned-tip';
         tip.classList.add('is-pinned');
+        // (the pinned form is taller - it shows its link - so it takes its
+        // place again and stays clear of the element it belongs to)
+        positionTip(card, tip);
         tip.__card = card;
+        card.classList.add('is-picked');
         cvPinnedTip = tip;
     }
+    // ---------- bubbles of the stakers block ----------
+    // Lays the bubbles of a map out. Sizes follow the room there is; places
+    // come from packing: the largest bubble stands in the middle and every
+    // next one takes the free place nearest to it, searched along a spiral
+    // that is wider than tall on a wide screen. No physics: the places are
+    // computed once per width (the order in the markup is largest first).
+    function cvBubblesLayout(map) {
+        const W = map.clientWidth;
+        if (!W) return;
+        map.__cvW = W;
+        const bubs = Array.from(map.querySelectorAll('.cv-bub'));
+        if (!bubs.length) { map.style.height = ''; return; }
+        const wide = W >= 780;
+        const mid = !wide && W >= 560;
+        // (data-fit: a map that may hold a hundred bubbles - the validators
+        // of a pool. Its largest diameter follows the room there is, so the
+        // map stays about a screen tall: the bubbles get half of the area of
+        // a box as wide as the map and as tall as that screen.)
+        const fit = map.hasAttribute('data-fit');
+        // (crowd: a map of more than a hundred bubbles - a visitor asked for
+        // more. Its small bubbles get less room and its large ones keep
+        // theirs, so the sizes still tell the amounts apart: the smallest
+        // diameter goes from 34 px at a hundred bubbles to 18 px at five
+        // hundred, and the largest one is allowed to stay 40 px further away.)
+        const crowd = fit ? Math.max(0, Math.min(1, (bubs.length - 100) / 400)) : 0;
+        const dMin = fit ? Math.round(34 - 16 * crowd) : 46;
+        let dMax = wide ? 190 : (mid ? 156 : Math.max(100, Math.min(136, Math.round(W * 0.42))));
+        if (fit) {
+            const ts = bubs.map(el => Number(el.getAttribute('data-t') || 0));
+            const room = W * Math.min(wide ? 0.58 * W : (mid ? 0.95 * W : 2.1 * W), 760) * 0.5;
+            const area = d => ts.reduce((sum, t) => { const x = dMin + (d - dMin) * t; return sum + x * x; }, 0) * Math.PI / 4;
+            const dFloor = dMin + 14 + 40 * crowd;
+            while (dMax > dFloor && area(dMax) > room) dMax *= 0.95;
+            dMax = Math.round(dMax);
+        }
+        const PAD = fit && bubs.length > 40 ? (crowd > 0.5 ? 4 : 5) : (wide || mid ? 10 : 7);
+        const ratio = wide ? 1.85 : (mid ? 1.45 : 0.92);
+        const half = W / 2;
+        const placed = [];
+        let fitFrom = 0;
+        bubs.forEach((el, i) => {
+            const r = Math.round(dMin + (dMax - dMin) * Number(el.getAttribute('data-t') || 0)) / 2;
+            let x = 0;
+            let y = 0;
+            if (i > 0 && fit) {
+                // (a map that fits its room holds many small bubbles: the
+                // search goes along a tight spiral - turns 8 px apart, a look
+                // every 8 px of the way - and starts a little inside the place
+                // of the bubble before, where the free room begins)
+                let rad = Math.max(2, fitFrom - 70);
+                let ang = i * 2.399963;
+                for (let s = 0; s < 26000; s++) {
+                    const turn = 8 / rad;
+                    ang += turn;
+                    rad += 8 * turn / 6.2832;
+                    const px = Math.cos(ang) * rad * ratio;
+                    const py = Math.sin(ang) * rad;
+                    if (Math.abs(px) + r > half) continue;
+                    let free = true;
+                    for (let k = 0; k < placed.length; k++) {
+                        const p = placed[k];
+                        const min = p.r + r + PAD;
+                        if ((p.x - px) * (p.x - px) + (p.y - py) * (p.y - py) < min * min) { free = false; break; }
+                    }
+                    if (free) { x = px; y = py; fitFrom = rad; break; }
+                }
+            } else if (i > 0) {
+                const a0 = i * 2.399963; // (the golden angle: every bubble starts its search in a direction of its own)
+                for (let s = 1; s < 9000; s++) {
+                    const rad = s * 0.75;
+                    const px = Math.cos(a0 + s * 0.21) * rad * ratio;
+                    const py = Math.sin(a0 + s * 0.21) * rad;
+                    if (Math.abs(px) + r > half) continue;
+                    let free = true;
+                    for (let k = 0; k < placed.length; k++) {
+                        const p = placed[k];
+                        const min = p.r + r + PAD;
+                        if ((p.x - px) * (p.x - px) + (p.y - py) * (p.y - py) < min * min) { free = false; break; }
+                    }
+                    if (free) { x = px; y = py; break; }
+                }
+            }
+            placed.push({ x, y, r });
+        });
+        // Then the bubbles draw together: each one creeps towards the middle
+        // (or slides along a neighbour) while it touches nothing.
+        const freeAt = (i, px, py) => {
+            const r = placed[i].r;
+            if (Math.abs(px) + r > half) return false;
+            for (let k = 0; k < placed.length; k++) {
+                if (k === i) continue;
+                const p = placed[k];
+                const min = p.r + r + PAD;
+                if ((p.x - px) * (p.x - px) + (p.y - py) * (p.y - py) < min * min) return false;
+            }
+            return true;
+        };
+        const order = placed.map((p, i) => i).slice(1).sort((a, b) =>
+            Math.hypot(placed[a].x / ratio, placed[a].y) - Math.hypot(placed[b].x / ratio, placed[b].y));
+        for (let pass = 0; pass < 140; pass++) {
+            let moved = false;
+            for (let n = 0; n < order.length; n++) {
+                const i = order[n];
+                const p = placed[i];
+                const gx = p.x / (ratio * ratio);
+                const len = Math.hypot(gx, p.y);
+                if (len < 0.5) continue;
+                const sx = -gx / len * 1.5;
+                const sy = -p.y / len * 1.5;
+                if (freeAt(i, p.x + sx, p.y + sy)) { p.x += sx; p.y += sy; moved = true; }
+                else if (Math.abs(sy) > 0.2 && freeAt(i, p.x, p.y + sy)) { p.y += sy; moved = true; }
+                else if (Math.abs(sx) > 0.2 && freeAt(i, p.x + sx, p.y)) { p.x += sx; moved = true; }
+            }
+            if (!moved) break;
+        }
+        if (fit) {
+            // A map that fits its room settles once more: every bubble sinks
+            // towards the middle row while it has room, stepping sideways
+            // around a neighbour - the many small bubbles of a pool stand
+            // close, and the map is no taller than it has to be. (Every step
+            // brings a bubble nearer to the middle row, so this ends.)
+            const byRow = placed.map((p, i) => i).sort((a, b) => Math.abs(placed[a].y) - Math.abs(placed[b].y));
+            for (let pass = 0; pass < 260; pass++) {
+                let moved = false;
+                for (let n = 0; n < byRow.length; n++) {
+                    const i = byRow[n];
+                    const p = placed[i];
+                    if (i === 0 || Math.abs(p.y) < 1.5) continue;
+                    const sy = p.y > 0 ? -1.5 : 1.5;
+                    const sx = p.x > 0 ? -1.5 : 1.5;
+                    if (freeAt(i, p.x, p.y + sy)) { p.y += sy; moved = true; }
+                    else if (freeAt(i, p.x + sx, p.y + sy)) { p.x += sx; p.y += sy; moved = true; }
+                    else if (freeAt(i, p.x - sx, p.y + sy)) { p.x -= sx; p.y += sy; moved = true; }
+                }
+                if (!moved) break;
+            }
+        }
+        let top = Infinity;
+        let bottom = -Infinity;
+        let left = Infinity;
+        let right = -Infinity;
+        placed.forEach(p => {
+            top = Math.min(top, p.y - p.r); bottom = Math.max(bottom, p.y + p.r);
+            left = Math.min(left, p.x - p.r); right = Math.max(right, p.x + p.r);
+        });
+        const EDGE = 16;
+        const shift = -(left + right) / 2; // (the cluster stands in the middle of the map)
+        map.style.height = Math.ceil(bottom - top + 2 * EDGE) + 'px';
+        bubs.forEach((el, i) => {
+            const p = placed[i];
+            el.style.setProperty('--d', (p.r * 2) + 'px');
+            el.style.left = (half + p.x + shift - p.r).toFixed(1) + 'px';
+            el.style.top = (p.y - p.r - top + EDGE).toFixed(1) + 'px';
+            el.classList.toggle('is-small', p.r * 2 < 84);
+            el.classList.toggle('is-tiny', p.r * 2 < 30);
+        });
+    }
+    // ---------- bubbles of a pool page ----------
+    // The validators of a pool as bubbles of the same glass: a bubble is a
+    // validator (its avatar inside), sized by the stake of this pool with it
+    // (the root of its part of the largest one, so areas follow amounts and
+    // a large allocation stands out; a small part is the order of magnitude,
+    // which keeps the smallest stake easy to tap), tinted by the stake on
+    // the move as strongly as it moves (against the largest movement on the
+    // map, or a quarter of a percent of the stake of the pool when every
+    // movement is smaller), with a dashed rim when the whole stake arrives
+    // or leaves. list: the validators to show, the largest first.
+    const CV_BUB_STATE = { ' is-activating-only': ' is-new', ' is-activating is-deactivating': ' is-both', ' is-activating': ' is-up',
+        ' is-exiting': ' is-exit', ' is-deactivating': ' is-down' };
+    const cvPoolBubWeight = v => (v.poolStake.active_lamports || 0) + (v.poolStake.activating_lamports || 0);
+    function cvPoolBubblesHtml(list) {
+        const moveOf = v => (v.poolStake.activating_lamports || 0) + (v.poolStake.deactivating_lamports || 0);
+        const top = list.reduce((a, v) => Math.max(a, cvPoolBubWeight(v)), 1);
+        const topMove = list.reduce((a, v) => Math.max(a, moveOf(v)), poolBubblesTotal * 0.0025);
+        const strength = v => (topMove > 0 ? Math.min(1, Math.sqrt(moveOf(v) / topMove)) : 0);
+        const span = top > MIN_ACTIVE_STAKE ? Math.log(top / MIN_ACTIVE_STAKE) : 0;
+        const sizeOf = v => {
+            const w = cvPoolBubWeight(v);
+            if (!(w > 0)) return 0;
+            const order = span > 0 ? Math.max(0, Math.min(1, Math.log(Math.max(w, MIN_ACTIVE_STAKE) / MIN_ACTIVE_STAKE) / span)) : 1;
+            return 0.85 * Math.sqrt(w / top) + 0.15 * order;
+        };
+        return list.map((v, i) => {
+            const ps = v.poolStake;
+            const ring = poolBadgeRing(ps.active_lamports || 0, ps.activating_lamports || 0, ps.deactivating_lamports || 0);
+            const state = CV_BUB_STATE[ring.cls] || '';
+            const raw = cleanText(v.info.name).trim();
+            const name = hasRealName(raw) ? raw : shortenPubkey(raw || v.info.vote_pubkey);
+            const icon = (isValidHttpUrl(v.info.icon_url) && !brokenImages.has(v.info.icon_url)) ? v.info.icon_url : '';
+            const initials = escapeHtml(getInitials(name, v.info.identity_pubkey || ''));
+            // (--i times the entrance: a long map does not make its last bubbles
+            // wait; --f is the phase of the sway, one of eight, so neighbours move apart)
+            return '<button type="button" class="cv-bub cv-pbub' + state + '" data-cv-pbub="' + escapeHtml(v.info.vote_pubkey || '') +
+                '" data-t="' + sizeOf(v).toFixed(4) + '" style="--i:' + Math.min(i, 36) + ';--f:' + (i % 8) + (state ? ';--mv:' + strength(v).toFixed(3) : '') +
+                (ring.share === null ? '' : ';--act:' + ring.share + '%') + '" aria-label="' + escapeHtml(name) + '">' +
+                '<span class="cv-bub-face">' + (icon
+                    ? '<img class="cv-pbub-img" src="' + escapeHtml(icon) + '" alt="" loading="lazy" decoding="async" data-fb="' + initials + '">'
+                    : '<span class="cv-bub-initials">' + initials + '</span>') + '</span>' +
+                '<span class="cv-bub-val">' + (ring.activatingOnly ? '+' + formatCompact(lamportsToSol(ps.activating_lamports || 0))
+                    : formatCompact(lamportsToSol(ps.active_lamports || 0))) + '</span>' +
+                ((ps.activating_lamports || 0) >= MIN_ACTIVE_STAKE ? '<span class="cv-bub-flow is-up"><i class="fas fa-arrow-trend-up" aria-hidden="true"></i></span>' : '') +
+                ((ps.deactivating_lamports || 0) >= MIN_ACTIVE_STAKE ? '<span class="cv-bub-flow is-down"><i class="fas fa-arrow-trend-down" aria-hidden="true"></i></span>' : '') +
+                '</button>';
+        }).join('');
+    }
+    // The details of a bubble of a pool map, built when they open: the
+    // validator, the stake of this pool with it and its share of the pool,
+    // the stake on the move, the total stake of the validator. A click keeps
+    // them open, with the link to the page of the validator.
+    function showPoolBubTip(el) {
+        const vote = el.getAttribute('data-cv-pbub');
+        const v = poolValidators.find(x => x.info && x.info.vote_pubkey === vote);
+        if (!v) return;
+        const ps = v.poolStake || {};
+        const raw = cleanText(v.info.name).trim();
+        const name = hasRealName(raw) ? raw : shortenPubkey(raw || vote);
+        const icon = isValidHttpUrl(v.info.icon_url) ? v.info.icon_url : '';
+        const sel = document.getElementById('pool-epoch-select');
+        const past = (sel && sel.value && Number(sel.value) !== Number(latestEpochNumber)) ? sel.value : null;
+        const exact = lamports => (lamportsToSol(lamports || 0) >= 0.005 ? formatNumber(lamportsToSol(lamports), 2) : '0') + ' SOL';
+        const ring = poolBadgeRing(ps.active_lamports || 0, ps.activating_lamports || 0, ps.deactivating_lamports || 0);
+        const state = ring.activatingOnly ? 'new' : (ring.cls === ' is-exiting' ? 'leaving' : '');
+        const share = (poolBubblesTotal > 0 && ps.active_lamports > 0) ? shareText(ps.active_lamports / poolBubblesTotal * 100) : '';
+        // What a pool looks at when it chooses a validator: the two
+        // commissions (the letters are those of the chips of the lists) and
+        // the age of the vote account.
+        const letter = ch => '<span class="cv-flow-logo is-initials cv-tip-letter">' + ch + '</span>';
+        let feeRows = '';
+        if (v.meta) {
+            const cText = formatBpsPercent(metaCommissionBps(v.meta));
+            const mev = metaMevInfo(v.meta, poolScriptInfo);
+            const mText = formatBpsPercent(mev.bps);
+            feeRows = cvTipRow(letter(COMMISSION_LABELS.inflation), 'Commission', escapeHtml(cText || 'not reported'), cText ? '' : 'is-none') +
+                cvTipRow(letter(COMMISSION_LABELS.mev), 'MEV commission', escapeHtml(mText || mev.brief), mText ? '' : 'is-none');
+        }
+        const age = cvListAge(v, sel && sel.value ? Number(sel.value) : Number(latestEpochNumber));
+        const poolLogo = cvSourceLogoMini({ name: currentPoolGroup, def: cvSourceDef(currentPoolGroup) });
+        cvShowTipHtml(el, '<div class="pool-tooltip-title cv-tip-pool">' + cvMiniLogoHtml(icon, name, v.info.identity_pubkey) + '<span>' + escapeHtml(name) + '</span></div>' +
+            (past ? '<div class="pool-tooltip-epoch">Epoch ' + escapeHtml(String(past)) + '</div>' : '') +
+            (state ? '<div class="cv-tip-state"><span class="cv-state is-' + state + '">' + state + '</span>All pool stake here is ' +
+                (state === 'new' ? 'activating' : 'deactivating') + '</div>' : '') +
+            cvTipRow(poolLogo, 'Stake in this pool', exact(ps.active_lamports)) +
+            (share ? cvTipRow(cvTipIco('share'), 'Share of the pool', share) : '') +
+            ((ps.activating_lamports || 0) >= MIN_ACTIVE_STAKE ? cvTipRow(cvTipIco('activating'), 'Activating', '+' + exact(ps.activating_lamports), 'is-up') : '') +
+            ((ps.deactivating_lamports || 0) >= MIN_ACTIVE_STAKE ? cvTipRow(cvTipIco('deactivating'), 'Deactivating', '-' + exact(ps.deactivating_lamports), 'is-down') : '') +
+            cvTipRow(cvTipIco('active-stake'), 'Total stake', exact(v.totals && v.totals.total_active_lamports)) +
+            feeRows + (age ? cvTipRow(cvTipIco('vote-account-age'), 'Vote account age',
+                (age.approx ? '~' : '') + escapeHtml(cvAgeText(age)) + (age.value === 1 ? ' epoch' : ' epochs')) : '') +
+            '<a class="cv-tip-go" data-cv-nav href="' + escapeHtml(validatorHref(vote, sel ? sel.value : null)) + '">Open its page' + CV_GO_SVG + '</a>');
+    }
+    let cvBubblesMap = null;
+    // The most bubbles a map sways with. Every swaying bubble is moved in
+    // every frame: a hundred keep a slow phone at sixty frames a second, two
+    // hundred do not (measured on the stand with the processor slowed four times).
+    const CV_BUBBLES_SWAY = 120;
+    // A map out of sight does not sway: an endless animation is work for the
+    // device also when nobody looks at it.
+    const cvBubblesSeen = ('IntersectionObserver' in window) ? new IntersectionObserver(entries => entries.forEach(en => {
+        en.target.classList.toggle('is-away', !en.isIntersecting);
+    }), { rootMargin: '150px 0px' }) : null;
+    const cvBubblesWatch = ('ResizeObserver' in window) ? new ResizeObserver(entries => entries.forEach(en => {
+        const map = en.target;
+        if (map.isConnected && Math.abs((map.__cvW || 0) - map.clientWidth) > 3) cvBubblesLayout(map);
+    })) : null;
     // Names a validator can be found by: former names and, on a past epoch
     // where the list shows the old name, the current one.
     function cvNamesFor(vote) {
@@ -5238,10 +6400,13 @@ document.addEventListener('DOMContentLoaded', function () {
     // element carries only its id.
     const cvRichTips = new Map();
     let cvRichSeq = 0;
-    function cvRich(html) {
+    function cvRichId(html) {
         const id = 'r' + (++cvRichSeq);
         cvRichTips.set(id, html);
-        return ' data-cv-rich="' + id + '"';
+        return id;
+    }
+    function cvRich(html) {
+        return ' data-cv-rich="' + cvRichId(html) + '"';
     }
     function cvShowTipHtml(el, html) {
         const old = document.getElementById('dynamic-pool-tooltip');
@@ -5275,8 +6440,8 @@ document.addEventListener('DOMContentLoaded', function () {
     function showListStakeTip(el, v) {
         const t = v.totals || {};
         cvShowTipHtml(el, '<div class="pool-tooltip-title">Active stake</div>' + cvListEpochLine() +
-            cvTipRow('', 'Total', formatNumber(lamportsToSol(t.total_active_lamports || 0), 2) + ' SOL') +
-            (typeof t.total_stake_accounts === 'number' ? cvTipRow('', 'Stake accounts', formatNumber(t.total_stake_accounts)) : ''));
+            cvTipRow(cvTipIco('active-stake'), 'Total', formatNumber(lamportsToSol(t.total_active_lamports || 0), 2) + ' SOL') +
+            (typeof t.total_stake_accounts === 'number' ? cvTipRow(cvTipIco('stake-accounts'), 'Stake accounts', formatNumber(t.total_stake_accounts)) : ''));
     }
     let cvLiveVotes = null;
     let cvLiveVotesFor = null;
@@ -5342,7 +6507,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const names = m.nameChanges.slice().sort((a, b) => a.epoch - b.epoch);
         names.forEach((c, i) => { if (i > 0) add(c.epoch, 'Name', nameHtml(names[i - 1].name), nameHtml(c.name)); });
         const ids = m.identityChanges.slice().sort((a, b) => a.epoch - b.epoch);
-        ids.forEach((c, i) => { if (i > 0) add(c.epoch, 'Identity', keyTokenHtml('ID', ids[i - 1].identity), keyTokenHtml('ID', c.identity)); });
+        const idChip = key => keyChipHtml('Identity', '', key, 'key-identity', true);
+        ids.forEach((c, i) => { if (i > 0) add(c.epoch, 'Identity', idChip(ids[i - 1].identity), idChip(c.identity)); });
         // The current epoch is not in the history file yet: compare the live
         // name and identity with the last recorded ones.
         const live = m.epochs.length && m.epochs[m.epochs.length - 1].isLive ? m.epochs[m.epochs.length - 1] : null;
@@ -5350,7 +6516,7 @@ document.addEventListener('DOMContentLoaded', function () {
             add(live.epoch, 'Name', nameHtml(names[names.length - 1].name), nameHtml(m.rawName));
         }
         if (live && ids.length && ids[ids.length - 1].identity !== m.identity && m.identity) {
-            add(live.epoch, 'Identity', keyTokenHtml('ID', ids[ids.length - 1].identity), keyTokenHtml('ID', m.identity));
+            add(live.epoch, 'Identity', idChip(ids[ids.length - 1].identity), idChip(m.identity));
         }
         let prev = null;
         m.epochs.forEach(e => {
@@ -5427,7 +6593,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             const viewBtn = t.closest('#cv-vd-view-toggle button[data-view]');
             if (viewBtn) {
-                cvSourcesView = viewBtn.getAttribute('data-view') === 'cards' ? 'cards' : 'table';
+                cvSourcesView = CV_VIEWS.indexOf(viewBtn.getAttribute('data-view')) >= 0 ? viewBtn.getAttribute('data-view') : 'table';
                 safeStorage.setItem('validatorSourcesView', cvSourcesView);
                 cvCardOrder = null;
                 cvVdRerenderPools();
@@ -5502,13 +6668,22 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             const mainLink = t.closest('a[data-cv-main]');
             if (mainLink) {
+                if (!cvPlainClick(e)) return;
                 e.preventDefault();
                 const section = document.getElementById('breadcrumb-section');
                 if (section) section.click();
                 return;
             }
-            const card = t.closest('[data-cv-vdtip]');
+            const card = cvPinTarget(t);
             if (card) {
+                // (a link inside what is pinned - the name of a staker in the
+                // table on a phone - does not navigate on a plain tap; a new
+                // tab or a new window is still the link's own)
+                const link = t.closest('a[href]');
+                if (link && card.contains(link)) {
+                    if (!cvPlainClick(e)) return;
+                    e.preventDefault();
+                }
                 cvVdPinTip(card);
                 return;
             }
@@ -5529,7 +6704,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // A pinned tooltip leaves on a click elsewhere, a scroll or Escape.
         document.addEventListener('click', (e) => {
             if (!cvPinnedTip || !e.target.closest) return;
-            if (e.target.closest('#cv-pinned-tip') || e.target.closest('[data-cv-vdtip]')) return;
+            if (e.target.closest('#cv-pinned-tip') || cvPinTarget(e.target)) return;
             cvVdUnpinTip();
         });
         window.addEventListener('scroll', cvVdUnpinTip, { passive: true });
@@ -5712,9 +6887,15 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!btn) return;
             
             const mode = btn.getAttribute('data-sort');
-            if (!mode || mode === currentSortMode) return;
-            
-            currentSortMode = mode;
+            if (!mode) return;
+            // A second click on a measure flips its direction.
+            if (mode === currentSortMode) {
+                if (mode === 'category') return;
+                currentSortAsc = !currentSortAsc;
+            } else {
+                currentSortMode = mode;
+                currentSortAsc = false;
+            }
             setActiveSortButton(currentSortMode);
             
             const selectedEpoch = epochSelect.value;
@@ -5736,8 +6917,12 @@ document.addEventListener('DOMContentLoaded', function () {
             switchToEpochWithLazyLoad(selectedEpoch, fetched.historicData);
         });
         
+        // The tabs are links: a plain click switches the tab in place, a
+        // click with a modifier key is left to the browser (a new tab).
         document.querySelectorAll('.sp-tab-link').forEach(link => {
             link.addEventListener('click', (e) => {
+                if (!cvPlainClick(e)) return;
+                e.preventDefault();
                 const targetTab = e.currentTarget.getAttribute('data-tab');
                 activateTab(targetTab, { scroll: true });
             });
@@ -5746,40 +6931,20 @@ document.addEventListener('DOMContentLoaded', function () {
         const grid = document.getElementById('groups-grid-container');
         
         grid.addEventListener('click', (event) => {
-            // Обробка кнопки показу/приховування ключів
-            const toggleButton = event.target.closest('.pool-keys-toggle');
-            if (toggleButton) {
-                const keyList = toggleButton.nextElementSibling;
-                if (keyList && keyList.classList.contains('pool-keys-list')) {
-                    toggleButton.classList.toggle('active');
-                    keyList.classList.toggle('expanded');
-                    const textSpan = toggleButton.querySelector('.toggle-text');
-                    textSpan.textContent = toggleButton.classList.contains('active')
-                        ? 'Hide Keys'
-                        : `Show ${toggleButton.dataset.keyCount} Keys`;
-                }
-                return;
-            }
-            
-            // Обробка кліку на опис
-            const wrap = event.target.closest('.pool-details .desc-wrap');
-            if (wrap) {
-                if (wrap.dataset.collapsible === '1') {
-                    const isCollapsed = wrap.classList.toggle('collapsed');
-                    wrap.setAttribute('aria-expanded', String(!isCollapsed));
-                }
-                return;
+            // The one-line description opens and closes in place.
+            const desc = event.target.closest('.cv-pc-desc');
+            if (desc && !desc.classList.contains('is-short')) {
+                const open = desc.classList.toggle('is-open');
+                desc.setAttribute('aria-expanded', String(open));
             }
         });
         
         grid.addEventListener('keydown', (e) => {
-            if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('desc-wrap')) {
+            if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('cv-pc-desc') &&
+                !e.target.classList.contains('is-short')) {
                 e.preventDefault();
-                const wrap = e.target;
-                if (wrap.dataset.collapsible === '1') {
-                    const isCollapsed = wrap.classList.toggle('collapsed');
-                    wrap.setAttribute('aria-expanded', String(!isCollapsed));
-                }
+                const open = e.target.classList.toggle('is-open');
+                e.target.setAttribute('aria-expanded', String(open));
             }
         });
 
@@ -5812,10 +6977,14 @@ document.addEventListener('DOMContentLoaded', function () {
             attributeFilter: ['data-theme'],
         });
 
+        // After a resize the one-line descriptions are checked again, when the width of the grid has changed.
+        let descGridWidth = 0;
         const refreshDescCollapsers = debounce(() => {
             const root = document.getElementById('groups-grid-container');
-            if (root) initDescriptionCollapsers(root);
-        }, 150);
+            if (!root || !root.clientWidth || root.clientWidth === descGridWidth) return;
+            descGridWidth = root.clientWidth;
+            markShortDescriptions(root);
+        }, 200);
         
         // ============================================
         // ФУНКЦІЇ ДЛЯ ДЕТАЛЬНОГО ВИДУ ПУЛУ
@@ -5871,6 +7040,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Remove any previously injected SVG fallback
                 const existingSvg = poolImageContainer?.querySelector('.pool-detail-svg-fallback');
                 if (existingSvg) existingSvg.remove();
+                poolImageContainer?.querySelectorAll(':scope > img[data-logo-stem]').forEach(n => n.remove());
             } else {
                 // Bug 8: OTHER (and any pool without image) - show SVG fallback in the
                 // same slot so layout stays consistent.
@@ -5883,7 +7053,11 @@ document.addEventListener('DOMContentLoaded', function () {
                         svgWrap.className = 'pool-detail-image pool-detail-svg-fallback';
                         poolImageContainer.insertBefore(svgWrap, poolImage);
                     }
-                    svgWrap.innerHTML = (poolGroup === 'OTHER' ? otherIsoImg(256) : '') + OTHER_GROUP_SVG;
+                    // "Other Stakes" has a sprite of its own: it stands on the
+                    // plot next to the glyph, which stays as the fallback.
+                    poolImageContainer.querySelectorAll(':scope > img[data-logo-stem]').forEach(n => n.remove());
+                    svgWrap.innerHTML = OTHER_GROUP_SVG;
+                    if (poolGroup === 'OTHER') svgWrap.insertAdjacentHTML('beforebegin', otherIsoImg(256));
                 }
             }
             
@@ -5992,9 +7166,11 @@ document.addEventListener('DOMContentLoaded', function () {
                             hideEpochLoader();
                         }
                     }
+                    // (a newer choice, or leaving the page, overtakes a load in flight)
+                    if (this.value !== newEpoch || currentPoolGroup !== poolGroup) return;
                     
                     // Оновлюємо дані для нової епохи
-                    updatePoolMetrics(poolGroup);
+                    keepPoolBlockInPlace(() => updatePoolMetrics(poolGroup));
                     // TODO: updatePoolCharts(poolGroup) - буде додано пізніше
                 };
             }
@@ -6048,6 +7224,27 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         
         // Функція для повернення на головний дашборд
+        // The validators of a pool keep their place on screen when the page
+        // is drawn again for another epoch. The cards above them change
+        // their height (a past epoch adds a line to each), and the rows and
+        // the bubbles are new elements, so a browser has nothing to hold on
+        // to. The list (or the map) is held only when a visitor is at it or
+        // below its top; higher on the page nothing is touched.
+        function keepPoolBlockInPlace(redraw) {
+            const block = document.getElementById('pool-validators-table');
+            const before = block ? block.getBoundingClientRect().top : null;
+            redraw();
+            if (before === null || before > window.innerHeight * 0.6) return;
+            const settle = () => {
+                if (!block.isConnected) return;
+                const now = block.getBoundingClientRect().top;
+                // (at once: the page scrolls smoothly by default, and a glide here would be the jump itself)
+                if (Math.abs(now - before) >= 1) window.scrollBy({ top: now - before, left: 0, behavior: 'instant' });
+            };
+            settle();
+            requestAnimationFrame(() => requestAnimationFrame(settle));
+        }
+
         function showMainDashboard(opts) {
             const viaHistory = !!(opts && opts.history);
             currentPoolGroup = null;
@@ -6077,16 +7274,19 @@ document.addEventListener('DOMContentLoaded', function () {
             const epochParam = params.get('epoch');
             const mainEpochSelect = document.getElementById('epoch-select');
             
-            if (epochParam && mainEpochSelect) {
-                // Якщо в URL є epoch параметр - синхронізуємо головний селектор
-                const epochValue = epochParam === 'latest' ? latestEpochNumber : epochParam;
-                if (epochMap.has(Number(epochValue))) {
-                    mainEpochSelect.value = epochValue;
-                    // Оновлюємо дашборд для цієї епохи
-                    // Re-render only when the epoch differs from the one on screen,
-                    // so the validators list keeps its place.
-                    if (Number(mainRenderedEpoch) !== Number(epochValue)) mainEpochSelect.dispatchEvent(new Event('change'));
-                }
+            // An address without an epoch means the latest one. (The pool
+            // page steps its own epochs and only sets the selector of the
+            // main view: a main view drawn for a past epoch must not stay on
+            // screen under a bar that says "latest".)
+            const epochValue = (!epochParam || epochParam === 'latest') ? latestEpochNumber : epochParam;
+            if (mainEpochSelect && epochMap.has(Number(epochValue))) {
+                mainEpochSelect.value = epochValue;
+                // Re-render only when the epoch differs from the one on screen,
+                // so the validators list keeps its place. (Before the first
+                // drawing of the main view there is nothing to compare with:
+                // an address that names an epoch asks for it, a plain one waits.)
+                const drawn = mainRenderedEpoch !== null || !!epochParam;
+                if (drawn && Number(mainRenderedEpoch) !== Number(epochValue)) mainEpochSelect.dispatchEvent(new Event('change'));
             }
             
             // Оновлюємо URL - прибираємо параметр pool, але зберігаємо epoch
@@ -6288,7 +7488,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         info: validator.info,
                         totals: validator.totals,
                         meta: validator.meta || null,
-                        poolStake: groupData
+                        poolStake: groupData,
+                        groups: resolvedGroups
                     });
                 }
             });
@@ -6311,6 +7512,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 el.innerHTML = (sol > 0 || !sign)
                     ? sign + '<span class="cv-num-full">' + formatNumber(sol) + '</span><span class="cv-num-short">' + shortSol(sol) + '</span><small class="cv-unit"> SOL</small>'
                     : '0<small class="cv-unit"> SOL</small>';
+                // (nothing on the move: a quiet "0", not a green or a red one)
+                el.classList.toggle('is-zero', !!sign && !(sol > 0));
                 const cardEl = el.closest('.pool-metric-card');
                 if (cardEl) {
                     cardEl.setAttribute('data-cv-tip', label + ': ' + formatNumber(sol, 2) + ' SOL');
@@ -6362,16 +7565,16 @@ document.addEventListener('DOMContentLoaded', function () {
             
             // Bug 9 part 2: if many keys, wrap them in collapsible container
             // (same behavior as main page pool cards for consistency)
+            // A key is a chip (the sign, the kind, the key: a click copies
+            // it, as the keys of a validator do) and a small link that opens
+            // its stake accounts in Solscan.
             const renderKeyItem = (key, type) => {
                 const keyItem = document.createElement('div');
-                keyItem.className = 'authority-key-item';
-                keyItem.innerHTML = `
-                    <span class="key-type">${type}:</span>
-                    <span class="key-value">${key}</span>
-                    <a href="https://solscan.io/account/${key}#stakeAccounts" target="_blank" rel="noopener">
-                        <i class="fas fa-external-link-alt"></i> SolScan
-                    </a>
-                `;
+                keyItem.className = 'authority-key-item cv-authkey';
+                keyItem.innerHTML = keyChipHtml(type, type, key, 'key-identity') +
+                    '<a class="cv-key-link" href="https://solscan.io/account/' + encodeURIComponent(key) + '#stakeAccounts" target="_blank" rel="noopener"' +
+                    cvHoverTip('Open in Solscan') + ' aria-label="' + escapeHtml('Open the ' + type.toLowerCase() + ' key in Solscan') +
+                    '"><i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>';
                 return keyItem;
             };
             
@@ -6789,12 +7992,14 @@ document.addEventListener('DOMContentLoaded', function () {
                     trackerDot.style.opacity = '1';
                     
                     // Позиціонуємо елементи в координатах viewBox
-                    tooltip.style.left = `${point.x}px`;
-                    tooltip.style.top = `${point.y - 25}px`;
                     const formattedValue = type === 'validators' 
                         ? point.value 
                         : new Intl.NumberFormat('en-US').format(point.value);
                     tooltip.innerHTML = `<span class="epoch">Epoch ${point.epoch}:</span> ${formattedValue}${tooltipSuffix}`;
+                    // (inside the chart - the tooltip keeps its place, unseen,
+                    // after the pointer has left: see cvChartTipLeft)
+                    tooltip.style.left = `${cvChartTipLeft(tooltip, point.x, width)}px`;
+                    tooltip.style.top = `${point.y - 25}px`;
                     trackerLine.setAttribute('x1', point.x);
                     trackerLine.setAttribute('x2', point.x);
                     trackerDot.setAttribute('cx', point.x);
@@ -6872,8 +8077,17 @@ document.addEventListener('DOMContentLoaded', function () {
             const legendContainer = document.getElementById('stake-distribution-legend');
             const subtitleEl = document.getElementById('stake-distribution-subtitle');
             const centerEl = document.getElementById('stake-distribution-center');
-            
+
             if (!container || !legendContainer) return;
+            // Reset stands in the title row while some validators are switched off.
+            const resetEl = document.getElementById('pool-donut-reset');
+            if (resetEl) {
+                resetEl.hidden = hiddenValidatorKeys.size === 0;
+                resetEl.onclick = () => {
+                    resetHiddenValidators();
+                    renderStakeDistributionChart(validators, searchQuery);
+                };
+            }
             
             // Фільтруємо за пошуком якщо є (включаючи identity_pubkey)
             let filteredValidators = validators || [];
@@ -6895,6 +8109,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <div class="chart-no-data-text">No validators matching query</div>
                     </div>`;
                 legendContainer.innerHTML = '';
+                scrollHint(legendContainer);
                 if (subtitleEl) subtitleEl.textContent = searchQuery ? '0 matching query' : '';
                 return;
             }
@@ -6912,15 +8127,34 @@ document.addEventListener('DOMContentLoaded', function () {
             // Готуємо всі дані (включаючи приховані)
             const allChartData = topValidators.map((v, i) => {
                 const gradient = createSegmentGradient(v.info?.vote_pubkey || Math.random().toString(), i);
+                const rawName = cleanText(v.info?.name).trim();
                 return {
-                    name: cleanText(v.info?.name) || shortenPubkey(v.info?.vote_pubkey),
+                    name: hasRealName(rawName) ? rawName : shortenPubkey(rawName || v.info?.vote_pubkey),
                     voteKey: v.info?.vote_pubkey || '',
+                    identity: v.info?.identity_pubkey || '',
+                    iconUrl: isValidHttpUrl(v.info?.icon_url || '') ? v.info.icon_url : '',
                     value: lamportsToSol(v.poolStake?.active_lamports || 0),
                     color: gradient.mainColor,
                     gradient,
                     hidden: hiddenValidatorKeys.has(v.info?.vote_pubkey)
                 };
             });
+            // A row of the legend: the colour, the logo, the name, the share
+            // and the amount (as in the legend of a validator page). A row
+            // that is switched off keeps its place, struck through.
+            const legendRowHtml = (item, seg) => {
+                const avatar = item.voteKey === 'others'
+                    ? '<span class="cv-flow-logo is-icon legend-avatar"><i class="fas fa-ellipsis" aria-hidden="true"></i></span>'
+                    : '<span class="cv-flow-logo cv-vd-mini legend-avatar">' + ((item.iconUrl && !brokenImages.has(item.iconUrl))
+                        ? '<img class="validator-image" src="' + escapeHtml(item.iconUrl) + '" alt="" loading="lazy" data-fb-name="' +
+                          escapeHtml(item.name) + '" data-fb-key="' + escapeHtml(item.identity) + '">'
+                        : createFallbackImage(item.name, item.identity)) + '</span>';
+                return '<div class="legend-item' + (item.hidden ? ' disabled' : '') + '" data-votekey="' + escapeHtml(item.voteKey) + '">' +
+                    '<span class="legend-color" style="background-color: ' + item.color + ';"></span>' + avatar +
+                    '<span class="legend-name" data-cv-tip="' + escapeHtml(item.name) + '" data-cv-tip-when="clipped">' + escapeHtml(item.name) + '</span>' +
+                    '<span class="legend-share">' + (seg ? shareText(seg.percentage * 100) : '-') + '</span>' +
+                    '<span class="legend-sol">' + (seg ? formatCompact(item.value) : '') + '</span></div>';
+            };
             
             // Додаємо "Others" якщо є
             if (others.length > 0) {
@@ -6939,33 +8173,21 @@ document.addEventListener('DOMContentLoaded', function () {
             const visibleData = allChartData.filter(d => !d.hidden);
             const total = visibleData.reduce((sum, d) => sum + d.value, 0);
             
-            // Чи є приховані валідатори
-            const hasHidden = hiddenValidatorKeys.size > 0;
-            
             if (total === 0) {
                 if (centerEl) centerEl.style.display = 'none';
                 container.innerHTML = `
                     <div class="chart-no-data-container">
                         <div class="chart-no-data-text">No stake data</div>
                     </div>`;
-                // Показуємо Reset кнопку якщо є приховані валідатори
-                if (hasHidden) {
-                    legendContainer.innerHTML = `
-                        <div class="legend-reset" title="Show all validators">
-                            <i class="fas fa-undo"></i> Reset
-                        </div>
-                    `;
-                    // Додаємо обробник для Reset
-                    const resetBtn = legendContainer.querySelector('.legend-reset');
-                    if (resetBtn) {
-                        resetBtn.addEventListener('click', () => {
-                            resetHiddenValidators();
-                            renderStakeDistributionChart(validators, searchQuery);
-                        });
-                    }
-                } else {
-                    legendContainer.innerHTML = '';
-                }
+                // (every validator is switched off: the legend stays, so one of them can be switched on again)
+                legendContainer.innerHTML = allChartData.map(item => legendRowHtml(item, null)).join('');
+                legendContainer.querySelectorAll('.legend-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        hiddenValidatorKeys.delete(item.dataset.votekey);
+                        renderStakeDistributionChart(validators, searchQuery, false);
+                    });
+                });
+                scrollHint(legendContainer);
                 return;
             }
             
@@ -7112,38 +8334,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 return val.toFixed(0);
             };
             
-            // Кнопка Reset якщо є приховані
-            const resetBtn = hasHidden ? `
-                <div class="legend-reset" title="Show all validators">
-                    <i class="fas fa-undo"></i> Reset
-                </div>
-            ` : '';
-            
-            legendContainer.innerHTML = resetBtn + allChartData.map(item => {
-                const seg = segments.find(s => s.voteKey === item.voteKey);
-                const percentage = seg ? (seg.percentage * 100).toFixed(1) : '0.0';
-                return `
-                    <div class="legend-item ${item.hidden ? 'disabled' : ''}" data-votekey="${escapeHtml(item.voteKey)}">
-                        <span class="legend-color" style="background-color: ${item.color};"></span>
-                        <span class="legend-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
-                        <span class="legend-value">${item.hidden ? '-' : percentage + '%'}</span>
-                    </div>
-                `;
-            }).join('');
+            legendContainer.innerHTML = allChartData.map(item =>
+                legendRowHtml(item, item.hidden ? null : segments.find(s => s.voteKey === item.voteKey))).join('');
+            legendContainer.querySelectorAll('img.validator-image').forEach(img => {
+                if (img.complete && img.naturalHeight === 0) {
+                    window.handleValidatorImage(img, img.dataset.fbName || '', img.dataset.fbKey || '');
+                }
+            });
+            scrollHint(legendContainer);
             
             // Інтерактивність
             const tooltip = container.querySelector('.distribution-tooltip');
             const svgSegments = container.querySelectorAll('.donut-segment');
             const legendItems = legendContainer.querySelectorAll('.legend-item');
-            const resetButton = legendContainer.querySelector('.legend-reset');
-            
-            // Reset button handler
-            if (resetButton) {
-                resetButton.addEventListener('click', () => {
-                    resetHiddenValidators();
-                    renderStakeDistributionChart(validators, searchQuery);
-                });
-            }
             
             function showTooltip(seg, x, y) {
                 tooltip.innerHTML = `
@@ -7151,7 +8354,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div class="tooltip-value">${formatValue(seg.value)} SOL (${(seg.percentage * 100).toFixed(1)}%)</div>
                 `;
                 tooltip.style.opacity = '1';
-                tooltip.style.left = `${x}px`;
+                tooltip.style.left = `${cvPointerTipLeft(tooltip, container, x)}px`;
                 tooltip.style.top = `${y}px`;
             }
             
@@ -7193,7 +8396,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
                 seg.addEventListener('mousemove', (e) => {
                     const rect = container.getBoundingClientRect();
-                    tooltip.style.left = `${e.clientX - rect.left}px`;
+                    tooltip.style.left = `${cvPointerTipLeft(tooltip, container, e.clientX - rect.left)}px`;
                     tooltip.style.top = `${e.clientY - rect.top - 40}px`;
                 });
                 seg.addEventListener('mouseleave', () => {
@@ -7466,33 +8669,53 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
         
+        // The epoch the ages of the page are counted at.
+        function poolAgeEpoch() {
+            const value = (document.getElementById('pool-epoch-select') || {}).value;
+            return value ? Number(value) : Number(latestEpochNumber);
+        }
+        // Snapshots before epoch 1043 carry no ages: the validators index
+        // has them. It is asked for once, and the list is put in order again
+        // when it arrives (the details of a bubble read it when they open).
+        function ensureIndexForPoolAges() {
+            if (cvIndexData || poolIndexAsked) return;
+            if (!poolValidators.some(v => !(v.meta && typeof v.meta.validator_age === 'number'))) return;
+            poolIndexAsked = true;
+            loadValidatorsIndex().then(index => {
+                poolIndexAsked = false;
+                if (!index || !currentPoolGroup || poolValidatorsView !== 'list' || poolDetailSortMode !== 'age') return;
+                sortPoolValidators();
+                renderPoolValidatorsTable();
+            });
+        }
+
         // Сортування валідаторів пулу
         function sortPoolValidators() {
+            const asc = poolDetailSortOrder === 'asc';
+            const amount = {
+                'pool-stake': v => v.poolStake.active_lamports || 0,
+                'total-stake': v => v.totals.total_active_lamports || 0,
+                activating: v => v.poolStake.activating_lamports || 0,
+                deactivating: v => v.poolStake.deactivating_lamports || 0
+            }[poolDetailSortMode];
+            const min = (poolDetailSortMode === 'activating' || poolDetailSortMode === 'deactivating') ? MIN_ACTIVE_STAKE : 0;
+            // Age: oldest vote accounts first, a second click flips the
+            // order, unknown ages stay at the end (as in the validators list).
+            const byAge = poolDetailSortMode === 'age';
+            const ages = new Map();
+            if (byAge) {
+                const at = poolAgeEpoch();
+                poolValidators.forEach(v => { const a = cvListAge(v, at); ages.set(v, a ? a.value + 1 : 0); });
+                ensureIndexForPoolAges();
+            }
             poolValidators.sort((a, b) => {
-                let result;
-                switch (poolDetailSortMode) {
-                    case 'pool-stake':
-                        result = (b.poolStake.active_lamports || 0) - (a.poolStake.active_lamports || 0);
-                        break;
-                    case 'total-stake':
-                        result = (b.totals.total_active_lamports || 0) - (a.totals.total_active_lamports || 0);
-                        break;
-                    case 'activating':
-                        result = (b.poolStake.activating_lamports || 0) - (a.poolStake.activating_lamports || 0);
-                        break;
-                    case 'deactivating':
-                        result = (b.poolStake.deactivating_lamports || 0) - (a.poolStake.deactivating_lamports || 0);
-                        break;
-                    case 'name':
-                        const nameA = (a.info.name || a.info.vote_pubkey || '').toLowerCase();
-                        const nameB = (b.info.name || b.info.vote_pubkey || '').toLowerCase();
-                        result = nameA.localeCompare(nameB);
-                        break;
-                    default:
-                        result = 0;
-                }
-                // Якщо порядок asc - інвертуємо результат
-                return poolDetailSortOrder === 'asc' ? -result : result;
+                if (byAge) return sortCmp(ages.get(a), ages.get(b), asc) || ((b.poolStake.active_lamports || 0) - (a.poolStake.active_lamports || 0));
+                if (amount) return sortCmp(amount(a), amount(b), asc, min);
+                if (poolDetailSortMode !== 'name') return 0;
+                const nameA = (a.info.name || a.info.vote_pubkey || '').toLowerCase();
+                const nameB = (b.info.name || b.info.vote_pubkey || '').toLowerCase();
+                const result = nameA.localeCompare(nameB);
+                return asc ? -result : result;
             });
         }
         
@@ -7554,6 +8777,12 @@ document.addEventListener('DOMContentLoaded', function () {
             
             // Текст для filtered стану - лаконічно показуємо кількість
             const isFiltered = poolSearchQuery && visibleCount < totalCount;
+            // On the map every bubble is in sight at once, so the card says
+            // how many validators are drawn while the map holds fewer of them
+            // (the list is read from the top and needs no such note). The
+            // note stands after the label, or under it where the card is narrow.
+            const onMapText = (poolValidatorsView === 'bubbles' && visibleCount > poolRowsVisible)
+                ? '<span class="cv-stat-onmap">' + poolRowsVisible + ' on<span class="cv-stat-the"> the</span> map</span>' : '';
             const forCountText = isFiltered ? ` · ${visibleCount} shown` : '';
             
             // The cards do not repeat the pool's name; their tooltips say it,
@@ -7566,7 +8795,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div class="stat-icon">${poolIconHtml}</div>
                     <div class="stat-info">
                         <div class="stat-value">${visibleCount}</div>
-                        <div class="stat-label">Validators${poolSearchQuery ? ` (of ${totalCount})` : ''} ${epochNote}</div>
+                        <div class="stat-label${onMapText ? ' cv-stat-parts' : ''}"><span class="cv-stat-what">Validators${poolSearchQuery ? ` <span class="cv-stat-of">(of ${totalCount})</span>` : ''}</span>${onMapText} ${epochNote}</div>
                     </div>
                 </div>
                 <div class="pool-validators-stat-card"${poolTip('Active stake on these validators from')}>
@@ -7597,10 +8826,11 @@ document.addEventListener('DOMContentLoaded', function () {
         function updatePoolValidatorsSortBar() {
             const sortBar = document.getElementById('pool-validators-sort-bar');
             if (!sortBar || !currentPoolGroup) return;
+            // (the map of bubbles has no order to choose: the sizes say it)
+            if (poolValidatorsView === 'bubbles') { sortBar.innerHTML = ''; return; }
             
             const poolDef = latestPoolDefinitions.find(p => p.group === currentPoolGroup);
             const poolImage = poolDef?.image || '';
-            const poolLongName = poolDef ? (poolDef.long_name || poolDef.short_name || currentPoolGroup) : currentPoolGroup;
             
             // Отримуємо поточну епоху
             const poolEpochSelect = document.getElementById('pool-epoch-select');
@@ -7618,43 +8848,19 @@ document.addEventListener('DOMContentLoaded', function () {
             const resolvedSortImage = resolveLogoUrlSync(poolImage, isDarkSortBar);
             // Іконка пулу для кнопки Pool Stake
             const poolIconHtml = isValidHttpUrl(poolImage) ? 
-                `<img src="${resolvedSortImage}" data-logo-default="${poolImage}" class="pool-icon" alt="${poolLongName}">` : 
-                `<i class="fas fa-layer-group"></i>`;
+                `<img src="${resolvedSortImage}" data-logo-default="${poolImage}" class="pool-icon" alt="">` : 
+                `<i class="fas fa-layer-group" aria-hidden="true"></i>`;
             
-            // Функція для отримання іконки напрямку
-            const getSortArrow = (sortKey) => {
-                if (poolDetailSortMode === sortKey) {
-                    return poolDetailSortOrder === 'desc' ? 
-                        '<i class="fas fa-caret-down sort-arrow"></i>' : 
-                        '<i class="fas fa-caret-up sort-arrow"></i>';
-                }
-                return '';
-            };
-            
-            // Порядок: Total Stake → Pool Stake (active) → Activating in Pool → Deactivating in Pool
-            sortBar.innerHTML = `
-                <span class="label">Sort by:</span>
-                <button class="pool-validators-sort-btn ${poolDetailSortMode === 'total-stake' ? 'active' : ''}" 
-                        data-sort="total-stake">
-                    <i class="fas fa-database"></i> Total Stake ${getSortArrow('total-stake')}
-                </button>
-                <button class="pool-validators-sort-btn ${poolDetailSortMode === 'pool-stake' ? 'active' : ''}" 
-                        data-sort="pool-stake">
-                    ${poolIconHtml} <strong>${poolLongName}</strong> Stake ${getSortArrow('pool-stake')}
-                </button>
-                <button class="pool-validators-sort-btn ${poolDetailSortMode === 'activating' ? 'active' : ''}" 
-                        data-sort="activating">
-                    <i class="fas fa-arrow-trend-up"></i> Activating ${getSortArrow('activating')}
-                </button>
-                <button class="pool-validators-sort-btn ${poolDetailSortMode === 'deactivating' ? 'active' : ''}" 
-                        data-sort="deactivating">
-                    <i class="fas fa-arrow-trend-down"></i> Deactivating ${getSortArrow('deactivating')}
-                </button>
-                ${pastEpochBadge}
-            `;
+            const item = (key, lead, label) => ({ attr: ' data-sort="' + key + '"', lead, label, active: poolDetailSortMode === key, dir: true });
+            const fa = name => '<i class="fas ' + name + '" aria-hidden="true"></i>';
+            // The stake in this pool goes first: it is what the page is about.
+            sortBarRender(sortBar, [item('pool-stake', poolIconHtml, 'Stake in this pool'), item('total-stake', fa('fa-database'), 'Total stake'),
+                item('activating', fa('fa-arrow-trend-up'), 'Activating'), item('deactivating', fa('fa-arrow-trend-down'), 'Deactivating'),
+                item('age', fa('fa-hourglass-half'), 'Age'), item('name', fa('fa-arrow-down-a-z'), 'Name')],
+                poolDetailSortOrder, pastEpochBadge);
             
             // Додаємо обробники для кнопок сортування
-            sortBar.querySelectorAll('.pool-validators-sort-btn').forEach(btn => {
+            sortBar.querySelectorAll('.sort-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const sortKey = btn.dataset.sort;
                     if (poolDetailSortMode === sortKey) {
@@ -7681,7 +8887,27 @@ document.addEventListener('DOMContentLoaded', function () {
                 .forEach((v, i) => { if (v.info) poolRankByVote.set(v.info.vote_pubkey, i + 1); });
             const container = document.getElementById('pool-validators-table');
             if (!container) return;
+            // (a map of bubbles that is about to be replaced: its tooltip
+            // kept open by a click goes with it, and so does its watch)
+            if (cvPinnedTip && cvPinnedTip.__card && container.contains(cvPinnedTip.__card)) cvVdUnpinTip();
+            if (poolBubblesMap) {
+                if (cvBubblesWatch) cvBubblesWatch.unobserve(poolBubblesMap);
+                if (cvBubblesSeen) cvBubblesSeen.unobserve(poolBubblesMap);
+                poolBubblesMap = null;
+            }
+            document.querySelectorAll('#pool-validators-view-toggle button').forEach(b =>
+                b.classList.toggle('active', b.getAttribute('data-view') === poolValidatorsView));
             
+            // A long pool opens with its first hundred validators and "Show
+            // More" adds the next hundred, in the list and on the map alike.
+            // Another pool, search, order or view starts from the top; another
+            // epoch keeps the number on screen, and with it the place on the page.
+            const listKey = [currentPoolGroup, poolSearchQuery, poolDetailSortMode, poolDetailSortOrder, poolValidatorsView].join('|');
+            if (listKey !== poolRowsFor) {
+                poolRowsFor = listKey;
+                poolRowsVisible = VALIDATORS_PER_PAGE;
+            }
+
             // Оновлюємо інфо-блоки та статистику
             updatePoolValidatorsInfoNotes();
             updatePoolValidatorsStats();
@@ -7705,91 +8931,83 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
             
-            // Отримуємо інформацію про пул
+            // A row is a line of tiles: who the validator is, its total stake
+            // with the small logos of its other stakers, and three tiles of
+            // this pool (the arrows carry the small logo of the pool, so the
+            // stake on the move reads as the stake of this pool).
             const poolDef = latestPoolDefinitions.find(p => p.group === currentPoolGroup);
-            const poolImage = poolDef?.image || '';
-            const poolShortName = poolDef ? (poolDef.short_name || currentPoolGroup) : currentPoolGroup;
-            
-            // Pool icon for the stake column header. Goes through the same
-            // theme-variant resolution as the rest of the dashboard so
-            // light/dark logo variants apply here too. Without
-            // data-logo-default the refreshAllPoolLogos pass would miss
-            // this img on theme change.
-            const isDarkTableHeader = document.body.classList.contains('dark-theme-body');
-            const resolvedTableHeader = isValidHttpUrl(poolImage) ? resolveLogoUrlSync(poolImage, isDarkTableHeader) : '';
-            const poolIconSmall = resolvedTableHeader ?
-                `<img src="${resolvedTableHeader}" data-logo-default="${poolImage}" class="table-pool-icon" alt="${poolShortName}">` :
-                `<i class="fas fa-layer-group table-icon-fallback"></i>`;
-            
-            // Функція для отримання індикатора сортування з напрямком
-            const getSortIndicator = (sortKey) => {
-                if (poolDetailSortMode === sortKey) {
-                    const icon = poolDetailSortOrder === 'desc' ? 'fa-caret-down' : 'fa-caret-up';
-                    return `<i class="fas ${icon} pv-sort-indicator active"></i>`;
-                }
-                return '<i class="fas fa-sort pv-sort-indicator"></i>';
+            const epochValue = (document.getElementById('pool-epoch-select') || {}).value;
+            const pastEpoch = (epochValue && Number(epochValue) !== Number(latestEpochNumber)) ? epochValue : null;
+            const moreHtml = () => displayValidators.length > poolRowsVisible
+                ? '<div class="validators-load-more-container"><button type="button" class="validators-load-more-btn" id="pool-rows-more">' +
+                  '<i class="fas fa-plus-circle" aria-hidden="true"></i> Show More (' + (displayValidators.length - poolRowsVisible) + ' remaining)</button></div>'
+                : '';
+            if (poolValidatorsView === 'bubbles') {
+                // The map: the validators of the page as bubbles, the largest
+                // first (the engine puts the first bubble in the middle).
+                poolBubblesTotal = poolValidators.reduce((a, v) => a + (v.poolStake.active_lamports || 0), 0);
+                const shown = displayValidators.slice().sort((a, b) => cvPoolBubWeight(b) - cvPoolBubWeight(a)).slice(0, poolRowsVisible);
+                // (a map of more than forty bubbles arrives quickly; up to
+                // CV_BUBBLES_SWAY bubbles sway, a larger map stands still)
+                container.innerHTML = '<div class="cv-bmap cv-pbmap' + (shown.length > CV_BUBBLES_SWAY ? ' is-many' : (shown.length > 40 ? ' is-crowd' : '')) + '" data-fit="1">' +
+                    cvPoolBubblesHtml(shown) + '</div>' + moreHtml();
+                const map = container.querySelector('.cv-bmap');
+                cvBubblesLayout(map);
+                // (the details of a bubble say the age: an old epoch reads it from the validators index)
+                if (!cvIndexData && shown.some(v => !(v.meta && typeof v.meta.validator_age === 'number'))) loadValidatorsIndex();
+                poolBubblesMap = map;
+                if (cvBubblesWatch) cvBubblesWatch.observe(map);
+                if (cvBubblesSeen) cvBubblesSeen.observe(map);
+                container.onclick = (e) => {
+                    const t = e.target;
+                    if (!t || !t.closest) return;
+                    if (t.closest('#pool-rows-more')) {
+                        poolRowsVisible += VALIDATORS_PER_PAGE;
+                        renderPoolValidatorsTable();
+                        return;
+                    }
+                    const bub = t.closest('[data-cv-pbub]');
+                    if (bub) cvVdPinTip(bub);
+                };
+                return;
+            }
+            const vrowIco = name => cardIco(name);
+            const poolLogoOf = { name: currentPoolGroup, def: poolDef || cvSourceDef(currentPoolGroup) };
+            const poolSign = '<span class="cv-vrow-sign">' + cvSourceLogoMini(poolLogoOf, 96) + '</span>';
+            const poolMark = '<span class="cv-vrow-mark">' + cvSourceLogoMini(poolLogoOf) + '</span>';
+            const flowSign = name => '<span class="cv-vrow-flowsign is-' + name + '">' + poolMark + cardIco(name) + '</span>';
+            // The tiles of the pool show no name: the tooltip of each one
+            // names its measure and gives the whole amount.
+            const tileTip = (label, lamports) => {
+                const sol = lamportsToSol(lamports || 0);
+                return label + (pastEpoch ? ' in epoch ' + pastEpoch : '') + ': ' + (sol >= 0.005 ? formatNumber(sol, 2) : '0') + ' SOL';
             };
-            
-            // Для стовпця Stake показуємо обидва режими (total і pool)
-            const getStakeSortIndicator = () => {
-                const isTotal = poolDetailSortMode === 'total-stake';
-                const isPool = poolDetailSortMode === 'pool-stake';
-                if (isTotal || isPool) {
-                    const icon = poolDetailSortOrder === 'desc' ? 'fa-caret-down' : 'fa-caret-up';
-                    return `<i class="fas ${icon} pv-sort-indicator active"></i>`;
-                }
-                return '<i class="fas fa-sort pv-sort-indicator"></i>';
+            const onlyHere = currentPoolGroup === 'OTHER' ? 'No pools or programs' : 'Only staked by this pool';
+            const cellHtml = (cls, sign, c) => '<div class="' + cls + (c.zero ? ' is-zero' : '') + '"' +
+                (c.tip ? ' data-cv-tip="' + escapeHtml(c.tip) + '"' : '') + '>' + sign +
+                '<span class="cv-cell-text"><b' + (c.cls ? ' class="' + c.cls + '"' : '') + '>' + c.value + '</b><small>' + c.label + '</small></span></div>';
+            // Up to five places for the other stakers: five logos, or four
+            // and "+N". Their tooltips are built on demand (showAlsoTip).
+            const othersHtml = (validator) => {
+                const others = poolRowOthers(validator);
+                if (others.length === 0) return '<div class="cv-vrow-others is-none"><small>' + onlyHere + '</small></div>';
+                const shown = others.length > POOL_ROW_OTHERS ? POOL_ROW_OTHERS - 1 : others.length;
+                return '<div class="cv-vrow-others"><small>Also staked by</small><span class="cv-vrow-logos" data-vote="' +
+                    escapeHtml(validator.info.vote_pubkey || '') + '">' +
+                    others.slice(0, shown).map((g, i) => '<span class="cv-vrow-other" data-cv-also="' + i + '">' +
+                        cvSourceLogoMini({ name: g.name, def: cvSourceDef(g.name) }) + '</span>').join('') +
+                    (others.length > shown ? '<span class="cv-vrow-more" data-cv-also="more">+' + (others.length - shown) + '</span>' : '') +
+                    '</span></div>';
             };
-            
-            // Визначаємо data-sort для стовпця Stake (циклічне перемикання)
-            const getStakeSortKey = () => {
-                // Цикл: pool-stake desc → pool-stake asc → total-stake desc → total-stake asc → pool-stake desc
-                if (poolDetailSortMode === 'pool-stake' && poolDetailSortOrder === 'desc') return 'pool-stake-asc';
-                if (poolDetailSortMode === 'pool-stake' && poolDetailSortOrder === 'asc') return 'total-stake-desc';
-                if (poolDetailSortMode === 'total-stake' && poolDetailSortOrder === 'desc') return 'total-stake-asc';
-                if (poolDetailSortMode === 'total-stake' && poolDetailSortOrder === 'asc') return 'pool-stake-desc';
-                return 'pool-stake-desc';
-            };
-            
-            // Створюємо таблицю - з клікабельними заголовками
-            let html = `
-                <div class="pool-validators-list">
-                    <div class="pool-validators-header">
-                        <div class="pv-col pv-col-validator pv-col-sortable" data-sort="name" title="Sort by name">
-                            <span>Validator</span> ${getSortIndicator('name')}
-                        </div>
-                        <div class="pv-col pv-col-stake pv-col-sortable" data-sort="${getStakeSortKey()}" title="Sort by stake">
-                            <span>Stake</span> ${getStakeSortIndicator()}
-                        </div>
-                        <div class="pv-col pv-col-activating pv-col-sortable" data-sort="activating" title="Sort by activating">
-                            <span>Activating</span> ${getSortIndicator('activating')}
-                        </div>
-                        <div class="pv-col pv-col-deactivating pv-col-sortable" data-sort="deactivating" title="Sort by deactivating">
-                            <span>Deactivating</span> ${getSortIndicator('deactivating')}
-                        </div>
-                    </div>
-            `;
-            
-            displayValidators.forEach(validator => {
+
+            const ageEpoch = poolAgeEpoch();
+            const rowHtml = (validator) => {
                 const rawName = cleanText(validator.info.name).trim();
                 const realName = hasRealName(rawName);
                 const name = realName ? rawName : shortenPubkey(rawName || validator.info.vote_pubkey);
                 const nameHtml = escapeHtml(name);
-                const vHref = escapeHtml(validatorHref(validator.info.vote_pubkey,
-                    (document.getElementById('pool-epoch-select') || {}).value));
-                
-                // Stake values
-                const totalStake = lamportsToSol(validator.totals.total_active_lamports || 0);
-                const poolStake = lamportsToSol(validator.poolStake.active_lamports || 0);
-                
-                // Activating values (Total та Pool)
-                const totalActivating = lamportsToSol(validator.totals.total_activating_lamports || 0);
-                const poolActivating = lamportsToSol(validator.poolStake.activating_lamports || 0);
-                
-                // Deactivating values (Total та Pool)
-                const totalDeactivating = lamportsToSol(validator.totals.total_deactivating_lamports || 0);
-                const poolDeactivating = lamportsToSol(validator.poolStake.deactivating_lamports || 0);
-                
+                const vHref = escapeHtml(validatorHref(validator.info.vote_pubkey, epochValue));
+
                 // Avatar
                 const rawImageUrl = validator.info?.icon_url || '';
                 const imageUrl = isValidHttpUrl(rawImageUrl) ? rawImageUrl : '';
@@ -7797,7 +9015,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 const votePubkey = validator.info?.vote_pubkey || '';
                 const isKnownBroken = brokenImages.has(imageUrl);
                 const isDelinquent = !!(validator.meta && validator.meta.delinquent === true);
-                
+                // "New" and "leaving": all the stake of this pool with the
+                // validator arrives or leaves (the dashed outline and the
+                // word of the other views; the word stands at the end of
+                // the name line, the corner of the tile of the validator,
+                // so the chips and the keys keep their places).
+                const ring = poolBadgeRing(validator.poolStake.active_lamports || 0, validator.poolStake.activating_lamports || 0,
+                    validator.poolStake.deactivating_lamports || 0);
+                const state = ring.activatingOnly ? 'new' : (ring.cls === ' is-exiting' ? 'leaving' : '');
+                const stateHtml = state ? '<span class="cv-state is-' + state + '" data-cv-tip="All pool stake here is ' +
+                    (state === 'new' ? 'activating' : 'deactivating') + '">' + state + '</span>' : '';
+                const chipsHtml = buildMetaChipsHtml(validator.meta, poolScriptInfo);
+                const metaHtml = poolDetailSortMode === 'age' ? cvWithAgeChip(chipsHtml, cvListAge(validator, ageEpoch)) : chipsHtml;
+
                 const avatarHtml = (imageUrl && !isKnownBroken) ?
                     `<div class="validator-image-wrapper">
                         <img class="validator-image" src="${escapeHtml(imageUrl)}" alt="${nameHtml}" loading="lazy"
@@ -7806,93 +9036,55 @@ document.addEventListener('DOMContentLoaded', function () {
                     `<div class="validator-image-wrapper">
                         ${createFallbackImage(name, identityPubkey)}
                     </div>`;
-                
-                html += `
-                    <div class="pool-validator-row${isDelinquent ? ' is-delinquent' : ''}">
-                        <div class="pv-col pv-col-validator">
-                            <div class="pv-validator-info">
-                                <span class="pv-rank" data-cv-tip="Rank by stake in this pool, of ${poolValidators.length}">#${poolRankByVote.get(validator.info.vote_pubkey) || '-'}</span>
-                                <a class="cv-vlink cv-vlink-avatar" data-cv-nav href="${vHref}" tabindex="-1" aria-hidden="true">${avatarHtml}</a>
-                                <div class="pv-validator-details">
-                                    <div class="pv-validator-name cv-name-line" title="${nameHtml}">
-                                        <a class="cv-name-text cv-vlink" data-cv-nav href="${vHref}">${nameHtml}${CV_GO_SVG}</a>
-                                        ${realName ? copyButtonHtml(rawName, 'Copy name') : ''}
-                                    </div>
-                                    <div class="pv-validator-pubkey cv-keys">${identityPubkey ? keyTokenHtml('ID', identityPubkey) : ''}${votePubkey ? keyTokenHtml('Vote', votePubkey) : ''}</div>
-                                    ${buildMetaChipsHtml(validator.meta, poolScriptInfo)}
-                                </div>
+
+                const total = flowCell('active-stake', 'Total stake', validator.totals.total_active_lamports, pastEpoch);
+                const inPool = flowCell('', 'In this pool', validator.poolStake.active_lamports, pastEpoch);
+                inPool.tip = tileTip('Stake in this pool', validator.poolStake.active_lamports);
+                const activating = flowCell('activating', 'Activating', validator.poolStake.activating_lamports, pastEpoch);
+                const deactivating = flowCell('deactivating', 'Deactivating', validator.poolStake.deactivating_lamports, pastEpoch);
+                activating.tip = tileTip('Activating in this pool', validator.poolStake.activating_lamports);
+                deactivating.tip = tileTip('Deactivating in this pool', validator.poolStake.deactivating_lamports);
+
+                return `
+                    <div class="cv-vrow${isDelinquent ? ' is-delinquent' : ''}${state ? ' is-' + state : ''}">
+                        <div class="cv-vrow-who">
+                            <span class="pv-rank" data-cv-tip="Rank by stake in this pool, of ${poolValidators.length}">#${poolRankByVote.get(validator.info.vote_pubkey) || '-'}</span>
+                            <a class="cv-vlink cv-vlink-avatar" data-cv-nav href="${vHref}" tabindex="-1" aria-hidden="true">${avatarHtml}</a>
+                            <div class="cv-vrow-name cv-name-line">
+                                <a class="cv-name-text cv-vlink" data-cv-nav href="${vHref}" data-cv-tip="${nameHtml}" data-cv-tip-when="clipped">${nameHtml}${CV_GO_SVG}</a>
+                                ${realName ? copyButtonHtml(rawName, 'Copy name') : ''}${stateHtml}
                             </div>
+                            <div class="cv-vrow-sub cv-chipline">${metaHtml}${validatorKeySignsHtml(identityPubkey, votePubkey)}</div>
                         </div>
-                        <div class="pv-col pv-col-stake">
-                            <div class="pv-value-row">
-                                <i class="fas fa-database pv-icon pv-icon-total"></i>
-                                <span class="pv-value">${formatCompact(totalStake)} SOL</span>
-                            </div>
-                            <div class="pv-value-row pv-value-pool">
-                                ${poolIconSmall}
-                                <span class="pv-value pv-value-highlight">${formatCompact(poolStake)} SOL</span>
-                            </div>
-                        </div>
-                        <div class="pv-col pv-col-activating">
-                            <div class="pv-value-single">
-                                ${poolIconSmall}
-                                ${poolActivating > 0 ? '<i class="fas fa-arrow-trend-up pv-trend-icon pv-trend-up"></i>' : ''}
-                                <span class="pv-value ${poolActivating > 0 ? 'pv-positive' : ''}">${poolActivating > 0 ? formatCompact(poolActivating) + ' SOL' : '0'}</span>
-                            </div>
-                        </div>
-                        <div class="pv-col pv-col-deactivating">
-                            <div class="pv-value-single">
-                                ${poolIconSmall}
-                                ${poolDeactivating > 0 ? '<i class="fas fa-arrow-trend-down pv-trend-icon pv-trend-down"></i>' : ''}
-                                <span class="pv-value ${poolDeactivating > 0 ? 'pv-negative' : ''}">${poolDeactivating > 0 ? formatCompact(poolDeactivating) + ' SOL' : '0'}</span>
-                            </div>
+                        <div class="cv-vrow-cells">
+                            <div class="cv-vrow-total">${cellHtml('cv-head', vrowIco('active-stake'), total)}${othersHtml(validator)}</div>
+                            ${cellHtml('cv-head cv-vrow-in', poolSign, inPool)}
+                            ${cellHtml('cv-cell cv-vrow-flow', flowSign('activating'), activating)}
+                            ${cellHtml('cv-cell cv-vrow-flow', flowSign('deactivating'), deactivating)}
                         </div>
                     </div>
                 `;
-            });
-            
-            html += `</div>`;
-            
-            container.innerHTML = html;
-            container.querySelectorAll('img.validator-image').forEach(img => {
+            };
+
+            const rowsHtml = (from, to) => displayValidators.slice(from, to).map(rowHtml).join('');
+            // Images that failed before the error listener could see them.
+            const checkImages = () => container.querySelectorAll('img.validator-image').forEach(img => {
                 if (img.complete && img.naturalHeight === 0) {
                     window.handleValidatorImage(img, img.dataset.fbName || '', img.dataset.fbKey || '');
                 }
             });
-            
-            // Обробники кліків на заголовки для сортування
-            container.querySelectorAll('.pv-col-sortable').forEach(col => {
-                col.addEventListener('click', () => {
-                    const sortKey = col.dataset.sort;
-                    if (!sortKey) return;
-                    
-                    // Для стовпця Stake - циклічне перемикання між 4 режимами
-                    if (sortKey.startsWith('pool-stake') || sortKey.startsWith('total-stake')) {
-                        // Парсимо ключ формату "pool-stake-desc" або "total-stake-asc"
-                        const parts = sortKey.split('-');
-                        const newMode = parts.slice(0, 2).join('-'); // "pool-stake" або "total-stake"
-                        const newOrder = parts[2] || 'desc'; // "desc" або "asc"
-                        
-                        poolDetailSortMode = newMode;
-                        poolDetailSortOrder = newOrder;
-                    } else {
-                        // Для інших стовпців - toggle напрямку або встановлення режиму
-                        if (poolDetailSortMode === sortKey) {
-                            // Якщо той самий режим - перемикаємо напрямок
-                            poolDetailSortOrder = poolDetailSortOrder === 'desc' ? 'asc' : 'desc';
-                        } else {
-                            // Новий режим - починаємо з desc
-                            poolDetailSortMode = sortKey;
-                            poolDetailSortOrder = 'desc';
-                        }
-                    }
-                    
-                    sortPoolValidators();
-                    renderPoolValidatorsTable();
-                    // Оновлюємо Sort by bar щоб синхронізувати
-                    updatePoolValidatorsSortBar();
-                });
-            });
+            container.innerHTML = '<div class="cv-vrows">' + rowsHtml(0, poolRowsVisible) + '</div>' + moreHtml();
+            checkImages();
+            container.onclick = (e) => {
+                const btn = e.target && e.target.closest ? e.target.closest('#pool-rows-more') : null;
+                if (!btn) return;
+                const from = poolRowsVisible;
+                poolRowsVisible += VALIDATORS_PER_PAGE;
+                btn.parentElement.remove();
+                container.querySelector('.cv-vrows').insertAdjacentHTML('beforeend', rowsHtml(from, poolRowsVisible));
+                container.insertAdjacentHTML('beforeend', moreHtml());
+                checkImages();
+            };
         }
         
         // Обробники подій для breadcrumbs (перевіряємо наявність елементів)
@@ -7922,6 +9114,20 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
         
+        // The switch of the view: a list of rows or a map of bubbles.
+        const poolViewToggle = document.getElementById('pool-validators-view-toggle');
+        if (poolViewToggle) {
+            poolViewToggle.addEventListener('click', (e) => {
+                const btn = e.target && e.target.closest ? e.target.closest('button[data-view]') : null;
+                if (!btn) return;
+                const view = btn.getAttribute('data-view') === 'bubbles' ? 'bubbles' : 'list';
+                if (view === poolValidatorsView) return;
+                poolValidatorsView = view;
+                safeStorage.setItem('poolValidatorsView', view);
+                renderPoolValidatorsTable();
+            });
+        }
+
         // Пошук в детальному виді пулу
         const poolSearchInput = document.getElementById('pool-validators-search');
         if (poolSearchInput) {
@@ -8005,17 +9211,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }, true);
         
-        // ОРИГІНАЛЬНИЙ КОД: Обробник для keydown
-        grid.addEventListener('keydown', (e) => {
-            if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('desc-wrap')) {
-                e.preventDefault();
-                const wrap = e.target;
-                if (wrap.dataset.collapsible === '1') {
-                    const isCollapsed = wrap.classList.toggle('collapsed');
-                    wrap.setAttribute('aria-expanded', String(!isCollapsed));
-                }
-            }
-        });
         
         // Bug 9 fix: removed document-level desc-wrap click handler.
         // The desc-wrap toggle is already handled by the grid-level listener above,

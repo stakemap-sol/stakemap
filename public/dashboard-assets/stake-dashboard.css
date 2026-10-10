@@ -901,7 +901,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--logo-bg);
     border: 2px solid var(--border-color);
 }
 #validators-list-items-container .validator-image {
@@ -915,8 +915,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--ph-bg);
+    color: var(--ph-ink);
     font-size: 20px;
     font-weight: 700;
 }
@@ -2954,8 +2954,8 @@ body:not(.dark-theme) .pool-epoch-loader {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-	color: white;
+	background: var(--ph-bg);
+	color: var(--ph-ink);
 	font-size: 12px;
 	font-weight: 700;
 	border-radius: 50%;
@@ -3088,8 +3088,8 @@ body:not(.dark-theme) .pool-epoch-loader {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-	color: white;
+	background: var(--ph-bg);
+	color: var(--ph-ink);
 	font-size: 13px;
 	font-weight: 700;
 	border-radius: 50%;
@@ -3905,7 +3905,7 @@ select#pool-epoch-select option {
     color: #28a745;
 }
 #stake-pool-dashboard .validator-item:hover .cv-copy-icon,
-#stake-pool-dashboard .pool-validator-row:hover .cv-copy-icon {
+#stake-pool-dashboard .cv-vrow:hover .cv-copy-icon {
     opacity: 0.4;
 }
 #stake-pool-dashboard .cv-key:hover .cv-copy-icon,
@@ -3931,11 +3931,6 @@ select#pool-epoch-select option {
 }
 
 /* Keys: short form in one line, full key on hover, copy on click. */
-#stake-pool-dashboard .validator-pubkeys.cv-keys {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 2px 14px;
-}
 #stake-pool-dashboard .cv-key {
     display: inline-flex;
     align-items: center;
@@ -4156,13 +4151,6 @@ body:not(.dark-theme-body) #stake-pool-dashboard .cv-client-mark.inv-light img {
     font-size: 12px;
 }
 
-/* Pool page table: identity and vote keys in one wrapping line. */
-#stake-pool-dashboard .pv-validator-pubkey.cv-keys {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2px 14px;
-}
-
 /* Pool page table: the details column takes the full cell width, so the
    identity and vote keys stay on one line when there is room. */
 #stake-pool-dashboard .pv-col-validator .pv-validator-info {
@@ -4249,8 +4237,8 @@ body:not(.dark-theme-body) #stake-pool-dashboard .cv-client-mark.inv-light img {
    tap flash - taps are meant for the tooltips inside the card. */
 #stake-pool-dashboard .validator-item,
 #stake-pool-dashboard .validator-item *,
-#stake-pool-dashboard .pool-validator-row,
-#stake-pool-dashboard .pool-validator-row * {
+#stake-pool-dashboard .cv-vrow,
+#stake-pool-dashboard .cv-vrow * {
     -webkit-tap-highlight-color: transparent;
 }
 @media (hover: none) {
@@ -4493,8 +4481,8 @@ body.dark-theme-body .cv-ep-num.is-past {
     object-fit: cover; border: 2px solid var(--border-color); background: var(--logo-bg);
 }
 #stake-pool-dashboard .cv-vd-avatar .validator-image.fallback {
-    display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; font-weight: 700;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex; align-items: center; justify-content: center; color: var(--ph-ink); font-size: 24px; font-weight: 700;
+    background: var(--ph-bg);
 }
 #stake-pool-dashboard #validator-detail-view.cv-vd-delinquent .cv-vd-avatar { filter: grayscale(1); opacity: 0.55; }
 #stake-pool-dashboard .cv-vd-name-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
@@ -4505,7 +4493,7 @@ body.dark-theme-body .cv-ep-num.is-past {
 }
 #stake-pool-dashboard .cv-vd-badge.is-inactive { color: #dc3545; background: rgba(220, 53, 69, 0.12); border: 1px solid rgba(220, 53, 69, 0.35); }
 #stake-pool-dashboard .cv-vd-badge.is-new { color: #28a745; background: rgba(40, 167, 69, 0.12); border: 1px solid rgba(40, 167, 69, 0.35); }
-#stake-pool-dashboard .cv-vd-keys { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+#stake-pool-dashboard .cv-vd-keys { display: flex; flex-wrap: wrap; gap: 6px 8px; }
 #stake-pool-dashboard .cv-vd-then { display: flex; flex-wrap: wrap; gap: 6px 10px; }
 #stake-pool-dashboard .cv-vd-then:empty { display: none; }
 /* Everything that describes a past epoch wears the same yellow as the
@@ -4549,7 +4537,7 @@ body.dark-theme-body #stake-pool-dashboard .cv-vd-asof { border-color: #5c4a10; 
 #stake-pool-dashboard .cv-vd-sources .sp-groups-grid { grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); }
 #stake-pool-dashboard .cv-vd-sources .category-header .meta { white-space: nowrap; }
 #stake-pool-dashboard .cv-src-card .cv-src-link { display: flex; align-items: center; gap: 15px; min-width: 0; color: inherit; text-decoration: none; }
-#stake-pool-dashboard .cv-src-card .cv-src-link:hover .pool-name { color: var(--header-color); }
+#stake-pool-dashboard .cv-src-card a.cv-src-link:hover .pool-name { color: var(--header-color); }
 #stake-pool-dashboard .cv-src-initials { font-size: 16px; font-weight: 700; }
 #stake-pool-dashboard .cv-src-card .interactive-chart-container { min-height: 0; margin: 4px 0; }
 #stake-pool-dashboard .cv-vd-small { margin-top: 14px; font-size: 13px; color: var(--secondary-text-color); }
@@ -4628,8 +4616,8 @@ body.dark-theme-body #stake-pool-dashboard .cv-vd-asof { border-color: #5c4a10; 
     border: 2px solid var(--border-color); background: var(--logo-bg);
 }
 #stake-pool-dashboard .cv-donut-center .validator-image.fallback {
-    display: flex; align-items: center; justify-content: center; color: #fff; font-size: 26px; font-weight: 700;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex; align-items: center; justify-content: center; color: var(--ph-ink); font-size: 26px; font-weight: 700;
+    background: var(--ph-bg);
 }
 #stake-pool-dashboard .cv-donut-legend { flex: 1 1 210px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 #stake-pool-dashboard .cv-donut-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 8px; color: var(--text-color); font-size: 13px; text-decoration: none; }
@@ -4695,36 +4683,17 @@ body.dark-theme-body #stake-pool-dashboard .cv-vd-asof { border-color: #5c4a10; 
 #stake-pool-dashboard .cv-inactive-row:hover .cv-inactive-name { color: var(--header-color); }
 #stake-pool-dashboard .cv-inactive-avatar {
     display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%;
-    background: #8a94a6; color: #fff; font-size: 15px; font-weight: 700; opacity: 0.75;
+    box-sizing: border-box; border: 1.5px dashed var(--ph-ring);
+    background: var(--ph-bg); color: var(--ph-ink); font-size: 15px; font-weight: 700; opacity: 0.8;
 }
 #stake-pool-dashboard .cv-inactive-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 #stake-pool-dashboard .cv-inactive-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-#stake-pool-dashboard .cv-inactive-keys { font-size: 11px; color: var(--secondary-text-color); }
 #stake-pool-dashboard .cv-inactive-meta { font-size: 12px; font-weight: 600; color: #dc3545; white-space: nowrap; }
 #stake-pool-dashboard .cv-inactive-stake { font-size: 12px; color: var(--secondary-text-color); text-align: right; white-space: nowrap; }
 #stake-pool-dashboard .cv-inactive-more { margin: 8px 10px 2px; font-size: 12px; color: var(--secondary-text-color); }
 #stake-pool-dashboard .cv-chip-age i { margin-right: 4px; font-size: 10px; }
 .pool-tooltip-stat.accounts .label i { color: #8a63d2; }
 @media (max-width: 1023px) {
-    #stake-pool-dashboard .cv-st { overflow: visible; border: 0; border-radius: 0; }
-    #stake-pool-dashboard .cv-st-head { display: none; }
-    #stake-pool-dashboard .cv-st-row,
-    #stake-pool-dashboard .cv-st > .cv-st-row:last-child {
-        grid-template-columns: 1fr 1fr; row-gap: 10px; margin-bottom: 10px; padding: 12px;
-        border: 1px solid var(--border-color); border-radius: 12px;
-    }
-    #stake-pool-dashboard .cv-st-source,
-    #stake-pool-dashboard .cv-st-trend { grid-column: 1 / -1; }
-    #stake-pool-dashboard .cv-st-c[data-label] { text-align: left; }
-    #stake-pool-dashboard .cv-st-c[data-label]::before {
-        content: attr(data-label); display: block; margin-bottom: 2px; font-size: 11px; color: var(--secondary-text-color); white-space: normal;
-    }
-    #stake-pool-dashboard .cv-st-share,
-    #stake-pool-dashboard .cv-st-trend { flex-wrap: wrap; justify-content: flex-start; }
-    #stake-pool-dashboard .cv-st-share::before,
-    #stake-pool-dashboard .cv-st-trend::before { flex: 0 0 100%; }
-    #stake-pool-dashboard .cv-mini-spark { width: 100%; }
-    #stake-pool-dashboard .cv-st-group { padding: 6px 2px; border: 0; background: none; }
     #stake-pool-dashboard .cv-inactive-row { grid-template-columns: 40px minmax(0, 1fr); }
     #stake-pool-dashboard .cv-inactive-meta,
     #stake-pool-dashboard .cv-inactive-stake { grid-column: 2; text-align: left; }
@@ -4791,7 +4760,6 @@ body.dark-theme-body #stake-pool-dashboard .cv-vd-then-item.is-now { border-colo
 #stake-pool-dashboard .cv-inactive-avatar img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(1); }
 #stake-pool-dashboard a.cv-inactive-name { color: var(--text-color); text-decoration: none; }
 #stake-pool-dashboard a.cv-inactive-name:hover { color: var(--header-color); }
-#stake-pool-dashboard .cv-inactive-keys { display: flex; flex-wrap: wrap; gap: 4px 12px; }
 #stake-pool-dashboard .cv-inactive-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 #stake-pool-dashboard .cv-inactive-chips:empty { display: none; }
 #stake-pool-dashboard .cv-inactive-chips .cv-meta { margin: 0; }
@@ -4802,7 +4770,7 @@ body.dark-theme-body #stake-pool-dashboard .cv-vd-then-item.is-now { border-colo
     pointer-events: auto; user-select: text; -webkit-user-select: text; background-color: rgba(255, 255, 255, 0.98);
     border-color: var(--header-color); box-shadow: 0 0 0 1px var(--header-color), 0 12px 36px rgba(0, 0, 0, 0.25);
 }
-body.dark-theme-body .pool-tooltip.is-pinned { background-color: rgba(30, 30, 30, 0.98); border-color: #4fd1bd; box-shadow: 0 0 0 1px #4fd1bd, 0 12px 36px rgba(0, 0, 0, 0.5); }
+body.dark-theme-body .pool-tooltip.is-pinned { background-color: rgba(30, 30, 30, 0.98); border-color: #2dd4bf; box-shadow: 0 0 0 1px #2dd4bf, 0 12px 36px rgba(0, 0, 0, 0.5); }
 @media (max-width: 1099px) {
     #stake-pool-dashboard .cv-vd-sources .cv-cat-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     #stake-pool-dashboard .cv-vd-sources .cv-cat-flow .category-section.cv-cat-n2,
@@ -4837,8 +4805,12 @@ body.dark-theme-body .pool-tooltip.is-pinned { background-color: rgba(30, 30, 30
 #stake-pool-dashboard .cv-st.no-counts { --cv-st-cols: minmax(210px, 1.7fr) 110px minmax(130px, 1fr) 96px 100px 84px 132px; }
 #stake-pool-dashboard .cv-st-trend { padding-left: 12px; }
 #stake-pool-dashboard a.cv-vd-src-name { color: var(--text-color); text-decoration: none; }
-#stake-pool-dashboard a.cv-vd-src-name:hover,
 #stake-pool-dashboard .cv-src-card a.cv-src-link:hover .pool-name { color: var(--header-color); }
+@media (min-width: 769px) {
+    /* (in the narrow table the name of a staker opens the details of its row:
+       it is not a link there and does not light up like one) */
+    #stake-pool-dashboard a.cv-vd-src-name:hover { color: var(--header-color); }
+}
 /* Which pools to show (next to Table / Cards). */
 #stake-pool-dashboard .cv-vd-head-tools { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
 #stake-pool-dashboard .cv-vd-count { margin-left: 6px; padding: 0 6px; border-radius: 999px; background: rgba(128, 128, 128, 0.22); font-size: 11px; font-weight: 600; }
@@ -4867,7 +4839,9 @@ body.dark-theme-body .pool-tooltip.is-pinned { background-color: rgba(30, 30, 30
 /* A staker's logo opens its page too; on small screens a corner icon does
    (there is no hover arrow there). */
 #stake-pool-dashboard a.cv-st-logo { display: flex; flex-shrink: 0; border-radius: 50%; }
-#stake-pool-dashboard a.cv-st-logo:hover .cv-flow-logo { box-shadow: 0 0 0 2px var(--header-color); }
+@media (min-width: 769px) {
+    #stake-pool-dashboard a.cv-st-logo:hover .cv-flow-logo { box-shadow: 0 0 0 2px var(--header-color); }
+}
 #stake-pool-dashboard .cv-corner { display: none; padding: 4px; color: var(--secondary-text-color); font-size: 13px; line-height: 1; text-decoration: none; }
 #stake-pool-dashboard .cv-corner:hover { color: var(--header-color); }
 /* Docs: the card about the validator page spans both columns. */
@@ -4878,10 +4852,6 @@ body.dark-theme-body .pool-tooltip.is-pinned { background-color: rgba(30, 30, 30
     #stake-pool-dashboard .validator-item .stake-stat i { font-size: 13px; }
 }
 @media (max-width: 1023px) {
-    #stake-pool-dashboard .cv-st-row { position: relative; }
-    #stake-pool-dashboard .cv-st-row .cv-corner { display: block; position: absolute; top: 12px; right: 10px; }
-    #stake-pool-dashboard .cv-st-row .cv-st-source { padding-right: 26px; }
-    #stake-pool-dashboard .cv-st-trend { padding-left: 0; }
     #stake-pool-dashboard .cv-src-card .cv-corner { display: block; flex-shrink: 0; margin-left: auto; }
     #stake-pool-dashboard .cv-st svg.cv-go,
     #stake-pool-dashboard .cv-src-card svg.cv-go { display: none; }
@@ -5048,9 +5018,9 @@ body.dark-theme-body #stake-pool-dashboard { --iso-side: #93a8ab; }
 }
 .sofzp-dashboard-section.dark-theme {
     --bg-color: #14130f; --card-bg: #1f1e1a; --border-color: #38352d; --logo-bg: #2b2a25;
-    --header-color: #4fd1bd;
-    --sparkline-color: #4fd1bd; --sparkline-gradient-start: rgba(79, 209, 189, 0.28); --sparkline-gradient-end: rgba(79, 209, 189, 0);
-    --chart-bg-color: rgba(79, 209, 189, 0.05);
+    --header-color: #2dd4bf;
+    --sparkline-color: #2dd4bf; --sparkline-gradient-start: rgba(45, 212, 191, 0.28); --sparkline-gradient-end: rgba(45, 212, 191, 0);
+    --chart-bg-color: rgba(45, 212, 191, 0.05);
 }
 /* The dark-theme accent is light, so text and icons on an accent fill
    turn dark there (white on it was hard to read). */
@@ -5398,7 +5368,7 @@ body.dark-theme-body .cv-ep-select {
     outline-offset: 1px;
 }
 body.dark-theme-body .cv-ep-num:focus-within {
-    outline-color: #4fd1bd;
+    outline-color: #2dd4bf;
 }
 .cv-ep-meta {
     margin-left: 6px;
@@ -5730,32 +5700,85 @@ body.dark-theme-body .cv-ep-past {
     }
 }
 
-/* Validator page header on phones: the avatar stands next to the name
-   only; the keys (ID and Vote in one row), the chips and the notes start
-   at the left edge under it. */
+/* Validator page header on phones: one centred column, as the header of a
+   pool page is - the avatar, the name, the keys (two chips in one row,
+   while they fit), the chips and the notes. The description under them
+   stays at the left edge: it is text to read. */
 @media (max-width: 560px) {
+    /* (the base rules of this header carry !important, so these do too) */
     #stake-pool-dashboard .cv-vd-header .pool-header-left {
-        display: grid !important;
-        grid-template-columns: auto minmax(0, 1fr);
-        gap: 10px 14px !important;
+        flex-direction: column !important;
         align-items: center !important;
+        gap: 10px !important;
+        width: 100%;
     }
-    /* The base rules of this header carry !important, so these do too. */
     #stake-pool-dashboard .cv-vd-header .pool-header-info {
-        display: contents !important;
+        align-items: center !important;
+        width: 100%;
+        min-width: 0;
+    }
+    #stake-pool-dashboard .cv-vd-header .cv-vd-avatar,
+    #stake-pool-dashboard .cv-vd-header .cv-vd-avatar .validator-image {
+        width: 72px;
+        height: 72px;
+    }
+    #stake-pool-dashboard .cv-vd-header .cv-vd-avatar .validator-image.fallback {
+        font-size: 26px;
+    }
+    #stake-pool-dashboard .cv-vd-header .cv-vd-name-line {
+        flex-direction: column;
+        gap: 6px;
+        max-width: 100%;
     }
     #stake-pool-dashboard .cv-vd-header .cv-vd-keys,
     #stake-pool-dashboard .cv-vd-header .cv-vd-chips,
     #stake-pool-dashboard .cv-vd-header .cv-vd-then {
-        grid-column: 1 / -1;
+        justify-content: center;
+        max-width: 100%;
+    }
+    #stake-pool-dashboard .cv-vd-header .cv-vd-chips .cv-meta {
+        justify-content: center;
     }
     #stake-pool-dashboard .cv-vd-header .cv-vd-keys {
-        flex-wrap: nowrap;
-        gap: 6px 16px;
+        gap: 6px;
     }
-    #stake-pool-dashboard .cv-vd-header .cv-vd-chips:empty,
-    #stake-pool-dashboard .cv-vd-header .cv-vd-then:empty {
-        display: none;
+    /* A centred line holds nothing a visitor does not see: the name is
+       centred by its letters alone, and the glyph of the copy stands out of
+       the flow, right after the last letter (in the room the button keeps on
+       both of its sides). */
+    #stake-pool-dashboard .cv-vd-header .cv-key.cv-key-name {
+        position: relative;
+        display: block;
+        margin: 0;
+        padding: 2px 28px;
+        text-align: center;
+    }
+    #stake-pool-dashboard .cv-vd-header .cv-key.cv-key-name .cv-copy-icon,
+    #stake-pool-dashboard .cv-vd-header .cv-key.cv-key-name .cv-copied-icon {
+        position: absolute;
+        margin: 0.56em 0 0 8px;
+    }
+}
+/* (the empty places of the name line take no gap) */
+#stake-pool-dashboard .cv-vd-name-line > span:empty {
+    display: none;
+}
+@media (min-width: 641px) {
+    /* A wide header: the two keys stand one under the other, in chips of
+       one width, with their short names and the keys in two columns. */
+    #stake-pool-dashboard .cv-vd-header .cv-vd-keys {
+        display: grid;
+        grid-template-columns: minmax(0, max-content);
+        justify-content: start;
+        gap: 6px;
+    }
+    #stake-pool-dashboard .cv-vd-header .cv-vd-keys .cv-keychip .cv-key-label {
+        min-width: 30px;
+        text-align: left;
+    }
+    #stake-pool-dashboard .cv-vd-header .cv-vd-keys .cv-keychip .cv-key-full {
+        flex: 1 1 auto;
+        text-align: left;
     }
 }
 
@@ -5864,5 +5887,3596 @@ body.dark-theme-body .cv-ep-past {
         font-size: 19px !important;
         white-space: nowrap;
         overflow-wrap: normal;
+    }
+}
+
+/* ============================================
+   POOL PLOTS (v3.2.0)
+   A pool's sprite stands on a tile of the map: on its card of the Pools
+   tab, on its card of a validator page and in the header of its own page.
+   The script measures the drawn part of the sprite and places it (a wide
+   logo takes more of the tile). A pool without a sprite, or with a sprite
+   that failed to load, keeps the plain logo.
+   ============================================ */
+#stake-pool-dashboard { --plot-w: 128px; }
+#stake-pool-dashboard .cv-plot:has(> img[data-logo-iso][src^="/pool-logos/"]) {
+    position: relative;
+    display: block;
+    flex: 0 0 var(--plot-w);
+    width: var(--plot-w);
+    height: calc(var(--plot-w) * 0.9);
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: url("/brand/tiles/tile-light.webp") center bottom / 100% auto no-repeat;
+    overflow: visible;
+}
+body.dark-theme-body #stake-pool-dashboard .cv-plot:has(> img[data-logo-iso][src^="/pool-logos/"]) {
+    background-image: url("/brand/tiles/tile-dark.webp");
+}
+/* The sprite. These values hold it until the script has measured it. */
+#stake-pool-dashboard .cv-plot > img[data-logo-iso][src^="/pool-logos/"] {
+    position: absolute;
+    left: 22%;
+    top: 20%;
+    width: 56%;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    padding: 0;
+    object-fit: contain;
+}
+/* The image of a pool page carries fixed sizes and a plate in its base
+   styles (with !important), so the plot overrides them the same way. */
+#stake-pool-dashboard .cv-plot > img.pool-detail-image[data-logo-iso][src^="/pool-logos/"] {
+    width: 56% !important;
+    height: auto !important;
+    border: 0 !important;
+}
+/* Without a sprite the wrapper of a pool page steps aside. */
+#stake-pool-dashboard #pool-detail-plot:not(:has(> img[data-logo-iso][src^="/pool-logos/"])) {
+    display: contents;
+}
+/* "Other Stakes" on its page: the sprite stands on the plot, the glyph is
+   the fallback. */
+#stake-pool-dashboard .cv-plot:has(> img[data-logo-stem]) > .pool-detail-svg-fallback {
+    display: none !important;
+}
+#stake-pool-dashboard #pool-detail-plot { --plot-w: 150px; }
+/* Next to the plot a long pool name is shown in full: a little smaller and
+   on up to four lines. */
+#stake-pool-dashboard .sp-pool-card .card-header .pool-name,
+#stake-pool-dashboard .cv-src-card .card-header .pool-name {
+    font-size: 18px;
+    -webkit-line-clamp: 4;
+}
+@media (max-width: 560px) {
+    #stake-pool-dashboard { --plot-w: 112px; }
+    /* Pool page on phones: the plot stands above the name, both centred,
+       so a long name keeps the full width. */
+    #stake-pool-dashboard #pool-detail-plot { --plot-w: 132px; }
+    #stake-pool-dashboard .pool-header-left:has(> #pool-detail-plot > img[data-logo-iso][src^="/pool-logos/"]) {
+        flex-direction: column !important;
+        gap: 8px !important;
+        width: 100%;
+        text-align: center;
+    }
+    #stake-pool-dashboard .pool-header-left:has(> #pool-detail-plot > img[data-logo-iso][src^="/pool-logos/"]) .pool-header-info {
+        align-items: center !important;
+    }
+    #stake-pool-dashboard .pool-header-left:has(> #pool-detail-plot > img[data-logo-iso][src^="/pool-logos/"]) .pool-categories-tags {
+        justify-content: center;
+    }
+}
+
+/* ============================================
+   MAIN PAGE: TWO CHARTS (v3.2.0)
+   The total active stake on the left; on the right the number of
+   validators or the stake in motion. Both are drawn by the same function
+   and keep one shape: a title row (the right chart's title is its switch),
+   the chart, two labels at the edges.
+   ============================================ */
+#stake-pool-dashboard .cv-net-charts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: stretch;
+    /* (the card centres its children on phones: the pair takes the full width itself) */
+    align-self: stretch;
+    width: 100%;
+    margin-top: 15px;
+    box-sizing: border-box;
+}
+#stake-pool-dashboard .cv-net-charts.is-single {
+    grid-template-columns: minmax(0, 1fr);
+}
+/* The base rule makes this wrapper span the whole grid; inside the pair it
+   takes one column. */
+#stake-pool-dashboard .cv-net-charts .summary-chart-wrapper {
+    grid-column: auto;
+    min-width: 0;
+    margin: 0;
+}
+#stake-pool-dashboard .cv-net-charts .summary-chart-wrapper .interactive-chart-container {
+    height: 100%;
+    margin: 0;
+    box-sizing: border-box;
+}
+#stake-pool-dashboard .cv-net-charts .chart-title {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+}
+#stake-pool-dashboard .cv-net-charts .chart-title .cv-vd-toggle button {
+    white-space: nowrap;
+}
+#stake-pool-dashboard .cv-net-charts .chart-range-labels > span {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+    white-space: nowrap;
+}
+#stake-pool-dashboard .cv-net-charts .chart-range-labels .cv-chart-ep {
+    align-self: center;
+}
+/* The validators chart is purple, like the validators chart of a pool page. */
+#stake-pool-dashboard .interactive-chart-container[data-chart-variant="validators"] {
+    --sparkline-color: #9945FF;
+    --sparkline-gradient-start: rgba(153, 69, 255, 0.3);
+    --sparkline-gradient-end: rgba(153, 69, 255, 0);
+}
+#stake-pool-dashboard .interactive-chart-container[data-chart-variant="flow"] .chart-path-line {
+    stroke-width: 1.8;
+}
+@media (max-width: 900px) {
+    #stake-pool-dashboard .cv-net-charts {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+    }
+}
+@media (max-width: 560px) {
+    /* Each label is two centred lines: what it is (and its epoch pill),
+       then the value. The same in every chart and in both modes. */
+    #stake-pool-dashboard .cv-net-charts .chart-range-labels > span {
+        flex: 1 1 0;
+        flex-wrap: wrap;
+        justify-content: center;
+        row-gap: 2px;
+        text-align: center;
+    }
+    #stake-pool-dashboard .cv-net-charts .chart-range-labels > span > .value {
+        flex-basis: 100%;
+        order: 3;
+    }
+}
+
+/* ============================================
+   VALIDATOR PAGE (v3.2.0)
+   ============================================ */
+/* The six cards under the name on wide screens: a larger icon on top, the
+   number and its label under it, all centred (as on phones). */
+@media (min-width: 561px) {
+    #stake-pool-dashboard .cv-vd-metrics .pool-metric-card {
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 8px !important;
+        text-align: center;
+    }
+    #stake-pool-dashboard .cv-vd-metrics .pool-metric-info {
+        align-items: center !important;
+    }
+    #stake-pool-dashboard .cv-vd-metrics .pool-metric-card img.cv-ico-metric {
+        width: 48px;
+        height: 48px;
+    }
+}
+/* Stakers table: the validator's totals stand in the first row. */
+#stake-pool-dashboard .cv-st-total {
+    background: var(--chart-bg-color);
+    font-weight: 600;
+}
+#stake-pool-dashboard .cv-st-total .cv-st-total-ico {
+    display: flex;
+    flex: 0 0 40px;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+}
+#stake-pool-dashboard .cv-st-total .cv-st-total-ico img.cv-ico {
+    width: 34px;
+    height: 34px;
+}
+/* Stakers without stake in the selected epoch (the "All epochs" scope):
+   hatched and dimmed, so they never read as current ones. */
+#stake-pool-dashboard .cv-st-row.is-past,
+#stake-pool-dashboard .cv-src-card.is-past {
+    background-color: var(--bg-color);
+    background-image: repeating-linear-gradient(135deg, rgba(128, 128, 128, 0.10) 0 5px, transparent 5px 13px);
+}
+#stake-pool-dashboard .cv-src-card.is-past {
+    border-style: dashed;
+}
+#stake-pool-dashboard .cv-st-row.is-past .cv-vd-src-name {
+    font-weight: 500;
+}
+#stake-pool-dashboard .cv-st-group.cv-st-group-past {
+    border-top: 2px dashed var(--border-color);
+}
+/* ==========================================================================
+   SORT BARS (v3.2.0)
+   One look for the four lists (pools, validators, the validators of a pool,
+   the stakers of a validator): a small sign, then the options in a fixed
+   order. The active option of a measure carries the caret of its direction.
+   ========================================================================== */
+.cv-sortbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 15px;
+}
+/* (on wide screens the options stand in the bar itself, next to its note) */
+.cv-sortbar .cv-sort-row {
+    display: contents;
+}
+.cv-sortbar .cv-sort-sign {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    color: var(--secondary-text-color);
+    font-size: 14px;
+}
+.cv-sortbar .sort-btn {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 13px;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.25;
+    white-space: nowrap;
+}
+.cv-sortbar .sort-btn > i {
+    font-size: 12px;
+}
+.cv-sortbar .sort-btn > .sort-arrow {
+    margin-left: -1px;
+    font-size: 11px;
+}
+.cv-sortbar .sort-btn > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.cv-sortbar .sort-btn .pool-icon,
+.cv-sortbar .sort-btn .sort-pool-icon,
+.cv-sortbar .sort-btn .sort-pool-icon-initials {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 2px;
+    border: 1px solid var(--logo-border);
+    border-radius: 50%;
+    background: var(--logo-bg);
+    box-sizing: border-box;
+    object-fit: contain;
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-color);
+}
+.cv-sortbar .validators-sort-badge,
+.cv-sortbar .pool-validators-sort-badge {
+    flex: 0 0 auto;
+    padding: 6px 12px;
+    font-size: 12px;
+}
+@media (max-width: 560px) {
+    /* Phones: the options are one row that scrolls sideways - nothing wraps,
+       and nothing moves when an option gets its caret. The right edge fades
+       while more options wait there. A note of the bar stands under the row;
+       the past-epoch mark is left to the bar above. */
+    .cv-sortbar {
+        display: block;
+        margin-bottom: 13px;
+    }
+    .cv-sortbar .cv-sort-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scrollbar-width: none;
+        padding: 2px 0;
+    }
+    .cv-sortbar .cv-sort-row::-webkit-scrollbar {
+        display: none;
+    }
+    .cv-sortbar .cv-sort-row.has-more {
+        -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent);
+        mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent);
+    }
+    .cv-sortbar .cv-sort-row.has-less {
+        -webkit-mask-image: linear-gradient(90deg, transparent, #000 36px);
+        mask-image: linear-gradient(90deg, transparent, #000 36px);
+    }
+    .cv-sortbar .cv-sort-row.has-less.has-more {
+        -webkit-mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent);
+        mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent);
+    }
+    .cv-sortbar .cv-sort-sign {
+        width: 18px;
+    }
+    .cv-sortbar .sort-btn {
+        gap: 5px;
+        padding: 7px 11px;
+    }
+    .cv-sortbar .validators-sort-badge,
+    .cv-sortbar .pool-validators-sort-badge {
+        display: none;
+    }
+    #stake-pool-dashboard .cv-sortbar .cv-vd-kept {
+        display: block;
+        margin-top: 8px;
+    }
+}
+
+/* ==========================================================================
+   CARD CELLS (v3.2.0)
+   Under the chart of a pool card (Pools tab, stakers of a validator): small
+   cells - the sign of a measure, its value and a small name. A cell with
+   nothing in it is muted, so the cards where stake moves stand out.
+   ========================================================================== */
+#stake-pool-dashboard .cv-cells {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+#stake-pool-dashboard .cv-cell {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    padding: 9px 10px;
+    border-radius: 12px;
+    background: var(--bg-color);
+}
+#stake-pool-dashboard .cv-cell:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+}
+#stake-pool-dashboard .cv-cell img.cv-ico {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+}
+#stake-pool-dashboard .cv-cell-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    text-align: left;
+}
+#stake-pool-dashboard .cv-cell-text b {
+    overflow: hidden;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--text-color);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#stake-pool-dashboard .cv-cell-text b.cv-vd-pos {
+    color: #28a745;
+}
+#stake-pool-dashboard .cv-cell-text b.cv-vd-neg {
+    color: #dc3545;
+}
+#stake-pool-dashboard .cv-cell-text small {
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 1.25;
+    color: var(--secondary-text-color);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#stake-pool-dashboard .cv-cell.is-zero b,
+#stake-pool-dashboard .cv-src-card.is-past .cv-cell b {
+    font-weight: 500;
+    color: var(--secondary-text-color);
+}
+#stake-pool-dashboard .cv-cell.is-zero img.cv-ico {
+    opacity: 0.4;
+    filter: grayscale(0.7);
+}
+
+/* ==========================================================================
+   POOL CARDS, SECOND PASS (v3.2.0)
+   A card from top to bottom: the plot and the name, two head cells, the
+   chart, four small cells, one line of the description, the site and keys.
+   The same family on the Pools tab and among the stakers of a validator.
+   ========================================================================== */
+/* A card never asks for more width than its place has (phones under 400 px). */
+#stake-pool-dashboard #groups-grid-container.sp-groups-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
+}
+#stake-pool-dashboard #groups-grid-container .category-section .sp-groups-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+}
+@media (min-width: 1100px) {
+    #stake-pool-dashboard #groups-grid-container .category-section .sp-groups-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+/* The plot and the name are one real link to the page of the pool. */
+#stake-pool-dashboard .sp-pool-card .card-header > .cv-card-link {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 15px;
+    min-width: 0;
+    color: inherit;
+    text-decoration: none;
+}
+#stake-pool-dashboard .sp-pool-card .card-header > .cv-card-link:hover .pool-name {
+    color: var(--header-color);
+}
+/* A name next to its plot is never cut: a word longer than its line breaks,
+   and on the narrowest phones the plot and the name are a little smaller. */
+#stake-pool-dashboard .sp-pool-card .card-header .pool-name,
+#stake-pool-dashboard .cv-src-card .card-header .pool-name {
+    overflow-wrap: anywhere;
+}
+@media (max-width: 359px) {
+    #stake-pool-dashboard {
+        --plot-w: 88px;
+    }
+    #stake-pool-dashboard .sp-pool-card .card-header > .cv-card-link,
+    #stake-pool-dashboard .cv-src-card .cv-src-link {
+        gap: 10px;
+    }
+    #stake-pool-dashboard .sp-pool-card .card-header .pool-name,
+    #stake-pool-dashboard .cv-src-card .card-header .pool-name {
+        font-size: 16px;
+    }
+}
+@media (max-width: 480px) {
+    /* Stakers as cards on a phone: the sign of "opens the pool page" stands
+       in the corner of the card, and the name gets the whole line. */
+    #stake-pool-dashboard .cv-src-card {
+        position: relative;
+    }
+    #stake-pool-dashboard .cv-src-card .cv-corner {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        margin: 0;
+    }
+    #stake-pool-dashboard .cv-src-card .cv-nw {
+        white-space: normal;
+    }
+}
+/* The number of pools of a category stays one piece next to a long title. */
+#stake-pool-dashboard .category-header .meta {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+/* Wide screens: the name stands next to a large plot and gets a larger size. */
+@media (min-width: 901px) {
+    #stake-pool-dashboard .sp-pool-card .card-header .pool-name,
+    #stake-pool-dashboard .cv-src-card .card-header .pool-name {
+        font-size: 20px;
+    }
+}
+#stake-pool-dashboard .sp-pool-card .card-main-content,
+#stake-pool-dashboard .cv-src-card .card-main-content {
+    gap: 8px;
+}
+#stake-pool-dashboard .sp-pool-card .interactive-chart-container,
+#stake-pool-dashboard .cv-src-card .interactive-chart-container {
+    margin: 0;
+}
+#stake-pool-dashboard .sp-pool-card .interactive-chart-container {
+    min-height: 106px;
+}
+/* Head cells: the two main numbers of the card, on the tint of the chart. */
+#stake-pool-dashboard .cv-heads {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+#stake-pool-dashboard .cv-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 10px;
+    border-radius: 12px;
+    background: var(--chart-bg-color);
+}
+#stake-pool-dashboard .cv-head img.cv-ico {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+}
+#stake-pool-dashboard .cv-head .cv-cell-text b {
+    font-weight: 700;
+    line-height: 1.15;
+}
+/* Nothing in a card is cut. The text of a cell takes the room its sign
+   leaves, a label may take a second line, and the size of a number follows
+   the width of its place (a narrow card, a long amount). */
+#stake-pool-dashboard .cv-head > .cv-cell-text,
+#stake-pool-dashboard .cv-cell > .cv-cell-text {
+    flex: 1 1 0;
+    container-type: inline-size;
+}
+#stake-pool-dashboard .cv-cell-text small {
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
+}
+#stake-pool-dashboard .cv-head .cv-cell-text b {
+    font-size: 17px;
+    font-size: clamp(14px, 22cqi, 19px);
+}
+#stake-pool-dashboard .cv-cell .cv-cell-text b {
+    font-size: clamp(12.5px, 23cqi, 15px);
+}
+/* A single cell (the peak of a staker that left) stands in the middle and
+   is as wide as its text. */
+#stake-pool-dashboard .cv-cell:only-child {
+    justify-content: center;
+}
+#stake-pool-dashboard .cv-cell:only-child > .cv-cell-text {
+    flex: 0 1 auto;
+    container-type: normal;
+}
+#stake-pool-dashboard .cv-cell:only-child .cv-cell-text b {
+    font-size: 15px;
+}
+/* The cells follow the width of their card, not of the screen: a narrow
+   card (a phone, three columns on a small laptop) gets tighter cells, and
+   the narrowest ones leave the signs out. */
+#stake-pool-dashboard .sp-pool-card .card-main-content,
+#stake-pool-dashboard .cv-src-card .card-main-content {
+    container: cvcard / inline-size;
+}
+@container cvcard (max-width: 300px) {
+    #stake-pool-dashboard .cv-head {
+        gap: 6px;
+        padding: 9px 8px;
+    }
+    #stake-pool-dashboard .cv-head img.cv-ico {
+        width: 26px;
+        height: 26px;
+    }
+    #stake-pool-dashboard .cv-cell {
+        gap: 7px;
+        padding: 8px;
+    }
+    #stake-pool-dashboard .cv-cell img.cv-ico {
+        width: 24px;
+        height: 24px;
+    }
+}
+@container cvcard (max-width: 228px) {
+    #stake-pool-dashboard .cv-head img.cv-ico,
+    #stake-pool-dashboard .cv-cell img.cv-ico {
+        display: none;
+    }
+}
+@media (max-width: 560px) {
+    /* Phones: less frame around a card, more room for its numbers (the
+       same measures as among the stakers of a validator). */
+    #stake-pool-dashboard #groups-grid-container .category-section {
+        padding: 10px;
+    }
+    #stake-pool-dashboard .sp-pool-card {
+        padding: 18px;
+    }
+}
+#stake-pool-dashboard .cv-src-card.is-past .cv-head b {
+    font-weight: 600;
+    color: var(--secondary-text-color);
+}
+#stake-pool-dashboard .cv-src-card.is-past .cv-head img.cv-ico,
+#stake-pool-dashboard .cv-src-card.is-past .cv-cell img.cv-ico {
+    opacity: 0.5;
+    filter: grayscale(1);
+}
+/* About the pool: one line that opens in place, then the site and the keys. */
+#stake-pool-dashboard .cv-pc-about {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-color);
+    font-size: 13px;
+    color: var(--secondary-text-color);
+}
+#stake-pool-dashboard .cv-pc-desc {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    cursor: pointer;
+    border-radius: 6px;
+}
+#stake-pool-dashboard .cv-pc-desc > p {
+    display: -webkit-box;
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    line-height: 1.5;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+}
+#stake-pool-dashboard .cv-pc-desc.is-open > p {
+    display: block;
+    -webkit-line-clamp: unset;
+}
+#stake-pool-dashboard .cv-pc-desc > i {
+    flex: 0 0 auto;
+    margin-top: 5px;
+    font-size: 10px;
+    transition: transform 0.2s ease;
+}
+#stake-pool-dashboard .cv-pc-desc.is-open > i {
+    transform: rotate(180deg);
+}
+#stake-pool-dashboard .cv-pc-desc:not(.is-short):hover,
+#stake-pool-dashboard .cv-pc-desc.is-open {
+    color: var(--text-color);
+}
+#stake-pool-dashboard .cv-pc-desc.is-short {
+    cursor: default;
+}
+#stake-pool-dashboard .cv-pc-desc.is-short > i {
+    display: none;
+}
+#stake-pool-dashboard .cv-pc-desc:focus-visible {
+    outline: 2px solid var(--header-color);
+    outline-offset: 3px;
+}
+#stake-pool-dashboard .cv-pc-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    min-height: 26px;
+}
+#stake-pool-dashboard .cv-pc-site {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-weight: 500;
+    color: var(--header-color);
+    text-decoration: none;
+}
+#stake-pool-dashboard .cv-pc-site:hover {
+    text-decoration: underline;
+}
+#stake-pool-dashboard .cv-pc-site > i {
+    font-size: 10px;
+}
+#stake-pool-dashboard .cv-pc-keys {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto;
+}
+#stake-pool-dashboard .cv-key.cv-key-ico {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    background: var(--bg-color);
+    font-family: inherit;
+    font-size: 11px;
+    color: var(--secondary-text-color);
+}
+#stake-pool-dashboard .cv-key.cv-key-ico:hover {
+    border-color: var(--header-color);
+    background: var(--chart-bg-color);
+    color: var(--header-color);
+}
+#stake-pool-dashboard .cv-key.cv-key-ico.is-copied {
+    border-color: #28a745;
+}
+#stake-pool-dashboard .cv-key.cv-key-ico.is-copied .cv-key-glyph {
+    display: none;
+}
+#stake-pool-dashboard .cv-key.cv-key-ico .cv-copied-icon {
+    font-size: 11px;
+}
+#stake-pool-dashboard .cv-pc-more {
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 9px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--secondary-text-color);
+    text-decoration: none;
+}
+#stake-pool-dashboard .cv-pc-more:hover {
+    border-color: var(--header-color);
+    color: var(--header-color);
+}
+
+/* ==========================================================================
+   TOP OF THE MAIN PAGE, SECOND PASS (v3.2.0)
+   ========================================================================== */
+/* The sign of the block: a tile of the map next to the title, of the scale
+   of the signs of the three stations under it (the block is the first of
+   them: the stake of the whole network, then its pools, validators, docs). */
+#stake-pool-dashboard .total-stake-card > .title {
+    gap: 12px;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-color);
+}
+#stake-pool-dashboard .total-stake-card > .title > .cv-hero-mark {
+    flex: 0 0 auto;
+    width: 52px;
+    height: auto;
+    margin: -7px 0 -5px;
+}
+/* The title of the first chart is a chip with the look of an active option. */
+#stake-pool-dashboard .cv-vd-toggle .cv-vd-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    background: var(--header-color);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: normal;
+    color: #fff;
+    white-space: nowrap;
+}
+body.dark-theme-body #stake-pool-dashboard .cv-vd-toggle .cv-vd-chip {
+    color: #062a27;
+}
+#stake-pool-dashboard .cv-net-charts .chart-range-labels .cv-side-short {
+    display: none;
+}
+@media (max-width: 560px) {
+    /* Phones: the first screen holds both charts, the four cards and the
+       start of the tabs. Labels under a chart are one small line each. */
+    #stake-pool-dashboard .dashboard-content-container {
+        padding-top: 14px;
+    }
+    #stake-pool-dashboard #summary-container {
+        padding: 14px;
+    }
+    /* (the block and its parts take the whole width of their place) */
+    #stake-pool-dashboard #summary-container .total-stake-card {
+        gap: 6px;
+        width: 100%;
+        max-width: none;
+        padding-left: 0;
+        padding-right: 0;
+        box-sizing: border-box;
+    }
+    #stake-pool-dashboard #summary-container .summary-chart-wrapper,
+    #stake-pool-dashboard #summary-container .interactive-chart-container,
+    #stake-pool-dashboard #summary-container .total-stake-grid {
+        max-width: none;
+    }
+    #stake-pool-dashboard .total-stake-card > .title {
+        gap: 10px;
+        font-size: 16px;
+    }
+    #stake-pool-dashboard .cv-net-charts {
+        gap: 8px;
+        margin-top: 6px;
+    }
+    #stake-pool-dashboard .cv-net-charts .summary-chart-wrapper .interactive-chart-container {
+        min-height: 0;
+        padding: 10px 0 9px;
+    }
+    #stake-pool-dashboard .cv-net-charts .chart-title {
+        min-height: 24px;
+        margin-bottom: 4px;
+    }
+    #stake-pool-dashboard .cv-net-charts .chart-range-labels {
+        margin-top: 2px;
+    }
+    #stake-pool-dashboard .cv-net-charts .chart-range-labels > span {
+        flex: 0 1 auto;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        gap: 4px;
+        font-size: 11px;
+        text-align: left;
+    }
+    #stake-pool-dashboard .cv-net-charts .chart-range-labels > span > .value {
+        flex-basis: auto;
+        order: 0;
+        font-size: 14px;
+    }
+    #stake-pool-dashboard .cv-net-charts .chart-range-labels .cv-side-short + .value,
+    #stake-pool-dashboard .cv-net-charts .chart-range-labels .cv-side-short {
+        display: inline;
+    }
+    #stake-pool-dashboard .cv-net-charts .chart-range-labels .cv-side-name:has(+ .cv-side-short) {
+        display: none;
+    }
+    #stake-pool-dashboard .total-stake-grid {
+        gap: 6px;
+        margin-top: 2px;
+    }
+    #stake-pool-dashboard .total-stake-item {
+        padding: 9px 8px;
+    }
+}
+
+/* ==========================================================================
+   NAVIGATION AND SMALL ITEMS (v3.2.0)
+   ========================================================================== */
+/* The tabs and the way back in the bar are links now: the look stays. */
+#stake-pool-dashboard a.sp-tab-link,
+a.cv-sub-crumb {
+    text-decoration: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+/* Stakers table: the totals of the validator are not one more staker - a
+   tile of the map for a sign and a line of the accent colour under the row. */
+#stake-pool-dashboard .cv-st > .cv-st-row.cv-st-total {
+    border-bottom: 2px solid var(--header-color);
+}
+/* (the tile is wider than the place of a logo and reaches a little out of it) */
+#stake-pool-dashboard .cv-st-total .cv-st-total-ico img.cv-total-tile {
+    flex: 0 0 auto;
+    width: 56px;
+    max-width: none;
+    height: auto;
+    margin: 0 -8px;
+}
+
+/* ==========================================================================
+   ROUND C3 (v3.2.0)
+   ========================================================================== */
+/* Scroll hints: small arrows over the faded edges of a box that scrolls
+   without a visible bar. A place that uses them keeps the box and the two
+   arrows together (one grid cell or one positioned wrapper) and shows an
+   arrow while the box has the matching class (has-more / has-less). */
+.cv-scroll-arrow {
+    display: none;
+    position: relative;
+    z-index: 2;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    background: var(--card-bg);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
+    font-size: 10px;
+    color: var(--header-color);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+@media (max-width: 560px) {
+    /* Sort bars on phones: the row and its arrows share one cell. The arrow
+       at the right stands while options wait there, the one at the left
+       appears once the row has moved. */
+    .cv-sortbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .cv-sortbar > .cv-sort-row,
+    .cv-sortbar > .cv-scroll-arrow {
+        grid-area: 1 / 1;
+        align-self: center;
+    }
+    .cv-sortbar > .cv-sort-row.has-more ~ .cv-scroll-next {
+        display: inline-flex;
+        justify-self: end;
+    }
+    .cv-sortbar > .cv-sort-row.has-less ~ .cv-scroll-prev {
+        display: inline-flex;
+        justify-self: start;
+    }
+    .cv-sortbar .cv-sort-row.has-more {
+        -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 66px), transparent calc(100% - 22px));
+        mask-image: linear-gradient(90deg, #000 calc(100% - 66px), transparent calc(100% - 22px));
+    }
+    .cv-sortbar .cv-sort-row.has-less {
+        -webkit-mask-image: linear-gradient(90deg, transparent 22px, #000 66px);
+        mask-image: linear-gradient(90deg, transparent 22px, #000 66px);
+    }
+    .cv-sortbar .cv-sort-row.has-less.has-more {
+        -webkit-mask-image: linear-gradient(90deg, transparent 22px, #000 66px, #000 calc(100% - 66px), transparent calc(100% - 22px));
+        mask-image: linear-gradient(90deg, transparent 22px, #000 66px, #000 calc(100% - 66px), transparent calc(100% - 22px));
+    }
+}
+
+/* Pool cards: the site and the keys. Five places for keys fit the line of
+   the site on a wide card; when they do not, the keys go to a line of their
+   own and start at the left. */
+#stake-pool-dashboard .cv-pc-foot {
+    justify-content: space-between;
+    gap: 8px 10px;
+}
+#stake-pool-dashboard .cv-pc-keys {
+    gap: 2px;
+    margin-left: 0;
+}
+#stake-pool-dashboard .cv-key.cv-key-ico {
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+}
+#stake-pool-dashboard .cv-key.cv-key-ico .cv-copied-icon {
+    font-size: 10px;
+}
+#stake-pool-dashboard .cv-pc-more {
+    height: 24px;
+    padding: 0 8px;
+}
+@media (max-width: 560px) {
+    /* (a finger needs larger signs than a pointer) */
+    #stake-pool-dashboard .cv-pc-keys {
+        gap: 6px;
+    }
+    #stake-pool-dashboard .cv-key.cv-key-ico {
+        width: 28px;
+        height: 28px;
+        font-size: 11px;
+    }
+    #stake-pool-dashboard .cv-pc-more {
+        height: 28px;
+    }
+}
+
+/* The plot and the name of a card are closer in weight: a slightly smaller
+   plot, a slightly larger name. */
+@media (min-width: 561px) {
+    #stake-pool-dashboard {
+        --plot-w: 120px;
+    }
+}
+@media (min-width: 1200px) {
+    #stake-pool-dashboard .sp-pool-card .card-header .pool-name,
+    #stake-pool-dashboard .cv-src-card .card-header .pool-name {
+        font-size: 22px;
+    }
+}
+@media (max-width: 560px) {
+    #stake-pool-dashboard {
+        --plot-w: 100px;
+    }
+    #stake-pool-dashboard .sp-pool-card .card-header .pool-name,
+    #stake-pool-dashboard .cv-src-card .card-header .pool-name {
+        font-size: 20px;
+    }
+    /* The tile by the title of the top block: the size of a station sign. */
+    #stake-pool-dashboard .total-stake-card > .title > .cv-hero-mark {
+        width: 42px;
+        margin: -5px 0 -4px;
+    }
+}
+@media (max-width: 359px) {
+    #stake-pool-dashboard {
+        --plot-w: 84px;
+    }
+    #stake-pool-dashboard .sp-pool-card .card-header .pool-name,
+    #stake-pool-dashboard .cv-src-card .card-header .pool-name {
+        font-size: 17px;
+    }
+}
+
+/* Reset in the title row of a donut block: stands at the right while a
+   selection is on, so nothing below moves when it appears. */
+#stake-pool-dashboard .cv-reset {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding: 3px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--bg-color);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+}
+#stake-pool-dashboard .cv-reset:hover {
+    border-color: var(--header-color);
+    color: var(--header-color);
+}
+#stake-pool-dashboard .cv-reset[hidden] {
+    display: none;
+}
+#stake-pool-dashboard .pool-chart-block h3 .cv-reset > i {
+    font-size: 10px;
+    color: inherit;
+}
+
+/* ==========================================================================
+   STAKERS TABLE ON NARROW SCREENS (v3.2.0)
+   A real table: the first column (the staker) stands still, the numbers
+   scroll sideways under the header row, rows are thin lines. An arrow over
+   the faded right edge says that more columns wait there.
+   ========================================================================== */
+#stake-pool-dashboard .cv-st-wrap {
+    position: relative;
+    margin-top: 14px;
+}
+#stake-pool-dashboard .cv-st-wrap > .cv-st {
+    margin-top: 0;
+}
+@media (max-width: 1023px) {
+    #stake-pool-dashboard .cv-st {
+        /* staker | active | share | accounts | activating | deactivating | change | trend */
+        --cv-st-cols: minmax(140px, 1fr) 96px 52px 64px 74px 88px 68px 96px;
+        --cv-st-min: 746px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        overscroll-behavior-x: contain;
+        scrollbar-width: none;
+    }
+    #stake-pool-dashboard .cv-st.no-counts {
+        --cv-st-cols: minmax(140px, 1fr) 96px 52px 74px 88px 68px 96px;
+        --cv-st-min: 674px;
+    }
+    #stake-pool-dashboard .cv-st::-webkit-scrollbar {
+        display: none;
+    }
+    #stake-pool-dashboard .cv-st.has-more {
+        -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 30px), transparent calc(100% - 2px));
+        mask-image: linear-gradient(90deg, #000 calc(100% - 30px), transparent calc(100% - 2px));
+    }
+    #stake-pool-dashboard .cv-st-row {
+        --cv-st-bg: var(--card-bg);
+        column-gap: 8px;
+        width: 100%;
+        min-width: var(--cv-st-min);
+        padding: 0 12px 0 0;
+        box-sizing: border-box;
+        font-size: 13px;
+    }
+    #stake-pool-dashboard .cv-st-row > .cv-st-c,
+    #stake-pool-dashboard .cv-st-row > .cv-st-h {
+        padding-top: 8px;
+        padding-bottom: 8px;
+    }
+    /* The first column stays in place: an opaque cell over the scrolling ones. */
+    #stake-pool-dashboard .cv-st-row > .cv-st-source {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        align-self: stretch;
+        gap: 8px;
+        padding-left: 12px;
+        padding-right: 6px;
+        background: var(--cv-st-bg);
+    }
+    #stake-pool-dashboard .cv-st.has-less .cv-st-row > .cv-st-source {
+        box-shadow: 9px 0 9px -9px rgba(0, 0, 0, 0.18);
+    }
+    body.dark-theme-body #stake-pool-dashboard .cv-st.has-less .cv-st-row > .cv-st-source {
+        box-shadow: 9px 0 9px -9px rgba(0, 0, 0, 0.5);
+    }
+    #stake-pool-dashboard .cv-st-head {
+        --cv-st-bg: var(--bg-color);
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+    #stake-pool-dashboard .cv-st-head > .cv-st-h {
+        padding-top: 10px;
+        padding-bottom: 10px;
+        font-size: 11px;
+    }
+    #stake-pool-dashboard .cv-st-total {
+        --cv-st-bg: linear-gradient(var(--chart-bg-color), var(--chart-bg-color)), var(--card-bg);
+    }
+    #stake-pool-dashboard .cv-st-row.is-past {
+        --cv-st-bg: repeating-linear-gradient(135deg, rgba(128, 128, 128, 0.10) 0 5px, transparent 5px 13px), var(--bg-color);
+    }
+    #stake-pool-dashboard .cv-st .cv-flow-logo {
+        flex: 0 0 26px;
+        width: 26px;
+        height: 26px;
+    }
+    #stake-pool-dashboard .cv-st .cv-flow-logo:has(> img[data-logo-iso]) {
+        flex: 0 0 30px;
+        width: 30px;
+        height: 30px;
+        margin: 0 -2px;
+    }
+    #stake-pool-dashboard .cv-st-source .cv-vd-src-text {
+        min-width: 0;
+    }
+    #stake-pool-dashboard .cv-st-source .cv-vd-src-name {
+        display: block;
+        font-size: 13px;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+    }
+    #stake-pool-dashboard .cv-st-source .cv-vd-src-cat {
+        font-size: 10.5px;
+    }
+    /* (the share is its number here; the bar is for wide screens) */
+    #stake-pool-dashboard .cv-st-share .cv-st-bar {
+        display: none;
+    }
+    #stake-pool-dashboard .cv-st-share .cv-st-pct {
+        flex: 1 1 auto;
+    }
+    #stake-pool-dashboard .cv-st-trend {
+        padding-left: 0;
+    }
+    #stake-pool-dashboard .cv-st .cv-mini-spark {
+        width: 96px;
+    }
+    #stake-pool-dashboard .cv-st-row .cv-corner {
+        display: none;
+    }
+    /* The totals row: a smaller tile in the place of a logo. */
+    #stake-pool-dashboard .cv-st-total .cv-st-total-ico {
+        flex-basis: 26px;
+        width: 26px;
+        height: 26px;
+    }
+    #stake-pool-dashboard .cv-st-total .cv-st-total-ico img.cv-total-tile {
+        width: 36px;
+        margin: 0 -5px;
+    }
+    /* A heading of a group of rows keeps to the left edge while the columns scroll. */
+    #stake-pool-dashboard .cv-st-group {
+        position: sticky;
+        left: 0;
+        width: 100%;
+        padding: 6px 12px;
+        box-sizing: border-box;
+        font-size: 12px;
+    }
+    /* The arrows: at the right over the faded edge; the one that leads back
+       stands in the free end of the header cell of the first column. */
+    #stake-pool-dashboard .cv-st-wrap > .cv-st.has-more ~ .cv-scroll-next,
+    #stake-pool-dashboard .cv-st-wrap > .cv-st.has-less ~ .cv-scroll-prev {
+        display: inline-flex;
+        position: absolute;
+        top: 4px;
+    }
+    #stake-pool-dashboard .cv-st-wrap > .cv-scroll-next {
+        right: 5px;
+    }
+    #stake-pool-dashboard .cv-st-wrap > .cv-scroll-prev {
+        left: 110px;
+    }
+}
+@media (max-width: 768px) {
+    /* Phones: the table takes the whole width of its block (no side frame),
+       the first column is as narrow as a name allows, and the category of a
+       row is left to the Category order above the table. */
+    #stake-pool-dashboard .cv-st-wrap {
+        margin-left: -12px;
+        margin-right: -12px;
+    }
+    #stake-pool-dashboard .cv-st-wrap > .cv-st {
+        border-left: 0;
+        border-right: 0;
+        border-radius: 0;
+    }
+    /* Five columns that fit a phone: the staker, its stake, the stake on the
+       move and the chart. The first column is wide enough for the longest
+       word of a name; only on the narrowest phones the table scrolls a
+       little, to its chart. */
+    #stake-pool-dashboard .cv-st-wrap > .cv-st,
+    #stake-pool-dashboard .cv-st-wrap > .cv-st.no-counts {
+        --cv-st-cols: minmax(120px, 1fr) 50px 42px 42px 46px;
+        --cv-st-min: 328px;
+    }
+    #stake-pool-dashboard .cv-st-source .cv-vd-src-cat {
+        display: none;
+    }
+    #stake-pool-dashboard .cv-st-total .cv-st-source .cv-vd-src-cat {
+        display: block;
+    }
+    #stake-pool-dashboard .cv-st-wrap > .cv-scroll-prev {
+        left: 108px;
+    }
+}
+@media (max-width: 379px) {
+    /* Small phones: narrower columns and a smaller arrow, so the stake and
+       the share of a row are in sight whole next to the name. */
+    #stake-pool-dashboard .cv-st-wrap > .cv-st,
+    #stake-pool-dashboard .cv-st-wrap > .cv-st.no-counts {
+        --cv-st-cols: minmax(118px, 1fr) 48px 40px 40px 30px;
+        --cv-st-min: 304px;
+    }
+    #stake-pool-dashboard .cv-st-wrap > .cv-st .cv-st-row,
+    #stake-pool-dashboard .cv-st-wrap > .cv-st .cv-st-source .cv-vd-src-name {
+        font-size: 12.5px;
+    }
+    #stake-pool-dashboard .cv-st.has-more {
+        -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent calc(100% - 2px));
+        mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent calc(100% - 2px));
+    }
+    #stake-pool-dashboard .cv-st-row > .cv-st-source {
+        gap: 6px;
+        padding-right: 4px;
+    }
+    #stake-pool-dashboard .cv-st .cv-flow-logo {
+        flex: 0 0 24px;
+        width: 24px;
+        height: 24px;
+    }
+    #stake-pool-dashboard .cv-st .cv-flow-logo:has(> img[data-logo-iso]) {
+        flex: 0 0 28px;
+        width: 28px;
+        height: 28px;
+    }
+    #stake-pool-dashboard .cv-st-total .cv-st-total-ico {
+        flex-basis: 24px;
+        width: 24px;
+        height: 24px;
+    }
+    #stake-pool-dashboard .cv-st-total .cv-st-total-ico img.cv-total-tile {
+        width: 34px;
+    }
+    #stake-pool-dashboard .cv-st-wrap > .cv-scroll-arrow {
+        width: 22px;
+        height: 22px;
+        font-size: 9px;
+    }
+    #stake-pool-dashboard .cv-st-wrap > .cv-st.has-more ~ .cv-scroll-next,
+    #stake-pool-dashboard .cv-st-wrap > .cv-st.has-less ~ .cv-scroll-prev {
+        top: 6px;
+    }
+    #stake-pool-dashboard .cv-st-wrap > .cv-scroll-next {
+        right: 3px;
+    }
+    #stake-pool-dashboard .cv-st-wrap > .cv-scroll-prev {
+        left: 97px;
+    }
+}
+@media (min-width: 769px) and (max-width: 879px) {
+    /* Small tablets: tighter columns, so the whole table fits without scrolling. */
+    #stake-pool-dashboard .cv-st {
+        --cv-st-cols: minmax(150px, 1fr) 96px 50px 54px 70px 84px 62px 48px;
+        --cv-st-min: 668px;
+    }
+    #stake-pool-dashboard .cv-st.no-counts {
+        --cv-st-cols: minmax(150px, 1fr) 96px 50px 70px 84px 62px 48px;
+        --cv-st-min: 608px;
+    }
+    #stake-pool-dashboard .cv-st-row {
+        column-gap: 6px;
+    }
+    #stake-pool-dashboard .cv-st .cv-mini-spark {
+        width: 48px;
+    }
+}
+@media (max-width: 1023px) {
+    /* A staker without stake in the epoch: its note stays inside the first column. */
+    #stake-pool-dashboard .cv-st .cv-vd-past-line {
+        gap: 4px;
+    }
+    #stake-pool-dashboard .cv-st .cv-vd-past-badge {
+        border-radius: 8px;
+        font-size: 10.5px;
+        line-height: 1.25;
+        white-space: normal;
+    }
+}
+@media (max-width: 359px) {
+    /* The narrowest phones: both halves of the "which stakers" switch stay
+       whole (each takes the room its words need). */
+    #stake-pool-dashboard .cv-vd-head-tools #cv-vd-scope .cv-vd-toggle button {
+        flex: 1 1 auto;
+        gap: 4px;
+        padding: 8px 6px;
+        font-size: 12.5px;
+    }
+}
+/* ==========================================================================
+   VALIDATORS OF A POOL (v3.2.0)
+   A row of the list on a pool page is a line of tiles of one family, from
+   left to right (or top to bottom on a narrow screen): who the validator is
+   - rank, logo and name, the chips and the signs of its keys; its total
+   stake, with small logos of the other stakers; three tiles of this pool.
+   The tiles of the pool are the accent of a row in both themes (a deeper
+   sand on the light card, a lifted warm tone on the dark one - a neutral
+   tone: a tile says "of this pool", not "growing"), the validator and its
+   total stake stand on a quiet tone. A tile of the pool is a sign and a
+   number: the mark of the pool (with an arrow for stake on the move) says
+   what the number is, and the tooltip names it in full. The layout follows
+   the width of the list, not of the screen; in a narrow list every
+   validator is a sheet of its own.
+   ========================================================================== */
+#stake-pool-dashboard #pool-validators-table {
+    container: cvrows / inline-size;
+    overflow: visible;
+}
+@media (max-width: 560px) {
+    /* Phones: the block keeps less air at its sides (as the chart blocks
+       above it do), the list gets it. */
+    #stake-pool-dashboard .pool-validators-section {
+        padding: 18px 14px;
+    }
+}
+#stake-pool-dashboard .cv-vrows {
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: var(--card-bg);
+}
+/* (the tone of the tiles of the pool as a solid colour: the mark on an
+   arrow is cut out of its tile with it) */
+#stake-pool-dashboard .cv-vrow {
+    --cv-pool-tile: #f0e8d3;
+    --cv-quiet-tile: var(--bg-color);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-color);
+}
+/* (dark theme: the page colour is the deepest tone there is, and a tile of
+   it would be the loudest thing of a row - the quiet tiles take a tone next
+   to the card, the tiles of the pool rise above it) */
+body.dark-theme-body #stake-pool-dashboard .cv-vrow {
+    --cv-pool-tile: #2f2c26;
+    --cv-quiet-tile: #1a1915;
+}
+#stake-pool-dashboard .cv-vrow:last-child {
+    border-bottom: 0;
+}
+/* Who: a tile with the grammar of the others - a sign (the logo), a strong
+   line (the name) and a small line under it (the chips and the keys). */
+#stake-pool-dashboard .cv-vrow-who {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    grid-template-areas: "rank logo name" "rank logo sub";
+    align-items: center;
+    gap: 5px 9px;
+    min-width: 0;
+    padding: 10px 11px;
+    border-radius: 12px;
+    background: var(--cv-quiet-tile);
+}
+/* (the rank keeps one width, so the logos of the rows stand in one column) */
+#stake-pool-dashboard .cv-vrow .pv-rank {
+    grid-area: rank;
+    min-width: 34px;
+    text-align: left;
+    font-variant-numeric: tabular-nums;
+}
+#stake-pool-dashboard .cv-vrow .cv-vlink-avatar {
+    grid-area: logo;
+}
+#stake-pool-dashboard .cv-vrow .validator-image-wrapper,
+#stake-pool-dashboard .cv-vrow .validator-image,
+#stake-pool-dashboard .cv-vrow .validator-image.fallback {
+    width: 40px;
+    height: 40px;
+}
+#stake-pool-dashboard .cv-vrow .validator-image.fallback {
+    font-size: 14px;
+}
+/* (the name is the largest text of a row: no number is larger) */
+#stake-pool-dashboard .cv-vrow-name {
+    grid-area: name;
+    align-self: end;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--text-color);
+}
+#stake-pool-dashboard .cv-vrow-sub {
+    grid-area: sub;
+    align-self: start;
+}
+/* (the signs of the keys keep one place in every row, whatever the chips
+   before them: the right edge of the tile) */
+#stake-pool-dashboard .cv-vrow-sub > .cv-key-signs {
+    margin-left: auto;
+}
+/* Cells */
+#stake-pool-dashboard .cv-vrow-cells {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    min-width: 0;
+}
+#stake-pool-dashboard .cv-vrow-total {
+    grid-column: 1 / -1;
+}
+/* The total stake of the validator: a head cell that also holds the logos
+   of its other stakers. Like the tile of the validator, it is neutral. */
+#stake-pool-dashboard .cv-vrow-total {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    min-width: 0;
+    padding: 10px;
+    border-radius: 12px;
+    background: var(--cv-quiet-tile);
+}
+#stake-pool-dashboard .cv-vrow-total > .cv-head {
+    flex: 1 1 104px;
+    padding: 0;
+    border-radius: 0;
+    background: none;
+}
+/* One size for the numbers of every row, whatever stands next to them. */
+#stake-pool-dashboard .cv-vrow-total > .cv-head .cv-cell-text b,
+#stake-pool-dashboard .cv-vrow-in .cv-cell-text b,
+#stake-pool-dashboard .cv-vrow-flow .cv-cell-text b {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+#stake-pool-dashboard .cv-vrow-others {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    margin-left: auto;
+}
+#stake-pool-dashboard .cv-vrow-others > small {
+    font-size: 10px;
+    line-height: 1.2;
+    color: var(--secondary-text-color);
+    white-space: nowrap;
+}
+/* (nobody else stakes with the validator: one quiet line says so) */
+#stake-pool-dashboard .cv-vrow-others.is-none > small {
+    font-size: 10.5px;
+    font-style: italic;
+    opacity: 0.85;
+}
+#stake-pool-dashboard .cv-vrow-logos {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+#stake-pool-dashboard .cv-vrow-other {
+    display: inline-flex;
+}
+#stake-pool-dashboard .cv-vrow-other .cv-flow-logo {
+    width: 22px;
+    height: 22px;
+}
+#stake-pool-dashboard .cv-vrow-other .cv-flow-logo.is-other svg {
+    width: 13px;
+    height: 13px;
+}
+#stake-pool-dashboard .cv-vrow-more {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 5px;
+    border: 1px solid var(--border-color);
+    border-radius: 11px;
+    background: var(--card-bg);
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--secondary-text-color);
+}
+/* The three tiles of this pool share one tone. */
+#stake-pool-dashboard .cv-vrow-in,
+#stake-pool-dashboard .cv-vrow-flow {
+    background: var(--cv-pool-tile);
+}
+/* (a tile of the pool shows no name of its measure - the sign says it, the
+   tooltip spells it; the name stays in the page for screen readers) */
+#stake-pool-dashboard .cv-vrow-in .cv-cell-text small,
+#stake-pool-dashboard .cv-vrow-flow .cv-cell-text small {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+#stake-pool-dashboard .cv-vrow-flow {
+    gap: 8px;
+}
+#stake-pool-dashboard .cv-vrow-in.is-zero .cv-cell-text b,
+#stake-pool-dashboard .cv-vrow-flow.is-zero .cv-cell-text b {
+    font-weight: 600;
+    color: var(--secondary-text-color);
+}
+/* The sign of the stake in the pool is the sprite of the pool (or the flat
+   logo standing in for it, in the manner of the other places of a sprite). */
+#stake-pool-dashboard .cv-vrow-sign {
+    display: inline-flex;
+    flex: 0 0 auto;
+}
+#stake-pool-dashboard .cv-vrow-sign .cv-flow-logo {
+    width: 34px;
+    height: 34px;
+}
+#stake-pool-dashboard .cv-vrow-sign .cv-flow-logo:has(> img[data-logo-iso]) {
+    overflow: visible;
+    border-color: transparent;
+    border-radius: 0;
+    background: transparent;
+}
+#stake-pool-dashboard .cv-vrow-sign .cv-flow-logo > img[data-logo-iso][src^="/pool-logos/"] {
+    padding: 0;
+    object-fit: contain;
+}
+#stake-pool-dashboard .cv-vrow-sign .cv-flow-logo > img[data-logo-iso]:not([src^="/pool-logos/"]) {
+    padding: 10%;
+    object-fit: contain;
+    transform: skewY(-14deg) scaleX(0.88);
+    filter: drop-shadow(1px 1px 0 var(--iso-side)) drop-shadow(1px 1px 0 var(--iso-side)) drop-shadow(1px 1px 0 var(--iso-side));
+}
+#stake-pool-dashboard .cv-vrow-sign .cv-flow-logo.is-other svg {
+    width: 58%;
+    height: 58%;
+}
+#stake-pool-dashboard .cv-vrow-sign .cv-flow-logo.is-initials {
+    font-size: 12px;
+}
+/* The stake on the move is the stake of this pool: the small logo of the
+   pool stands first and the arrow starts from it - its tail lies over the
+   edge of the logo, its head is free. */
+#stake-pool-dashboard .cv-vrow-flowsign {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+}
+#stake-pool-dashboard .cv-vrow-flowsign > img.cv-ico {
+    width: 28px;
+    height: 28px;
+    margin-left: -7px;
+}
+#stake-pool-dashboard .cv-vrow-mark {
+    display: inline-flex;
+    border-radius: 50%;
+}
+/* (the tail of a rising arrow is low, of a falling one high: the logo
+   stands where the arrow starts) */
+#stake-pool-dashboard .cv-vrow-flowsign.is-activating > .cv-vrow-mark {
+    transform: translateY(4px);
+}
+#stake-pool-dashboard .cv-vrow-flowsign.is-deactivating > .cv-vrow-mark {
+    transform: translateY(-4px);
+}
+#stake-pool-dashboard .cv-vrow-mark .cv-flow-logo {
+    width: 18px;
+    height: 18px;
+}
+#stake-pool-dashboard .cv-vrow-mark .cv-flow-logo.is-other svg {
+    width: 11px;
+    height: 11px;
+}
+#stake-pool-dashboard .cv-vrow-mark .cv-flow-logo.is-initials {
+    font-size: 8px;
+}
+#stake-pool-dashboard .cv-vrow-flow.is-zero .cv-vrow-mark {
+    opacity: 0.6;
+}
+
+/* While the total stake stands under the validator, every validator is a
+   sheet of its own: a tone of its own (the block around it keeps the tone
+   of the card), a clear edge, and more air between two sheets than there is
+   between the parts of one. The validator and its total stake stand on the
+   sheet, divided by a line, and the tiles of the pool close it. */
+@container cvrows (max-width: 699.98px) {
+    #stake-pool-dashboard .cv-vrows {
+        border: 0;
+        border-radius: 0;
+        background: none;
+    }
+    #stake-pool-dashboard .cv-vrow {
+        --cv-sheet: #fdfbf5;
+        --cv-sheet-edge: #ddd3b8;
+        gap: 0;
+        padding: 0;
+        border: 1px solid var(--cv-sheet-edge);
+        border-radius: 16px;
+        background: var(--cv-sheet);
+    }
+    body.dark-theme-body #stake-pool-dashboard .cv-vrow {
+        --cv-sheet: #262520;
+        --cv-sheet-edge: #45413a;
+    }
+    #stake-pool-dashboard .cv-vrow + .cv-vrow {
+        margin-top: 18px;
+    }
+    #stake-pool-dashboard .cv-vrow:last-child {
+        border-bottom: 1px solid var(--cv-sheet-edge);
+    }
+    #stake-pool-dashboard .cv-vrow-who {
+        padding: 12px 10px 10px;
+        border-radius: 0;
+        background: none;
+    }
+    #stake-pool-dashboard .cv-vrow-cells {
+        padding: 0 8px 8px;
+    }
+    #stake-pool-dashboard .cv-vrow-total {
+        margin: 0 -8px;
+        padding: 10px 10px 2px;
+        border-top: 1px solid var(--border-color);
+        border-radius: 0;
+        background: none;
+    }
+}
+/* A narrow list (phones): the chips of the validator stand under its logo
+   and name, in one line. */
+@container cvrows (max-width: 479.98px) {
+    #stake-pool-dashboard .cv-vrow-who {
+        grid-template-areas: "rank logo name" "sub sub sub";
+        row-gap: 9px;
+    }
+    /* (no tooltip under a finger: a long name takes a second line instead
+       of being cut) */
+    #stake-pool-dashboard .cv-vrow-name .cv-name-text {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+    #stake-pool-dashboard .cv-vrow-name {
+        align-self: center;
+    }
+    #stake-pool-dashboard .cv-vrow .pv-rank {
+        min-width: 30px;
+    }
+}
+/* Phones: the three tiles of the pool are upright, in one line - a sign
+   over its number, both in the middle of the tile. */
+@container cvrows (max-width: 429.98px) {
+    #stake-pool-dashboard .cv-vrow-in,
+    #stake-pool-dashboard .cv-vrow-flow {
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        padding: 9px 6px 8px;
+    }
+    #stake-pool-dashboard .cv-vrow-in > .cv-cell-text,
+    #stake-pool-dashboard .cv-vrow-flow > .cv-cell-text {
+        flex: 0 0 auto;
+        align-self: stretch;
+        text-align: center;
+    }
+    #stake-pool-dashboard .cv-vrow-sign .cv-flow-logo {
+        width: 28px;
+        height: 28px;
+    }
+    #stake-pool-dashboard .cv-vrow-in .cv-cell-text b,
+    #stake-pool-dashboard .cv-vrow-flow .cv-cell-text b {
+        font-size: clamp(13px, 24cqi, 17px);
+    }
+}
+/* The narrowest phones: less air in the tiles and smaller logos of the
+   other stakers, so every number fits and the logos stay on their line. */
+@container cvrows (max-width: 271.98px) {
+    #stake-pool-dashboard .cv-vrow-cells {
+        gap: 5px;
+        padding: 0 5px 5px;
+    }
+    #stake-pool-dashboard .cv-vrow-in,
+    #stake-pool-dashboard .cv-vrow-flow {
+        padding: 9px 6px;
+    }
+    #stake-pool-dashboard .cv-vrow-who {
+        padding: 10px 8px 9px;
+        column-gap: 8px;
+    }
+    #stake-pool-dashboard .cv-vrow-name {
+        font-size: 16px;
+    }
+    #stake-pool-dashboard .cv-vrow .validator-image-wrapper,
+    #stake-pool-dashboard .cv-vrow .validator-image,
+    #stake-pool-dashboard .cv-vrow .validator-image.fallback {
+        width: 36px;
+        height: 36px;
+    }
+    #stake-pool-dashboard .cv-vrow-total {
+        gap: 6px 8px;
+        margin: 0 -5px;
+        padding: 9px 8px 2px;
+    }
+    #stake-pool-dashboard .cv-vrow-total > .cv-head {
+        flex-basis: 98px;
+    }
+    #stake-pool-dashboard .cv-vrow-total > .cv-head img.cv-ico {
+        width: 28px;
+        height: 28px;
+    }
+    #stake-pool-dashboard .cv-vrow-logos {
+        gap: 3px;
+    }
+    #stake-pool-dashboard .cv-vrow-other .cv-flow-logo,
+    #stake-pool-dashboard .cv-vrow-more {
+        width: 20px;
+        height: 20px;
+    }
+    #stake-pool-dashboard .cv-vrow-more {
+        min-width: 20px;
+        width: auto;
+        padding: 0 4px;
+    }
+}
+@container cvrows (max-width: 249.98px) {
+    #stake-pool-dashboard .cv-vrow-total > .cv-head {
+        flex-basis: 94px;
+    }
+}
+/* From 700 px all four cells stand in one line. */
+@container cvrows (min-width: 700px) {
+    #stake-pool-dashboard .cv-vrow-cells {
+        grid-template-columns: minmax(263px, 1.9fr) repeat(3, minmax(0, 1fr));
+    }
+    #stake-pool-dashboard .cv-vrow-total {
+        grid-column: auto;
+    }
+}
+/* A wide list: who on the left, the cells on the right. */
+@container cvrows (min-width: 1060px) {
+    #stake-pool-dashboard .cv-vrow {
+        grid-template-columns: minmax(0, 0.56fr) minmax(0, 1fr);
+    }
+}
+/* ==========================================================================
+   VALIDATORS LIST: ROWS (v3.2.0)
+   Who a validator is reads in two lines: the name (the largest text of a
+   row), then one line of small things - the signs of its keys first (they
+   start where the name starts, in every row), then the chips. Its stake
+   reads in the same two lines: the total stake, and under it the stake on
+   the move. The numbers are small chips with the signs of the set. On a
+   phone the whole card is centred: the logo over the name, then the same
+   line of keys and chips; the rank stands in the top corner.
+   ========================================================================== */
+#stake-pool-dashboard .validator-item > .validator-main-info {
+    display: grid;
+    grid-template-columns: auto auto 330px;
+    grid-template-areas: "rank logo info" "rank logo sub";
+    align-items: center;
+    gap: 6px 16px;
+}
+#stake-pool-dashboard .validator-item .validator-rank {
+    grid-area: rank;
+}
+#stake-pool-dashboard .validator-item .cv-vlink-avatar {
+    grid-area: logo;
+}
+#stake-pool-dashboard .validator-item .validator-info {
+    grid-area: info;
+    align-self: end;
+}
+#stake-pool-dashboard .validator-item .validator-main-info > .cv-chipline {
+    grid-area: sub;
+    align-self: start;
+}
+/* (the signs of the keys open the line: one place in every row, whatever
+   the chips after them, and next to the validator they belong to) */
+#stake-pool-dashboard .validator-item .validator-main-info > .cv-chipline > .cv-key-signs,
+#stake-pool-dashboard .cv-inactive-main > .cv-chipline > .cv-key-signs {
+    margin-right: 3px;
+}
+#stake-pool-dashboard .validator-item .validator-name {
+    margin-bottom: 0;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.25;
+}
+/* The stake: the total in the first line, the stake on the move under it. */
+#stake-pool-dashboard .validator-item > .validator-stake-stats {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 6px;
+}
+#stake-pool-dashboard .validator-stake-stats .stake-flows {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+#stake-pool-dashboard .validator-stake-stats .stake-stat {
+    gap: 6px;
+    padding: 4px 10px 4px 6px;
+    border-radius: 10px;
+    background: var(--bg-color);
+    font-size: 13.5px;
+    line-height: 1.2;
+}
+/* (in the dark theme a chip stands out of its card as softly as it does in
+   the light one) */
+body.dark-theme-body #stake-pool-dashboard .validator-stake-stats .stake-stat {
+    background: #191814;
+}
+#stake-pool-dashboard .validator-stake-stats .stake-stat img.cv-ico {
+    width: 22px;
+    height: 22px;
+}
+/* The amount under the logo of a staker is strong enough to read at a glance. */
+#stake-pool-dashboard .validator-pools .pool-badge-stake {
+    font-size: 12px !important;
+    font-weight: 600;
+    color: var(--secondary-text-color) !important;
+}
+/* Inactive validators found by the search: the chips of their last epoch
+   and the signs of their keys are one line too. */
+#stake-pool-dashboard .cv-chipline > .cv-inactive-chips {
+    display: contents;
+}
+#stake-pool-dashboard .cv-inactive-main > .cv-chipline {
+    margin-top: 3px;
+}
+@media (min-width: 769px) {
+    /* (the rank keeps one width and ends at the logo, like the number of a
+       list item: the logos, the names and the signs of the keys stand in the
+       same columns in the first row and in the six hundredth) */
+    #stake-pool-dashboard .validator-item .validator-rank {
+        width: 38px;
+        min-width: 38px;
+        text-align: right;
+        white-space: nowrap;
+    }
+    /* (one width for the column of the stake, so the logos of the stakers
+       start on one line in every row) */
+    #stake-pool-dashboard .validator-item > .validator-stake-stats {
+        flex: 0 0 204px;
+        min-width: 0;
+    }
+}
+@media (min-width: 769px) and (max-width: 992px) {
+    /* Tablets: the stakers stand under the row, across its whole width (the
+       gap of the row is the air above their line: no margin on top of it). */
+    #stake-pool-dashboard .validator-item > .validator-pools {
+        flex: 1 1 100%;
+        max-width: none;
+        margin-left: 0;
+        margin-top: 0;
+    }
+}
+@media (max-width: 768px) {
+    /* Phones: the card is centred from top to bottom, as its stake and its
+       stakers are. The logo stands in the middle with the rank in the corner
+       beside it, the name under it (a long name takes a second line instead
+       of being cut: no tooltip under a finger), then the keys and the chips
+       in one centred line. */
+    #stake-pool-dashboard .validator-item > .validator-main-info {
+        position: relative;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+        grid-template-areas: "rank logo ." "info info info" "sub sub sub";
+        justify-items: center;
+        gap: 8px 12px;
+        min-width: 0;
+    }
+    #stake-pool-dashboard .validator-item .validator-rank {
+        justify-self: start;
+        min-width: 0;
+        text-align: left;
+    }
+    #stake-pool-dashboard .validator-item .validator-info {
+        align-self: center;
+        min-width: 0;
+        max-width: 100%;
+        text-align: center;
+    }
+    #stake-pool-dashboard .validator-item .validator-name {
+        justify-content: center;
+        overflow: visible;
+        white-space: normal;
+    }
+    /* A centred line holds nothing a visitor does not see. The name is
+       centred by its letters alone: the arrow of the link stands out of the
+       flow, right after the last letter (in the room the link keeps on both
+       of its sides), and the button that copies the name is not here (the
+       page of the validator copies it, as the desktop row does). */
+    #stake-pool-dashboard .validator-item .validator-name > a.cv-name-text {
+        position: relative;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        padding: 0 24px;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+    #stake-pool-dashboard .validator-item .validator-name .cv-name-run {
+        display: block;
+    }
+    #stake-pool-dashboard .validator-item .validator-name svg.cv-go {
+        position: absolute;
+        margin-top: 0.24em;
+    }
+    #stake-pool-dashboard .validator-item .validator-name > .cv-copy-btn {
+        display: none;
+    }
+    #stake-pool-dashboard .validator-item .validator-main-info > .cv-chipline {
+        justify-content: center;
+    }
+    #stake-pool-dashboard .validator-item .validator-main-info > .cv-chipline > .cv-key-signs {
+        margin-right: 2px;
+    }
+    #stake-pool-dashboard .validator-item > .validator-stake-stats {
+        align-items: center;
+        gap: 8px;
+    }
+    #stake-pool-dashboard .validator-stake-stats .stake-flows {
+        justify-content: center;
+        gap: 8px;
+    }
+}
+@media (max-width: 345px) {
+    /* The narrowest phones: slightly smaller signs, so the keys and the
+       chips of most validators still stand in one line. */
+    #stake-pool-dashboard .validator-item .validator-main-info > .cv-chipline {
+        gap: 4px;
+    }
+    #stake-pool-dashboard .validator-item .validator-main-info > .cv-chipline > .cv-key-signs {
+        gap: 4px;
+        margin-right: 1px;
+    }
+    #stake-pool-dashboard .validator-item .cv-key-signs .cv-key.cv-key-ico {
+        width: 24px;
+        height: 24px;
+    }
+}
+/* ==========================================================================
+   POOL PAGE: THE LEGEND OF THE DONUT (v3.2.0)
+   Rows in the manner of the validator page: the colour, the logo of the
+   validator, its name, the share in bold and the amount in grey. The legend
+   scrolls without a bar: the edge where more rows wait fades, and a small
+   arrow stands over it.
+   ========================================================================== */
+#stake-pool-dashboard .cv-legend-wrap {
+    position: relative;
+    display: flex;
+    flex: 1 1 0;
+    min-width: 0;
+    align-self: stretch;
+}
+#stake-pool-dashboard .stake-distribution-block .stake-distribution-legend {
+    flex: 1 1 auto;
+    gap: 2px;
+    max-height: 232px;
+    padding-right: 0;
+    font-size: 13px;
+    scrollbar-width: none;
+}
+#stake-pool-dashboard .stake-distribution-block .stake-distribution-legend::-webkit-scrollbar {
+    display: none;
+}
+#stake-pool-dashboard .stake-distribution-legend.has-more {
+    -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 36px), transparent 100%);
+    mask-image: linear-gradient(180deg, #000 calc(100% - 36px), transparent 100%);
+}
+#stake-pool-dashboard .stake-distribution-legend.has-less {
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 36px);
+    mask-image: linear-gradient(180deg, transparent 0, #000 36px);
+}
+#stake-pool-dashboard .stake-distribution-legend.has-more.has-less {
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 36px, #000 calc(100% - 36px), transparent 100%);
+    mask-image: linear-gradient(180deg, transparent 0, #000 36px, #000 calc(100% - 36px), transparent 100%);
+}
+#stake-pool-dashboard .cv-legend-wrap > .stake-distribution-legend.has-more ~ .cv-scroll-next,
+#stake-pool-dashboard .cv-legend-wrap > .stake-distribution-legend.has-less ~ .cv-scroll-prev {
+    display: inline-flex;
+    position: absolute;
+    left: 50%;
+    margin-left: -13px;
+}
+#stake-pool-dashboard .cv-legend-wrap > .cv-scroll-next {
+    bottom: 0;
+}
+#stake-pool-dashboard .cv-legend-wrap > .cv-scroll-prev {
+    top: 0;
+}
+#stake-pool-dashboard .stake-distribution-block .legend-item {
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 8px;
+    color: var(--text-color);
+}
+#stake-pool-dashboard .stake-distribution-block .legend-item .legend-color {
+    flex: 0 0 10px;
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+}
+#stake-pool-dashboard .stake-distribution-block .legend-item .legend-name {
+    max-width: none;
+}
+#stake-pool-dashboard .stake-distribution-block .legend-avatar {
+    flex: 0 0 20px;
+    width: 20px;
+    height: 20px;
+}
+#stake-pool-dashboard .stake-distribution-block .legend-avatar .validator-image {
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border-radius: 50%;
+    object-fit: cover;
+}
+#stake-pool-dashboard .stake-distribution-block .legend-avatar .validator-image.fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ph-bg);
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--ph-ink);
+}
+#stake-pool-dashboard .stake-distribution-block .legend-avatar.is-icon {
+    font-size: 10px;
+}
+#stake-pool-dashboard .stake-distribution-block .legend-share {
+    flex-shrink: 0;
+    font-weight: 600;
+}
+#stake-pool-dashboard .stake-distribution-block .legend-sol {
+    flex: 0 0 52px;
+    font-size: 12px;
+    color: var(--secondary-text-color);
+    text-align: right;
+}
+#stake-pool-dashboard .stake-distribution-block .legend-item.disabled .legend-avatar {
+    filter: grayscale(1);
+}
+/* (the title row: the note and Reset keep to the right) */
+#stake-pool-dashboard .stake-distribution-block h3 .cv-reset {
+    align-self: center;
+    margin-left: 0;
+}
+@media (max-width: 768px) {
+    /* The legend stands under the donut and takes the whole width. */
+    #stake-pool-dashboard .cv-legend-wrap {
+        flex: 0 0 auto;
+        width: 100%;
+    }
+    #stake-pool-dashboard .stake-distribution-block h3 .cv-reset {
+        margin-left: auto;
+    }
+}
+/* ==========================================================================
+   BUBBLES OF THE STAKERS BLOCK (v3.2.0)
+   Every staker of the epoch is a bubble of glass: a highlight, some depth,
+   the logo inside and, when there is room, the amount. The glass takes the
+   colour of stake on the move (green in, red out, both for both; a dashed
+   rim when the whole stake is arriving or leaving), as strongly as that
+   stake moves. The script gives every bubble its size (--d), its place and
+   the strength of its movement (--mv, 0..1); --i is its number, largest
+   first. Everything else of the view is one panel: the three totals, the
+   stakers without stake in the epoch, the note about the smallest ones.
+   ========================================================================== */
+/* (this view has no sort bar) */
+#stake-pool-dashboard .cv-vd-sortbar:empty {
+    display: none;
+}
+/* A phone: the totals above the map, the rest of the panel under it. */
+#stake-pool-dashboard .cv-bwrap {
+    display: flex;
+    flex-direction: column;
+    margin-top: 14px;
+}
+#stake-pool-dashboard .cv-binfo {
+    display: contents;
+}
+#stake-pool-dashboard .cv-bubble-chips {
+    order: 1;
+}
+#stake-pool-dashboard .cv-bmap,
+#stake-pool-dashboard .cv-bmap-empty {
+    order: 2;
+}
+#stake-pool-dashboard .cv-bpast {
+    order: 3;
+}
+#stake-pool-dashboard .cv-binfo > .cv-vd-small {
+    order: 4;
+}
+/* The three totals: tiles of the family of the other tiles (a sign, a
+   strong number, a small name), not pills - they do not sort anything. A
+   click opens the split by staker. */
+#stake-pool-dashboard .cv-bubble-chips {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+#stake-pool-dashboard .cv-bubble-chip {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "ico" "value" "label";
+    justify-items: start;
+    gap: 2px;
+    min-width: 0;
+    margin: 0;
+    padding: 10px 10px 9px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    background: var(--bg-color);
+    font: inherit;
+    line-height: 1.2;
+    text-align: left;
+    color: var(--secondary-text-color);
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+}
+#stake-pool-dashboard .cv-bubble-chip:hover,
+#stake-pool-dashboard .cv-bubble-chip.is-picked {
+    border-color: var(--header-color);
+}
+#stake-pool-dashboard .cv-bubble-chip img.cv-ico {
+    grid-area: ico;
+    width: 28px;
+    height: 28px;
+    margin-bottom: 4px;
+}
+#stake-pool-dashboard .cv-bubble-chip > span {
+    grid-area: label;
+    overflow: hidden;
+    max-width: 100%;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#stake-pool-dashboard .cv-bubble-chip b {
+    grid-area: value;
+    overflow: hidden;
+    max-width: 100%;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-color);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#stake-pool-dashboard .cv-bubble-chip b small {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--secondary-text-color);
+}
+#stake-pool-dashboard .cv-bubble-chip.is-up b {
+    color: #28a745;
+}
+#stake-pool-dashboard .cv-bubble-chip.is-down b {
+    color: #dc3545;
+}
+@media (max-width: 899px) {
+    /* (the unit is left out here; the whole amount is in the tooltip) */
+    #stake-pool-dashboard .cv-bubble-chip b small {
+        display: none;
+    }
+}
+@media (min-width: 561px) and (max-width: 899px) {
+    /* A tablet: wide tiles keep the sign next to the number. */
+    #stake-pool-dashboard .cv-bubble-chip {
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas: "ico value" "ico label";
+        align-items: center;
+        gap: 1px 11px;
+        padding: 12px 14px;
+    }
+    #stake-pool-dashboard .cv-bubble-chip img.cv-ico {
+        width: 36px;
+        height: 36px;
+        margin-bottom: 0;
+    }
+    #stake-pool-dashboard .cv-bubble-chip b {
+        font-size: 17px;
+    }
+}
+/* The map. */
+#stake-pool-dashboard .cv-bmap {
+    position: relative;
+    min-height: 120px;
+    margin-top: 10px;
+    background: radial-gradient(ellipse at 50% 46%, rgba(12, 124, 115, 0.07) 0, rgba(12, 124, 115, 0) 68%);
+}
+body.dark-theme-body #stake-pool-dashboard .cv-bmap {
+    background: radial-gradient(ellipse at 50% 46%, rgba(45, 212, 191, 0.07) 0, rgba(45, 212, 191, 0) 68%);
+}
+#stake-pool-dashboard .cv-bmap-empty {
+    margin: 18px 0 8px;
+    text-align: center;
+}
+#stake-pool-dashboard .cv-bub {
+    --tint: 12, 124, 115;
+    --gloss: 0.85;
+    --k: 1;
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: calc(var(--d, 60px) * 0.035);
+    box-sizing: border-box;
+    width: var(--d, 60px);
+    height: var(--d, 60px);
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 30% 24%, rgba(255, 255, 255, var(--gloss)) 0, rgba(255, 255, 255, 0.16) 21%, rgba(255, 255, 255, 0) 43%),
+        radial-gradient(circle at var(--gx, 70%) var(--gy, 84%), rgba(var(--tint), calc(var(--ga, 0.26) * var(--k))) 0, rgba(var(--tint), 0) var(--gr, 48%)),
+        radial-gradient(circle at 50% 50%, rgba(var(--tint), calc(0.05 * var(--k))) 0, rgba(var(--tint), calc(0.14 * var(--k))) 60%, rgba(var(--tint), calc(0.42 * var(--k))) 100%);
+    box-shadow: inset 0 0 0 1.5px rgba(var(--tint), var(--rim, 0.5)), inset 0 -7px 14px rgba(8, 60, 55, 0.12), 0 5px 14px rgba(8, 60, 55, 0.16);
+    font-family: inherit;
+    color: var(--text-color);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    animation: cvBubIn 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.25) both, cvBubFloat 7s ease-in-out infinite;
+    animation-delay: calc(var(--i, 0) * 22ms), calc(var(--i, 0) * -0.9s);
+}
+body.dark-theme-body #stake-pool-dashboard .cv-bub {
+    --tint: 45, 212, 191;
+    --gloss: 0.5;
+    --rim: 0.55;
+    box-shadow: inset 0 0 0 1.5px rgba(var(--tint), var(--rim)), inset 0 -8px 16px rgba(0, 0, 0, 0.24), 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+@keyframes cvBubIn {
+    from { opacity: 0; scale: 0.55; }
+    to { opacity: 1; scale: 1; }
+}
+@keyframes cvBubFloat {
+    0%, 100% { translate: 0 0; }
+    50% { translate: 0 -4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    #stake-pool-dashboard .cv-bub {
+        animation: none;
+    }
+}
+#stake-pool-dashboard .cv-bub:hover,
+#stake-pool-dashboard .cv-bub:focus-visible {
+    z-index: 2;
+    transform: scale(1.05);
+}
+#stake-pool-dashboard .cv-bub:focus-visible {
+    outline: 2px solid var(--header-color);
+    outline-offset: 3px;
+}
+#stake-pool-dashboard .cv-bub.is-picked,
+#stake-pool-dashboard .cv-bub.is-both.is-picked {
+    z-index: 3;
+    box-shadow: 0 0 0 2px var(--card-bg), 0 0 0 5px var(--header-color), inset 0 0 0 1.5px rgba(var(--tint), 0.5), 0 8px 20px rgba(0, 0, 0, 0.28);
+}
+/* Stake on the move tints the glass, as strongly as it moves: the largest
+   movement of the epoch gives the full colour, a small one a pale glass of
+   the same colour (--k scales the tint, --rim the ring). */
+#stake-pool-dashboard .cv-bub.is-up,
+#stake-pool-dashboard .cv-bub.is-new,
+#stake-pool-dashboard .cv-bub.is-down,
+#stake-pool-dashboard .cv-bub.is-exit,
+#stake-pool-dashboard .cv-bub.is-both {
+    --k: calc(0.45 + 0.8 * var(--mv, 1));
+    --rim: calc(0.4 + 0.5 * var(--mv, 1));
+}
+/* (the colour gathers where the sign of the movement stands on the rim:
+   at the top right for stake that arrives, at the bottom right for stake
+   that leaves - --gx, --gy; --ga and --gr are its strength and its reach) */
+#stake-pool-dashboard .cv-bub.is-up,
+#stake-pool-dashboard .cv-bub.is-new {
+    --tint: 24, 150, 78;
+    --gx: 84%;
+    --gy: 15%;
+    --ga: 0.44;
+    --gr: 62%;
+}
+#stake-pool-dashboard .cv-bub.is-down,
+#stake-pool-dashboard .cv-bub.is-exit {
+    --tint: 214, 54, 70;
+    --gx: 84%;
+    --gy: 85%;
+    --ga: 0.44;
+    --gr: 62%;
+}
+body.dark-theme-body #stake-pool-dashboard .cv-bub.is-up,
+body.dark-theme-body #stake-pool-dashboard .cv-bub.is-new {
+    --tint: 32, 214, 122;
+}
+body.dark-theme-body #stake-pool-dashboard .cv-bub.is-down,
+body.dark-theme-body #stake-pool-dashboard .cv-bub.is-exit {
+    --tint: 255, 108, 108;
+}
+/* (the whole stake is arriving or leaving: a dashed rim) */
+#stake-pool-dashboard .cv-bub.is-new,
+#stake-pool-dashboard .cv-bub.is-exit {
+    outline: 2px dashed rgba(var(--tint), 0.9);
+    outline-offset: 2px;
+}
+/* (both at once: each colour gathers at its own sign - green at the top
+   right, where the stake that arrives is marked, red at the bottom right,
+   where the stake that leaves is - and fades towards the other; the larger
+   of the two movements reaches further (--act is the part that arrives).
+   The rim turns from one colour into the other on the way down.) */
+#stake-pool-dashboard .cv-bub.is-both {
+    --up: 24, 150, 78;
+    --down: 214, 54, 70;
+    background:
+        radial-gradient(circle at 30% 24%, rgba(255, 255, 255, var(--gloss)) 0, rgba(255, 255, 255, 0.16) 21%, rgba(255, 255, 255, 0) 43%),
+        radial-gradient(circle at 84% 15%, rgba(var(--up), calc(0.5 * var(--k))) 0, rgba(var(--up), 0) calc(30% + var(--act, 50%) * 0.5)),
+        radial-gradient(circle at 84% 85%, rgba(var(--down), calc(0.5 * var(--k))) 0, rgba(var(--down), 0) calc(80% - var(--act, 50%) * 0.5)),
+        linear-gradient(180deg, rgba(var(--up), calc(0.14 * var(--k))) 0, rgba(var(--up), calc(0.14 * var(--k))) calc(var(--act, 50%) - 14%), rgba(var(--down), calc(0.14 * var(--k))) calc(var(--act, 50%) + 14%), rgba(var(--down), calc(0.14 * var(--k))) 100%);
+    box-shadow: inset 0 -7px 14px rgba(8, 60, 55, 0.12), 0 5px 14px rgba(8, 60, 55, 0.16);
+}
+body.dark-theme-body #stake-pool-dashboard .cv-bub.is-both {
+    --up: 32, 214, 122;
+    --down: 255, 108, 108;
+    box-shadow: inset 0 -8px 16px rgba(0, 0, 0, 0.24), 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+#stake-pool-dashboard .cv-bub.is-both::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 2.5px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, rgb(var(--up)) 0, rgb(var(--up)) calc(var(--act, 50%) - 8%), rgb(var(--down)) calc(var(--act, 50%) + 8%), rgb(var(--down)) 100%);
+    opacity: var(--rim);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+    pointer-events: none;
+}
+/* Inside: the logo and the amount. */
+#stake-pool-dashboard .cv-bub-face {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50%;
+    height: 50%;
+    color: var(--secondary-text-color);
+    pointer-events: none;
+}
+#stake-pool-dashboard .cv-bub.is-small .cv-bub-face {
+    width: 62%;
+    height: 62%;
+}
+#stake-pool-dashboard .cv-bub-face img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.22));
+}
+#stake-pool-dashboard .cv-bub-face svg {
+    width: 78%;
+    height: 78%;
+}
+#stake-pool-dashboard .cv-bub-face:has(> img) > svg {
+    display: none;
+}
+#stake-pool-dashboard .cv-bub-initials {
+    font-size: calc(var(--d, 60px) * 0.26);
+    font-weight: 700;
+    color: var(--text-color);
+}
+#stake-pool-dashboard .cv-bub-val {
+    font-size: clamp(11px, calc(var(--d, 60px) * 0.115), 21px);
+    font-weight: 700;
+    line-height: 1;
+    pointer-events: none;
+}
+body.dark-theme-body #stake-pool-dashboard .cv-bub-val {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+#stake-pool-dashboard .cv-bub.is-small .cv-bub-val {
+    display: none;
+}
+/* A small sign on the rim repeats the direction for those who do not tell
+   the colours apart. */
+#stake-pool-dashboard .cv-bub-flow {
+    position: absolute;
+    right: calc(var(--d, 60px) * 0.146 - 10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    font-size: 10px;
+    color: #fff;
+    pointer-events: none;
+}
+#stake-pool-dashboard .cv-bub-flow.is-up {
+    top: calc(var(--d, 60px) * 0.146 - 10px);
+    background: #1e9e57;
+}
+#stake-pool-dashboard .cv-bub-flow.is-down {
+    bottom: calc(var(--d, 60px) * 0.146 - 10px);
+    background: #d73846;
+}
+#stake-pool-dashboard .cv-bub.is-small .cv-bub-flow {
+    right: -3px;
+    width: 16px;
+    height: 16px;
+    font-size: 8px;
+}
+#stake-pool-dashboard .cv-bub.is-small .cv-bub-flow.is-up {
+    top: -3px;
+}
+#stake-pool-dashboard .cv-bub.is-small .cv-bub-flow.is-down {
+    bottom: -3px;
+}
+/* Stakers without stake in the epoch: apart, small, grey and struck out. */
+#stake-pool-dashboard .cv-bpast {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 2px dashed var(--border-color);
+}
+#stake-pool-dashboard .cv-bpast-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 10px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--secondary-text-color);
+}
+#stake-pool-dashboard .cv-bpast-head small {
+    font-size: 12px;
+    font-weight: 400;
+}
+#stake-pool-dashboard .cv-bpast-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+#stake-pool-dashboard .cv-bub-past {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    margin: 0;
+    padding: 0;
+    border: 1.5px dashed var(--secondary-text-color);
+    border-radius: 50%;
+    background: var(--bg-color);
+    font-family: inherit;
+    opacity: 0.6;
+    filter: grayscale(1);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+#stake-pool-dashboard .cv-bub-past:hover,
+#stake-pool-dashboard .cv-bub-past.is-picked {
+    opacity: 0.95;
+}
+#stake-pool-dashboard .cv-bub-past .cv-bub-face {
+    width: 58%;
+    height: 58%;
+}
+#stake-pool-dashboard .cv-bub-past .cv-bub-initials {
+    font-size: 11px;
+}
+#stake-pool-dashboard .cv-bub-past::after {
+    content: '';
+    position: absolute;
+    left: 10%;
+    right: 10%;
+    top: 50%;
+    border-top: 1.5px solid var(--secondary-text-color);
+    transform: rotate(-38deg);
+    pointer-events: none;
+}
+/* A tooltip that a click keeps open offers the way to the page of the staker. */
+.pool-tooltip .cv-tip-go {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(128, 128, 128, 0.3);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--header-color, #0c7c73);
+    text-decoration: none;
+}
+body.dark-theme-body .pool-tooltip .cv-tip-go {
+    color: #2dd4bf;
+}
+.pool-tooltip.is-pinned .cv-tip-go {
+    display: flex;
+}
+.pool-tooltip .cv-tip-go svg.cv-go {
+    width: 11px;
+    height: 11px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+@media (min-width: 900px) {
+    /* A wide screen: the panel stands at the left - the totals as cards,
+       the stakers without stake in the epoch, the note - and the map has
+       all the rest. */
+    #stake-pool-dashboard .cv-bwrap {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr);
+        align-items: center;
+        gap: 22px;
+    }
+    #stake-pool-dashboard .cv-binfo {
+        display: flex;
+        flex-direction: column;
+        align-self: start;
+        gap: 10px;
+        min-width: 0;
+    }
+    #stake-pool-dashboard .cv-bubble-chips {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+    }
+    #stake-pool-dashboard .cv-bubble-chip {
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas: "ico label" "ico value";
+        align-items: center;
+        gap: 2px 13px;
+        padding: 15px 16px;
+        border-radius: 14px;
+    }
+    #stake-pool-dashboard .cv-bubble-chip img.cv-ico {
+        width: 42px;
+        height: 42px;
+        margin-bottom: 0;
+    }
+    #stake-pool-dashboard .cv-bubble-chip > span {
+        font-size: 12.5px;
+    }
+    #stake-pool-dashboard .cv-bubble-chip b {
+        font-size: 19px;
+    }
+    #stake-pool-dashboard .cv-bubble-chip b small {
+        font-size: 12px;
+    }
+    #stake-pool-dashboard .cv-bmap {
+        margin-top: 0;
+    }
+    #stake-pool-dashboard .cv-bpast {
+        margin-top: 0;
+        padding: 13px 15px 14px;
+        border: 1px dashed var(--border-color);
+        border-radius: 14px;
+    }
+    #stake-pool-dashboard .cv-bpast-head {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1px;
+    }
+    #stake-pool-dashboard .cv-binfo > .cv-vd-small {
+        margin: 2px 0 0 2px;
+    }
+}
+/* ==========================================================================
+   ROUND C4 (v3.2.0)
+   ========================================================================== */
+/* Main page: the title of the top block, with its tile, stands in the
+   middle at every width (it did on phones only). */
+#stake-pool-dashboard .total-stake-card > .title {
+    justify-content: center;
+}
+/* The small line of a validator in a list: its chips, then the signs of its
+   keys, all in one wrapping line. */
+#stake-pool-dashboard .cv-chipline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+}
+#stake-pool-dashboard .cv-chipline .cv-meta {
+    display: contents;
+}
+/* The keys of a validator in a list are two round signs after its chips
+   (identity, vote account): the kind and the key are in the tooltip, a click
+   copies. The same signs as the keys of a pool on its card. */
+#stake-pool-dashboard .cv-key-signs {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+#stake-pool-dashboard .cv-key-signs .cv-key.cv-key-ico {
+    width: 22px;
+    height: 22px;
+    font-size: 10px;
+}
+@media (max-width: 560px) {
+    /* (a finger needs larger signs than a pointer) */
+    #stake-pool-dashboard .cv-key-signs {
+        gap: 6px;
+    }
+    #stake-pool-dashboard .cv-key-signs .cv-key.cv-key-ico {
+        width: 26px;
+        height: 26px;
+        font-size: 11px;
+    }
+}
+/* ==========================================================================
+   STAKERS TABLE ON A PHONE (v3.2.0)
+   Five columns: the staker, its stake, the stake on the move, the chart.
+   The share, the stake accounts and the change against the epoch before are
+   in the tooltip a tap on a row opens (and in the cards). Short numbers,
+   and the signs of the set in the place of two long column names.
+   ========================================================================== */
+#stake-pool-dashboard .cv-st .cv-st-short,
+#stake-pool-dashboard .cv-st .cv-st-hs,
+#stake-pool-dashboard .cv-st-hint {
+    display: none;
+}
+/* No stake on the move in a row: a small dot in the place of a number, at
+   every width. */
+#stake-pool-dashboard .cv-st .cv-st-none {
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--secondary-text-color);
+    opacity: 0.45;
+    vertical-align: middle;
+}
+@media (max-width: 768px) {
+    #stake-pool-dashboard .cv-st .cv-st-x,
+    #stake-pool-dashboard .cv-st .cv-st-full,
+    #stake-pool-dashboard .cv-st .cv-st-h.has-short > .cv-st-hl {
+        display: none;
+    }
+    #stake-pool-dashboard .cv-st .cv-st-short {
+        display: inline;
+    }
+    #stake-pool-dashboard .cv-st .cv-st-h.has-short > .cv-st-hs {
+        display: inline-flex;
+        align-items: center;
+    }
+    #stake-pool-dashboard .cv-st .cv-st-hs img.cv-ico {
+        width: 20px;
+        height: 20px;
+    }
+    #stake-pool-dashboard .cv-st .cv-st-hs > i {
+        font-size: 12px;
+        opacity: 0.7;
+    }
+    /* (the order is named in the bar above the table: a header shows its
+       caret only while the table is sorted by it) */
+    #stake-pool-dashboard .cv-st .cv-st-h:not(.is-sorted) > i {
+        display: none;
+    }
+    #stake-pool-dashboard .cv-st .cv-st-h {
+        gap: 3px;
+    }
+    #stake-pool-dashboard .cv-st-row {
+        column-gap: 5px;
+        padding-right: 8px;
+    }
+    #stake-pool-dashboard .cv-st-row > .cv-st-source {
+        gap: 6px;
+        padding-left: 9px;
+        padding-right: 2px;
+    }
+    #stake-pool-dashboard .cv-st .cv-flow-logo:has(> img[data-logo-iso]) {
+        flex: 0 0 28px;
+        width: 28px;
+        height: 28px;
+    }
+    #stake-pool-dashboard .cv-st-row > .cv-st-c:not(.cv-st-source) {
+        font-variant-numeric: tabular-nums;
+    }
+    /* (the arrow of a column is its header here; a number keeps its colour) */
+    #stake-pool-dashboard .cv-st-row > .cv-st-c > span > i {
+        display: none;
+    }
+    /* The stake on the move stands under the sign of its column, in the
+       middle of it; the chart keeps its distance from the numbers. */
+    #stake-pool-dashboard .cv-st-row > .cv-st-flow {
+        text-align: center;
+    }
+    #stake-pool-dashboard .cv-st .cv-st-h[data-src-sort="activating"],
+    #stake-pool-dashboard .cv-st .cv-st-h[data-src-sort="deactivating"] {
+        justify-content: center;
+    }
+    #stake-pool-dashboard .cv-st-row > .cv-st-trend {
+        padding-left: 5px;
+    }
+    #stake-pool-dashboard .cv-st .cv-mini-spark {
+        width: 100%;
+    }
+    /* A staker without stake in the epoch: its note takes the place of the
+       three zeros, the chart stays in its column. */
+    #stake-pool-dashboard .cv-st-row.is-past > .cv-st-c:not(.cv-st-source):not(.cv-st-trend) {
+        display: none;
+    }
+    #stake-pool-dashboard .cv-st-row.is-past > .cv-st-source {
+        grid-column: 1 / span 4;
+    }
+    /* A row opens its details on a tap. */
+    #stake-pool-dashboard .cv-st-row[data-cv-rowtip] {
+        cursor: pointer;
+    }
+    #stake-pool-dashboard .cv-st-row.is-picked {
+        --cv-st-bg: linear-gradient(var(--chart-bg-color), var(--chart-bg-color)), var(--card-bg);
+        background: var(--chart-bg-color);
+        box-shadow: inset 3px 0 0 var(--header-color);
+    }
+    #stake-pool-dashboard .cv-st-hint {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        margin: 10px 0 0;
+        font-size: 11.5px;
+        color: var(--secondary-text-color);
+    }
+    #stake-pool-dashboard .cv-st-hint > i {
+        font-size: 11px;
+        opacity: 0.7;
+    }
+}
+@media (min-width: 481px) and (max-width: 768px) {
+    /* A wide phone or a small tablet: the same five columns with more room
+       (the chart takes the spare width first, then the name). */
+    #stake-pool-dashboard .cv-st-wrap > .cv-st,
+    #stake-pool-dashboard .cv-st-wrap > .cv-st.no-counts {
+        --cv-st-cols: minmax(140px, 1fr) 68px 58px 58px minmax(60px, 110px);
+        --cv-st-min: 0px;
+    }
+    #stake-pool-dashboard .cv-st-row {
+        column-gap: 8px;
+        padding-right: 10px;
+    }
+}
+@media (min-width: 1024px) and (max-width: 1159px) {
+    /* A small laptop: the same eight columns, tighter, so the whole table is
+       in sight (its last column, the chart, was cut off at these widths). */
+    #stake-pool-dashboard .cv-st {
+        --cv-st-cols: minmax(180px, 1.5fr) 104px minmax(90px, 0.8fr) 72px 90px 96px 78px 100px;
+    }
+    #stake-pool-dashboard .cv-st.no-counts {
+        --cv-st-cols: minmax(180px, 1.5fr) 104px minmax(90px, 0.8fr) 90px 96px 78px 100px;
+    }
+    #stake-pool-dashboard .cv-st-row {
+        column-gap: 10px;
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+    #stake-pool-dashboard .cv-st .cv-mini-spark {
+        width: 100px;
+    }
+}
+@media (max-width: 355px) {
+    /* The narrowest phones: four columns fit, the chart does not (the cards
+       of the stakers have it). */
+    #stake-pool-dashboard .cv-st-wrap > .cv-st,
+    #stake-pool-dashboard .cv-st-wrap > .cv-st.no-counts {
+        --cv-st-cols: minmax(116px, 1fr) 48px 40px 40px;
+        --cv-st-min: 0px;
+    }
+    #stake-pool-dashboard .cv-st .cv-st-trend {
+        display: none;
+    }
+}
+/* ==========================================================================
+   ROUND C5 (v3.2.0)
+   ========================================================================== */
+/* A validator without a logo. Its stand-in is a quiet piece of the map, not
+   a colour of its own (nobody takes it for a logo): sand, a dashed rim - an
+   empty plot - and the initials in the ink of the outlines of the sprites. */
+#stake-pool-dashboard {
+    --ph-bg: #f2ebd8;
+    --ph-ink: #5e7376;
+    --ph-ring: #c9bf9f;
+}
+body.dark-theme-body #stake-pool-dashboard {
+    --ph-bg: #2b2a25;
+    --ph-ink: #9db0b2;
+    --ph-ring: #5c5747;
+}
+#stake-pool-dashboard .validator-image.fallback {
+    box-sizing: border-box;
+    border: 1.5px dashed var(--ph-ring);
+    letter-spacing: 0.01em;
+}
+/* (where the circle around a logo has its own rim, that rim is the dashed one) */
+#stake-pool-dashboard #validators-list-items-container .validator-image-wrapper:has(> .validator-image.fallback) {
+    border-style: dashed;
+    border-color: var(--ph-ring);
+    background: var(--ph-bg);
+}
+#stake-pool-dashboard #validators-list-items-container .validator-image-wrapper > .validator-image.fallback {
+    border: 0;
+}
+#stake-pool-dashboard .cv-vd-avatar .validator-image.fallback,
+#stake-pool-dashboard .cv-donut-center .validator-image.fallback {
+    border: 2px dashed var(--ph-ring);
+}
+/* (the small circle of a legend row has a rim of its own) */
+#stake-pool-dashboard .stake-distribution-block .legend-avatar .validator-image.fallback {
+    border: 0;
+}
+
+/* Validator page: a key is a chip - the sign of the key (a key for the
+   identity, a ballot box for the vote account), its short name and the key
+   itself. A wide header shows the whole key, a narrow one its short form.
+   The same chip, always short, stands in the list of changes. */
+#stake-pool-dashboard .cv-key.cv-keychip {
+    gap: 6px;
+    max-width: 100%;
+    margin: 0;
+    padding: 2px 10px 2px 3px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--bg-color);
+    font-size: 11.5px;
+    line-height: 1.2;
+}
+#stake-pool-dashboard .cv-key.cv-keychip:hover {
+    border-color: var(--header-color);
+    background: var(--chart-bg-color);
+}
+#stake-pool-dashboard .cv-key.cv-keychip.is-copied {
+    border-color: #28a745;
+}
+#stake-pool-dashboard .cv-keychip img.cv-keychip-ico {
+    width: 22px;
+    height: 22px;
+}
+/* (one width for the short names, so two chips that stand one under the
+   other are of one length) */
+#stake-pool-dashboard .cv-vd-keys .cv-keychip .cv-key-label {
+    min-width: 24px;
+}
+#stake-pool-dashboard .cv-keychip .cv-key-val {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#stake-pool-dashboard .cv-keychip .cv-key-short,
+#stake-pool-dashboard .cv-keychip.is-compact .cv-key-full {
+    display: none;
+}
+#stake-pool-dashboard .cv-keychip.is-compact .cv-key-short {
+    display: inline;
+}
+#stake-pool-dashboard .cv-keychip.is-compact {
+    padding: 1px 8px 1px 2px;
+    background: var(--card-bg);
+    font-size: 11px;
+}
+#stake-pool-dashboard .cv-keychip.is-compact img.cv-keychip-ico {
+    width: 18px;
+    height: 18px;
+}
+@media (max-width: 640px) {
+    /* A narrow header: the sign and the short key, two chips in one row. */
+    /* (no glyph of the copy at the end of a chip here: the chip itself is
+       the control, and it keeps its width when the key is copied) */
+    #stake-pool-dashboard .cv-keychip .cv-key-full,
+    #stake-pool-dashboard .cv-vd-keys .cv-keychip .cv-key-label,
+    #stake-pool-dashboard .cv-vd-keys .cv-keychip .cv-copy-icon,
+    #stake-pool-dashboard .cv-vd-keys .cv-keychip .cv-copied-icon {
+        display: none;
+    }
+    #stake-pool-dashboard .cv-keychip .cv-key-short {
+        display: inline;
+    }
+    #stake-pool-dashboard .cv-vd-keys .cv-key.cv-keychip {
+        padding: 3px 10px 3px 4px;
+        font-size: 12px;
+    }
+}
+
+/* "Validator not found" is a state of the whole page, as the 404 page is:
+   empty plots of the map (a day and a night version of one picture) fill
+   the page from the bar under the header down to the footer, from edge to
+   edge of the window, and the message stands on a card. The backdrop is
+   painted on the root of the page, which already spans the window. */
+#stake-pool-dashboard.cv-is-notfound {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    justify-content: center;
+    /* (covers the top margin of the footer, as the sea of the 404 page does) */
+    margin-bottom: -40px;
+    background: #79c676 url("/brand/decor/plots-day.webp") center / cover no-repeat;
+}
+body.dark-theme-body #stake-pool-dashboard.cv-is-notfound {
+    background-color: #1f3d37;
+    background-image: url("/brand/decor/plots-night.webp");
+}
+#stake-pool-dashboard .cv-vd-msg.is-plots {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 16px;
+}
+#stake-pool-dashboard .cv-vd-msg-card {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 460px;
+    padding: 24px 24px 22px;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    background: var(--card-bg);
+    box-shadow: 0 12px 34px rgba(16, 40, 30, 0.22);
+}
+@media (max-width: 560px) {
+    #stake-pool-dashboard .cv-vd-msg.is-plots {
+        padding: 36px 0;
+    }
+    #stake-pool-dashboard .cv-vd-msg-card {
+        padding: 20px 16px 18px;
+    }
+}
+
+/* Tooltips of a staker: every measure has the sign of the set. The change
+   against the epoch before is history, so its colour is quieter than the
+   colour of the stake that moves now. (A tooltip stands outside the block of
+   the page, so these rules are not scoped by it.) */
+.pool-tooltip .cv-tip-ico {
+    flex: 0 0 20px;
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+}
+.pool-tooltip .cv-flow-row:has(> .cv-tip-ico) {
+    padding: 2px 0;
+}
+.pool-tooltip-stat .label .cv-tip-ico {
+    margin: -3px 0;
+}
+.cv-flow-val.is-up.is-soft {
+    font-weight: 500;
+    color: #4d9562;
+}
+.cv-flow-val.is-down.is-soft {
+    font-weight: 500;
+    color: #bd6870;
+}
+body.dark-theme-body .cv-flow-val.is-up.is-soft {
+    color: #86bd92;
+}
+body.dark-theme-body .cv-flow-val.is-down.is-soft {
+    color: #d49198;
+}
+/* ==========================================================================
+   TOOLTIPS: NO BROKEN VALUES (v3.2.0)
+   A value is one piece: an amount never leaves its unit on the next line,
+   and a line "Label: value" breaks after the colon. (A tooltip stands
+   outside the block of the page, so these rules are not scoped by it.)
+   ========================================================================== */
+.pool-tooltip.cv-tip .cv-tip-val {
+    white-space: nowrap;
+}
+.pool-tooltip .cv-flow-val,
+.pool-tooltip .pool-tooltip-stat .value {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+.pool-tooltip .pool-tooltip-stat {
+    gap: 12px;
+}
+/* ==========================================================================
+   AUTHORITY KEYS OF A POOL (v3.2.0)
+   The keys of a pool on its page are chips of the family of the keys of a
+   validator: a sign, the kind of the key, the key itself (whole on a wide
+   screen, short on a narrow one); a click copies. A small round link next
+   to a chip opens the stake accounts of the key in Solscan.
+   ========================================================================== */
+#stake-pool-dashboard .pool-authority-keys h3 {
+    margin-bottom: 10px;
+    opacity: 0.85;
+}
+#stake-pool-dashboard .authority-keys-list {
+    gap: 6px;
+}
+#stake-pool-dashboard .authority-keys-list .authority-keys-collapsible.expanded {
+    gap: 6px;
+}
+#stake-pool-dashboard .authority-key-item.cv-authkey {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    min-width: 0;
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
+    opacity: 1;
+}
+#stake-pool-dashboard .cv-authkey .cv-key.cv-keychip {
+    min-width: 0;
+}
+/* (one width for the kinds and for the keys - a key is 43 or 44 letters of
+   a fixed-width type - so the keys of a list start in one column and their
+   links stand in another) */
+#stake-pool-dashboard .cv-authkey .cv-keychip .cv-key-label {
+    min-width: 62px;
+    text-align: left;
+}
+#stake-pool-dashboard .cv-authkey .cv-keychip .cv-key-full {
+    min-width: 44ch;
+    text-align: left;
+}
+#stake-pool-dashboard .cv-authkey a.cv-key-link {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    margin: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    background: var(--bg-color);
+    font-size: 10px;
+    color: var(--secondary-text-color);
+    text-decoration: none;
+    opacity: 1;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+#stake-pool-dashboard .cv-authkey a.cv-key-link:hover {
+    border-color: var(--header-color);
+    background: var(--chart-bg-color);
+    color: var(--header-color);
+    text-decoration: none;
+}
+@media (max-width: 640px) {
+    /* A narrow page: the sign, the kind and the short key (no glyph of the
+       copy at the end of a chip: the chip itself is the control). */
+    #stake-pool-dashboard .cv-authkey .cv-keychip .cv-copy-icon,
+    #stake-pool-dashboard .cv-authkey .cv-keychip .cv-copied-icon {
+        display: none;
+    }
+    #stake-pool-dashboard .cv-authkey .cv-key.cv-keychip {
+        padding: 3px 10px 3px 4px;
+        font-size: 12px;
+    }
+    #stake-pool-dashboard .cv-authkey a.cv-key-link {
+        width: 30px;
+        height: 30px;
+        font-size: 11px;
+    }
+}
+/* ==========================================================================
+   NEW AND LEAVING STAKERS (v3.2.0)
+   The whole stake of a staker arrives ("new": nothing active yet, all of it
+   activating) or leaves ("leaving": all of its active stake deactivating).
+   One sign in every view: a dashed green or a dashed red outline - the ring
+   of a badge in the lists, the outline of a bubble, and here the edge of a
+   card and of a table row - with a word that says it.
+   ========================================================================== */
+#stake-pool-dashboard .cv-state,
+.pool-tooltip .cv-state {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    height: 16px;
+    padding: 0 6px;
+    border: 1px dashed currentColor;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    cursor: default;
+}
+#stake-pool-dashboard .cv-state.is-new,
+.pool-tooltip .cv-state.is-new {
+    color: #28a745;
+    background: rgba(40, 167, 69, 0.08);
+}
+#stake-pool-dashboard .cv-state.is-leaving,
+.pool-tooltip .cv-state.is-leaving {
+    color: #dc3545;
+    background: rgba(220, 53, 69, 0.08);
+}
+/* (in a tooltip the word opens a line that spells the state out) */
+.pool-tooltip .cv-tip-state {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: -2px 0 6px;
+    font-size: 11.5px;
+    line-height: 1.3;
+    opacity: 0.92;
+}
+/* A row of the table: the outline lies over the row, inside its edges. */
+#stake-pool-dashboard .cv-st-row.is-new,
+#stake-pool-dashboard .cv-st-row.is-leaving {
+    position: relative;
+}
+#stake-pool-dashboard .cv-st-row.is-new::after,
+#stake-pool-dashboard .cv-st-row.is-leaving::after {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    top: 3px;
+    right: 4px;
+    bottom: 3px;
+    left: 4px;
+    border: 1.5px dashed;
+    border-radius: 10px;
+    pointer-events: none;
+}
+#stake-pool-dashboard .cv-st-row.is-new::after {
+    border-color: rgba(40, 167, 69, 0.75);
+    background: rgba(40, 167, 69, 0.05);
+}
+#stake-pool-dashboard .cv-st-row.is-leaving::after {
+    border-color: rgba(220, 53, 69, 0.75);
+    background: rgba(220, 53, 69, 0.05);
+}
+#stake-pool-dashboard .cv-st .cv-vd-src-sub {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px 7px;
+    margin-top: 1px;
+}
+/* A card: its own edge is the outline. */
+#stake-pool-dashboard .cv-src-card.is-new,
+#stake-pool-dashboard .cv-src-card.is-leaving {
+    border-style: dashed;
+    border-width: 1.5px;
+}
+#stake-pool-dashboard .cv-src-card.is-new {
+    border-color: rgba(40, 167, 69, 0.8);
+    background-image: linear-gradient(rgba(40, 167, 69, 0.05), rgba(40, 167, 69, 0.05));
+}
+#stake-pool-dashboard .cv-src-card.is-leaving {
+    border-color: rgba(220, 53, 69, 0.8);
+    background-image: linear-gradient(rgba(220, 53, 69, 0.05), rgba(220, 53, 69, 0.05));
+}
+/* (the word stands in the corner of the card, out of the flow of its
+   header: the name keeps its whole width) */
+#stake-pool-dashboard .cv-src-card.is-new,
+#stake-pool-dashboard .cv-src-card.is-leaving {
+    position: relative;
+}
+#stake-pool-dashboard .cv-src-card .card-header > .cv-state {
+    position: absolute;
+    top: 9px;
+    right: 12px;
+}
+@media (max-width: 480px) {
+    /* (on a phone the sign of "opens the page" stands in that corner of a
+       card: the word stands left of it) */
+    #stake-pool-dashboard .cv-src-card .card-header > .cv-state {
+        top: 8px;
+        right: 36px;
+    }
+}
+/* ==========================================================================
+   ZERO, NOTHING AND NO DATA (v3.2.0)
+   In the table of stakers a small dot stands where there is nothing, a
+   quiet "0" where zero is the fact, "-" where the data has no value. A
+   metric card with nothing on the move prints a quiet "0" as well.
+   ========================================================================== */
+#stake-pool-dashboard .cv-st .cv-st-pct > .cv-st-none {
+    margin-right: 1px;
+}
+#stake-pool-dashboard .cv-st-row.is-past .cv-st-bar {
+    visibility: hidden;
+}
+#stake-pool-dashboard .pool-metric-value.is-zero,
+#stake-pool-dashboard .pool-metric-value.positive.is-zero,
+#stake-pool-dashboard .pool-metric-value.negative.is-zero {
+    color: var(--secondary-text-color) !important;
+}
+/* ==========================================================================
+   STAKERS TABLE ON A PHONE: SIGNED AMOUNTS (v3.2.0)
+   The stake on the move carries "+" or "-" where the arrow of the direction
+   is the header of the column; the two columns get the room for it.
+   ========================================================================== */
+/* (the sign stands close to its number: the figures of the table are of
+   one width each, a sign of that width would stand apart) */
+#stake-pool-dashboard .cv-st .cv-st-sign {
+    font-variant-numeric: normal;
+}
+@media (max-width: 480px) {
+    #stake-pool-dashboard .cv-st-wrap > .cv-st,
+    #stake-pool-dashboard .cv-st-wrap > .cv-st.no-counts {
+        --cv-st-cols: minmax(118px, 1fr) 50px 45px 45px 42px;
+        --cv-st-min: 328px;
+    }
+}
+@media (max-width: 379px) {
+    #stake-pool-dashboard .cv-st-wrap > .cv-st,
+    #stake-pool-dashboard .cv-st-wrap > .cv-st.no-counts {
+        --cv-st-cols: minmax(116px, 1fr) 48px 42px 42px 28px;
+        --cv-st-min: 304px;
+    }
+}
+@media (max-width: 355px) {
+    #stake-pool-dashboard .cv-st-wrap > .cv-st,
+    #stake-pool-dashboard .cv-st-wrap > .cv-st.no-counts {
+        --cv-st-cols: minmax(116px, 1fr) 48px 41px 41px;
+        --cv-st-min: 0px;
+    }
+}
+/* ==========================================================================
+   BUBBLES OF A POOL PAGE (v3.2.0)
+   The validators of a pool as a map of bubbles: the glass, the tints and the
+   signs of the stakers block of a validator page (its rules apply here as
+   they are). A bubble holds the avatar of a validator - round, like every
+   avatar of the site - and, when there is room, the stake of the pool with
+   it. The switch of the view stands next to the search of the list.
+   ========================================================================== */
+#stake-pool-dashboard .cv-pv-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    margin-bottom: 20px;
+}
+#stake-pool-dashboard .cv-pv-tools > .pool-validators-search-container {
+    flex: 1 1 300px;
+    min-width: 0;
+    margin-bottom: 0 !important;
+}
+#stake-pool-dashboard .cv-pv-tools > .cv-vd-toggle {
+    flex: 0 0 auto;
+}
+#stake-pool-dashboard .cv-pv-tools > .cv-vd-toggle button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+/* (the sort bar belongs to the list: the map has no order to choose) */
+#stake-pool-dashboard #pool-validators-sort-bar:empty {
+    display: none;
+}
+#stake-pool-dashboard .cv-pbmap {
+    margin-top: 6px;
+}
+#stake-pool-dashboard .cv-pbub .cv-bub-face {
+    width: 54%;
+    height: 54%;
+}
+#stake-pool-dashboard .cv-pbub.is-small .cv-bub-face {
+    width: 70%;
+    height: 70%;
+}
+#stake-pool-dashboard .cv-pbub .cv-bub-face img {
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--logo-bg, #fff);
+    filter: none;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+}
+#stake-pool-dashboard .cv-pbub .cv-bub-initials {
+    font-size: calc(var(--d, 60px) * 0.24);
+    color: var(--ph-ink);
+    letter-spacing: 0.01em;
+}
+/* A map of many bubbles stands still: they arrive quickly and do not float
+   (a hundred endless animations are too much for a phone). */
+#stake-pool-dashboard .cv-bmap.is-many .cv-bub {
+    animation: cvBubIn 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+    animation-delay: calc(var(--i, 0) * 12ms);
+}
+@media (prefers-reduced-motion: reduce) {
+    #stake-pool-dashboard .cv-bmap.is-many .cv-bub {
+        animation: none;
+    }
+}
+@media (max-width: 560px) {
+    /* Phones: the switch takes a line of its own, two equal halves. */
+    #stake-pool-dashboard .cv-pv-tools > .cv-vd-toggle {
+        display: flex;
+        flex: 1 1 100%;
+    }
+    #stake-pool-dashboard .cv-pv-tools > .cv-vd-toggle button {
+        flex: 1 1 0;
+        justify-content: center;
+    }
+}
+/* ==========================================================================
+   ROUND C7 (v3.2.0)
+   Small things after the review of 09.10: the note of the validators card on
+   the map of a pool, the rank of a phone card in its corner, a quieter accent
+   of the pool tiles in the dark theme, the colours of stake on the move and
+   of the change against the epoch before, links that are not links, keys in
+   tooltips, the sign of the top block.
+   ========================================================================== */
+/* The card of validators on the map of a pool: how many of them are drawn.
+   The note stands after the label, a dot between them; where the card is too
+   narrow for one line it goes under the label, and the dot stays behind (it
+   hangs in the gap before the note, and at the start of a line that gap is
+   outside the label). While the note is there the cards stand by their top
+   edge, so the signs and the numbers of the four keep one line when the note
+   makes this card taller than its neighbours. */
+#stake-pool-dashboard .stat-label.cv-stat-parts {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 0.9em;
+    overflow: hidden;
+}
+#stake-pool-dashboard .cv-stat-onmap {
+    position: relative;
+}
+#stake-pool-dashboard .cv-stat-onmap::before {
+    content: "\00b7";
+    position: absolute;
+    top: 0;
+    left: -0.9em;
+    width: 0.9em;
+    text-align: center;
+}
+#stake-pool-dashboard .stat-label.cv-stat-parts > .epoch-inline-note {
+    flex: 0 0 100%;
+}
+#stake-pool-dashboard .pool-validators-stats-summary:has(.cv-stat-onmap) .pool-validators-stat-card {
+    align-items: flex-start;
+}
+/* Phones, two cards in a row: the note of the map says "N on map", which
+   fits a line of the card. */
+@media (max-width: 400px) {
+    #stake-pool-dashboard .cv-stat-the {
+        display: none;
+    }
+}
+/* The narrowest phones: the cards under a search (a pool page and the
+   Validators tab) keep smaller signs and less air, so every number and label
+   stays inside its card. */
+@media (max-width: 359px) {
+    #stake-pool-dashboard .validators-stat-card,
+    #stake-pool-dashboard .pool-validators-stat-card {
+        padding: 10px 8px;
+        gap: 6px;
+    }
+    #stake-pool-dashboard .validators-stat-card > img.cv-ico,
+    #stake-pool-dashboard .pool-validators-stat-card .stat-icon.stat-icon-plain img.cv-ico {
+        width: 28px;
+        height: 28px;
+    }
+    #stake-pool-dashboard .pool-validators-stat-card .stat-icon:not(.stat-icon-plain),
+    #stake-pool-dashboard .pool-validators-stat-card .stat-icon:has(> img[data-logo-iso]) {
+        width: 30px;
+        height: 30px;
+    }
+    #stake-pool-dashboard .validators-stat-card .stat-label,
+    #stake-pool-dashboard .pool-validators-stat-card .stat-label {
+        font-size: 10.5px;
+    }
+}
+/* The change against the epoch before, wherever it stands: the quiet green
+   and red of its tooltip row (the bright ones belong to stake that moves now). */
+#stake-pool-dashboard .cv-vd-pos.is-soft,
+#stake-pool-dashboard .cv-cell-text b.cv-vd-pos.is-soft {
+    color: #4d9562;
+}
+#stake-pool-dashboard .cv-vd-neg.is-soft,
+#stake-pool-dashboard .cv-cell-text b.cv-vd-neg.is-soft {
+    color: #bd6870;
+}
+body.dark-theme-body #stake-pool-dashboard .cv-vd-pos.is-soft,
+body.dark-theme-body #stake-pool-dashboard .cv-cell-text b.cv-vd-pos.is-soft {
+    color: #86bd92;
+}
+body.dark-theme-body #stake-pool-dashboard .cv-vd-neg.is-soft,
+body.dark-theme-body #stake-pool-dashboard .cv-cell-text b.cv-vd-neg.is-soft {
+    color: #d49198;
+}
+/* A card of a staker without stake in the epoch is not a link: it stays in
+   its place under the pointer. */
+#stake-pool-dashboard .cv-src-card.is-past:hover {
+    transform: none;
+}
+/* A key in a tooltip: one piece. It stands in one line where the tooltip has
+   the room (it may be wider for that) and in two equal halves where it has not. */
+.pool-tooltip.cv-tip:has(.cv-tip-key) {
+    max-width: min(336px, calc(100vw - 20px));
+}
+.pool-tooltip.cv-tip .cv-tip-key {
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 0;
+}
+.pool-tooltip.cv-tip .cv-tip-key > span {
+    display: inline-block;
+    white-space: nowrap;
+}
+/* The sign of the top block. The tile is not an image to drag, select or
+   save: the pointer meets its wrapper, which keeps a tooltip for those who
+   look at the mountain. */
+#stake-pool-dashboard .total-stake-card > .title > .cv-hero-mark {
+    display: block;
+    line-height: 0;
+}
+#stake-pool-dashboard .cv-hero-mark > img.cv-hero-tile {
+    display: block;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+    -webkit-user-drag: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    transition: transform 0.25s ease;
+}
+@media (hover: hover) {
+    #stake-pool-dashboard .cv-hero-mark:hover > img.cv-hero-tile {
+        transform: translateY(-2px) scale(1.06);
+    }
+}
+.pool-tooltip .cv-tip-ico.cv-tip-summit {
+    flex-basis: 30px;
+    width: 30px;
+    height: 25px;
+}
+/* The rank of a phone card of the validators list stands in its corner, as
+   far from the top edge as from the left one. */
+@media (max-width: 768px) {
+    #stake-pool-dashboard .validator-item .validator-rank {
+        align-self: start;
+        line-height: 1;
+    }
+}
+/* Bubbles of a pool page. A map of forty-one to a hundred and twenty bubbles
+   sways like a small one: its bubbles arrive quickly, and each takes one of
+   eight phases, so neighbours move apart. (A larger map stands still.) */
+#stake-pool-dashboard .cv-bmap.is-crowd .cv-bub {
+    animation: cvBubIn 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.25) both, cvBubFloat 7s ease-in-out infinite;
+    animation-delay: calc(var(--i, 0) * 12ms), calc(var(--f, 0) * -0.875s);
+}
+@media (prefers-reduced-motion: reduce) {
+    #stake-pool-dashboard .cv-bmap.is-crowd .cv-bub {
+        animation: none;
+    }
+}
+/* A map out of sight does not sway (its bubbles still arrive). */
+#stake-pool-dashboard .cv-bmap.is-away .cv-bub {
+    animation-play-state: running, paused;
+}
+/* The smallest bubbles of a crowd: the avatar fills the glass, and the sign
+   of stake on the move is as small as it can be read. */
+#stake-pool-dashboard .cv-pbub.is-tiny .cv-bub-face {
+    width: 78%;
+    height: 78%;
+}
+#stake-pool-dashboard .cv-pbub.is-tiny .cv-bub-initials {
+    font-size: max(6px, calc(var(--d, 60px) * 0.24));
+    letter-spacing: 0;
+}
+#stake-pool-dashboard .cv-pbub.is-tiny .cv-bub-flow {
+    right: -3px;
+    width: 12px;
+    height: 12px;
+    font-size: 6.5px;
+}
+#stake-pool-dashboard .cv-pbub.is-tiny .cv-bub-flow.is-up {
+    top: -3px;
+}
+#stake-pool-dashboard .cv-pbub.is-tiny .cv-bub-flow.is-down {
+    bottom: -3px;
+}
+/* The sign of a commission in the details of a bubble: the letter of its chip. */
+.pool-tooltip .cv-flow-logo.cv-tip-letter {
+    font-size: 10.5px;
+    color: var(--secondary-text-color);
+}
+.pool-tooltip .cv-flow-val.is-none {
+    font-weight: 500;
+    color: var(--secondary-text-color);
+}
+#stake-pool-dashboard .cv-stat-of {
+    white-space: nowrap;
+}
+/* New and leaving validators in the list of a pool: the dashed green or red
+   outline of the other views, and the word in the corner of the tile of the
+   validator (the end of its name line). A row of the wide list keeps the
+   outline inside its edges; a sheet of the narrow list wears it as its own
+   edge. */
+#stake-pool-dashboard .cv-vrow-name > .cv-state {
+    margin-left: auto;
+}
+#stake-pool-dashboard .cv-vrow.is-new,
+#stake-pool-dashboard .cv-vrow.is-leaving {
+    position: relative;
+}
+#stake-pool-dashboard .cv-vrow.is-new::after,
+#stake-pool-dashboard .cv-vrow.is-leaving::after {
+    content: "";
+    position: absolute;
+    top: 4px;
+    right: 5px;
+    bottom: 4px;
+    left: 5px;
+    border: 1.5px dashed;
+    border-radius: 15px;
+    pointer-events: none;
+}
+#stake-pool-dashboard .cv-vrow.is-new::after {
+    border-color: rgba(40, 167, 69, 0.75);
+    background: rgba(40, 167, 69, 0.05);
+}
+#stake-pool-dashboard .cv-vrow.is-leaving::after {
+    border-color: rgba(220, 53, 69, 0.75);
+    background: rgba(220, 53, 69, 0.05);
+}
+@container cvrows (max-width: 699.98px) {
+    #stake-pool-dashboard .cv-vrow.is-new,
+    #stake-pool-dashboard .cv-vrow.is-leaving {
+        border-style: dashed;
+        border-width: 1.5px;
+    }
+    #stake-pool-dashboard .cv-vrow.is-new {
+        border-color: rgba(40, 167, 69, 0.8);
+        background-image: linear-gradient(rgba(40, 167, 69, 0.05), rgba(40, 167, 69, 0.05));
+    }
+    #stake-pool-dashboard .cv-vrow.is-leaving {
+        border-color: rgba(220, 53, 69, 0.8);
+        background-image: linear-gradient(rgba(220, 53, 69, 0.05), rgba(220, 53, 69, 0.05));
+    }
+    #stake-pool-dashboard .cv-vrow.is-new::after,
+    #stake-pool-dashboard .cv-vrow.is-leaving::after {
+        content: none;
+    }
+}
+/* ==========================================================================
+   ROUND C8 (v3.2.0)
+   The last small things before the release: two key chips that stand one
+   under the other are one block; the age chip of the Age order has a line of
+   its own.
+   ========================================================================== */
+/* Key chips one under the other (the header of a validator page, the keys
+   of a pool): a small gap, so the two read as one block. Side by side they
+   keep the gap they had. */
+#stake-pool-dashboard .cv-vd-keys,
+#stake-pool-dashboard .cv-vd-header .cv-vd-keys {
+    row-gap: 3px;
+}
+#stake-pool-dashboard .authority-keys-list,
+#stake-pool-dashboard .authority-keys-list .authority-keys-collapsible.expanded {
+    gap: 3px;
+}
+/* In the Age order the age of the vote account stands on a line of its own
+   under the chips and the keys, in every row of both lists: the first line
+   is the one a row has in any other order, and no row breaks where its
+   neighbour does not. */
+#stake-pool-dashboard .cv-chipline .cv-age-line {
+    display: flex;
+    flex: 0 0 100%;
+    order: 9;
+    min-width: 0;
+}
+@media (max-width: 768px) {
+    /* (the phone card of the validators list is centred, and so is this line) */
+    #stake-pool-dashboard .validator-item .validator-main-info > .cv-chipline .cv-age-line {
+        justify-content: center;
     }
 }
